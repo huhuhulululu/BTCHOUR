@@ -1,22 +1,14 @@
 {
-  "synced_at": "2026-08-25T19:29:31.572117+00:00",
+  "synced_at": "2026-08-25T20:19:37.912661+00:00",
   "spot": {
-    "price": 78935.08799999997,
+    "price": 78938.06650000004,
     "source": "kalshi_brti_live",
-    "twap60": 78931.97217213115,
-    "annual_vol": 0.272728393689232,
-    "ts_ms": 1787686171000
+    "twap60": 78924.59092076507,
+    "annual_vol": 0.27236460964098325,
+    "ts_ms": 1787689176000,
+    "impulse": 44.43549999999232
   },
   "open_events": [
-    {
-      "event_ticker": "KXBTCD-26AUG2516",
-      "title": "BTC price on Aug 25, 2026 at 4pm EDT?",
-      "sub_title": "On Aug 25, 2026 at 4pm EDT",
-      "strike_date": "2026-08-25T20:00:00Z",
-      "status": null,
-      "cadence": "hourly",
-      "close_et": "2026-08-25T16:00:00-04:00"
-    },
     {
       "event_ticker": "KXBTCD-26AUG2517",
       "title": "BTC price on Aug 25, 2026 at 5pm EDT?",
@@ -25,6 +17,15 @@
       "status": null,
       "cadence": "daily",
       "close_et": "2026-08-25T17:00:00-04:00"
+    },
+    {
+      "event_ticker": "KXBTCD-26AUG2617",
+      "title": "BTC price on Aug 26, 2026 at 5pm EDT?",
+      "sub_title": "On Aug 26, 2026 at 5pm EDT",
+      "strike_date": "2026-08-26T21:00:00Z",
+      "status": null,
+      "cadence": "daily",
+      "close_et": "2026-08-26T17:00:00-04:00"
     },
     {
       "event_ticker": "KXBTCD-26AUG2817",
@@ -245,15 +246,6 @@
       "close_et": "2026-08-26T16:00:00-04:00"
     },
     {
-      "event_ticker": "KXBTCD-26AUG2617",
-      "title": "BTC price on Aug 26, 2026 at 5pm EDT?",
-      "sub_title": "On Aug 26, 2026 at 5pm EDT",
-      "strike_date": "2026-08-26T21:00:00Z",
-      "status": null,
-      "cadence": "daily",
-      "close_et": "2026-08-26T17:00:00-04:00"
-    },
-    {
       "event_ticker": "KXBTCD-26AUG2618",
       "title": "BTC price on Aug 26, 2026 at 6pm EDT?",
       "sub_title": "On Aug 26, 2026 at 6pm EDT",
@@ -318,25 +310,16 @@
     }
   ],
   "current_hour": {
-    "event_ticker": "KXBTCD-26AUG2516",
-    "title": "BTC price on Aug 25, 2026 at 4pm EDT?",
-    "sub_title": "On Aug 25, 2026 at 4pm EDT",
-    "strike_date": "2026-08-25T20:00:00Z",
+    "event_ticker": "KXBTCD-26AUG2517",
+    "title": "BTC price on Aug 25, 2026 at 5pm EDT?",
+    "sub_title": "On Aug 25, 2026 at 5pm EDT",
+    "strike_date": "2026-08-25T21:00:00Z",
     "status": null,
-    "cadence": "hourly",
-    "close_et": "2026-08-25T16:00:00-04:00"
+    "cadence": "daily",
+    "close_et": "2026-08-25T17:00:00-04:00"
   },
-  "current_hour_markets": 188,
+  "current_hour_markets": 80,
   "tradable": [
-    {
-      "event_ticker": "KXBTCD-26AUG2516",
-      "title": "BTC price on Aug 25, 2026 at 4pm EDT?",
-      "sub_title": "On Aug 25, 2026 at 4pm EDT",
-      "strike_date": "2026-08-25T20:00:00Z",
-      "status": null,
-      "cadence": "hourly",
-      "close_et": "2026-08-25T16:00:00-04:00"
-    },
     {
       "event_ticker": "KXBTCD-26AUG2517",
       "title": "BTC price on Aug 25, 2026 at 5pm EDT?",
@@ -345,6 +328,15 @@
       "status": null,
       "cadence": "daily",
       "close_et": "2026-08-25T17:00:00-04:00"
+    },
+    {
+      "event_ticker": "KXBTCD-26AUG2617",
+      "title": "BTC price on Aug 26, 2026 at 5pm EDT?",
+      "sub_title": "On Aug 26, 2026 at 5pm EDT",
+      "strike_date": "2026-08-26T21:00:00Z",
+      "status": null,
+      "cadence": "daily",
+      "close_et": "2026-08-26T17:00:00-04:00"
     },
     {
       "event_ticker": "KXBTCD-26AUG2817",
@@ -356,10 +348,10 @@
       "close_et": "2026-08-28T17:00:00-04:00"
     },
     {
-      "event_ticker": "KXBTC15M-26AUG251530",
-      "title": "BTC 15 min \u00b7 $79,148.14 target",
-      "sub_title": "Aug 25 - 3:15PM EDT to 3:30PM EDT",
-      "strike_date": "2026-08-25T19:30:00Z",
+      "event_ticker": "KXBTC15M-26AUG251630",
+      "title": "BTC 15 min \u00b7 $78,863.38 target",
+      "sub_title": "Aug 25 - 4:15PM EDT to 4:30PM EDT",
+      "strike_date": "2026-08-25T20:30:00Z",
       "status": null,
       "cadence": "fifteen_min",
       "close_et": null

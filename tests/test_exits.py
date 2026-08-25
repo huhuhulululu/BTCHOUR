@@ -76,6 +76,11 @@ class ExitTests(unittest.TestCase):
         self.assertIsNotNone(action)
         self.assertEqual(action.reason, "t_trail")
 
+    def test_hard_stop_cuts_a_twelve_percent_loss(self):
+        action = self._act(self.position, _market(yes_bid="0.42"), 0.62, 1200, self.settings)
+        self.assertIsNotNone(action)
+        self.assertEqual(action.reason, "t_stop")
+
     def test_fade_when_p_drops_from_entry(self):
         action = self._act(self.position, _market(yes_bid="0.48"), 0.45, 1200, self.settings)
         self.assertIsNotNone(action)

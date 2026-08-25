@@ -98,6 +98,33 @@ After “one ticker per hour, flip only after a clip, stop after a fade, fade at
 
 **6 takes / 3 wins / −0.47**. `flex` on the same candles is identical (no lock_hold print). Faster fade cut a previous `AUG2513` 20% lock, and also cut the dump flip from −76% to −23%. Empty hours are still the common case.
 
+## Impulse 做T (2026-08-25 ~20:21 UTC)
+
+Value-gap T was fading into dumps. New default `flex` is **`lock_hold` → `impulse_t` → `lock_wait`**.
+
+`impulse_t` rules that survived a 16-hour sweep:
+
+- 3-minute BRTI move ≥ **$100**, same direction only
+- ask **$0.28–$0.52**, `p ≥ 52%`, `p − ask ≥ 2%`
+- replay now loads strikes along the **spot path**, not just the settlement band
+- hard **−12% stop** (`t_stop`) plus the old 12% clip / 20% lock
+- one impulse per hour; no revenge flip
+
+`replay --hours 16 --playbook flex` (10 contracts): **8 takes / 4 wins / −0.43**.
+
+| Hour | Side | Ask | Exit | ROI | PnL |
+| --- | --- | --- | --- | --- | --- |
+| `AUG2516` | NO | 0.50 | `t_clip` | +15% | +0.76 |
+| `AUG2513` | YES | 0.50 | `t_stop` | −37% | −1.93 |
+| `AUG2511` | YES | 0.47 | `lock_on_book` | +26% | +1.26 |
+| `AUG2510` | NO | 0.50 | `t_clip` | +19% | +0.96 |
+| `AUG2509` | NO | 0.49 | `t_stop` | −15% | −0.75 |
+| `AUG2508` | NO | 0.51 | `t_clip` | +16% | +0.86 |
+| `AUG2504` | NO | 0.49 | `t_stop` | −13% | −0.65 |
+| `AUG2501` | NO | 0.48 | `t_stop` | −19% | −0.95 |
+
+Clips and 20% locks are green. The leftover loss is **1-minute stop gaps** (especially `AUG2513` −37%). A 3-second live loop should fill closer to −12%. This is still not “20% every hour.” Live 5pm book right now: impulse ≈ +$44, **0 fills**.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.

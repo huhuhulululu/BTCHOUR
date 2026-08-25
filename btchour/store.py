@@ -159,13 +159,13 @@ class Store:
                 raw = json.loads(row["raw"] or "{}")
             except Exception:
                 raw = {}
-            if raw.get("play") != "swing_t":
+            if raw.get("play") not in {"swing_t", "impulse_t"}:
                 continue
             event = row["event_ticker"]
             current = memories.get(event) or SwingMemory()
             if row["status"] in {"closed", "settled"}:
                 memories[event] = remember_swing_exit(
-                    current, row["ticker"], row["side"], row["result"] or ""
+                    current, row["ticker"], row["side"], row["result"] or "", raw.get("play") or ""
                 )
             elif row["status"] in {"open", "working"}:
                 memories[event] = SwingMemory(ticker=row["ticker"], side=row["side"], dead=current.dead)

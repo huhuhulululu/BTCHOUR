@@ -83,11 +83,11 @@ class SwingStrategyTests(unittest.TestCase):
         self.assertEqual(opps[0].play, "lock_hold")
 
     def test_flex_takes_t_when_lock_is_absent(self):
-        spot = SpotQuote(79600, "test", annual_vol=0.55)
-        t_mkt = _market(yes_bid_dollars="0.61", yes_ask_dollars="0.62")
+        spot = SpotQuote(79600, "test", annual_vol=0.55, impulse=140)
+        t_mkt = _market(yes_bid_dollars="0.49", yes_ask_dollars="0.50")
         opps = scan_markets([t_mkt], spot, Settings(playbook="flex", max_contracts=1), self.now)
         self.assertTrue(opps)
-        self.assertEqual(opps[0].play, "swing_t")
+        self.assertEqual(opps[0].play, "impulse_t")
         self.assertEqual(opps[0].side, "yes")
 
 
@@ -118,7 +118,7 @@ class SwingReplayTests(unittest.TestCase):
         ]
         report = replay_bars("KXBTCD-26AUG2516", bars, {79199.99: "no"}, maturity, settings)
         self.assertEqual(len(report["takes"]), 1)
-        self.assertEqual(report["takes"][0]["exit_reason"], "t_fade")
+        self.assertIn(report["takes"][0]["exit_reason"], {"t_fade", "t_stop"})
 
     def test_memory_allows_flip_but_not_a_new_strike(self):
         now = datetime(2026, 8, 25, 19, 30, tzinfo=timezone.utc)

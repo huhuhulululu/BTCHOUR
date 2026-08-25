@@ -30,7 +30,20 @@ def _last_from_live(payload: dict) -> SpotQuote | None:
         return None
     closes = [float(c["close"]) for c in candles if c.get("close")]
     vol = realized_annual_vol(closes, 60.0)
-    return SpotQuote(price=price, source="kalshi_brti_live", twap60=twap60, annual_vol=vol, ts_ms=ts_ms)
+    impulse = 0.0
+    if series and ts_ms is not None:
+        target = ts_ms - 180_000
+        nearest = min(series, key=lambda point: abs(int(point["t"]) - target))
+        if abs(int(nearest["t"]) - target) <= 90_000:
+            impulse = price - float(nearest["v"])
+    return SpotQuote(
+        price=price,
+        source="kalshi_brti_live",
+        twap60=twap60,
+        annual_vol=vol,
+        ts_ms=ts_ms,
+        impulse=impulse,
+    )
 
 
 def coinbase_spot(user_agent: str = "BTCHOUR/0.1") -> SpotQuote:

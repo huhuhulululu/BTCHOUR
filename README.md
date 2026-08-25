@@ -2,7 +2,7 @@
 
 Kalshi **BTC 小时盘**（系列 `KXBTCD`）目录 + 纸交易引擎。
 
-默认策略是 **`flex`**：已经决定的合约先按稳健 20% 锁仓；小时盘 / 15 分钟盘上的 ATM 缺口再做短线 T。计分：`EV = p · b − (1 − p)`。
+默认策略是 **`flex`**：已经决定的合约先按稳健 20% 锁仓；小时盘上 3 分钟 BRTI 动量再做短线 T（12% clip / −12% 硬止损）。计分：`EV = p · b − (1 − p)`。
 
 - 锁仓：[`catalog/rules/lock.md`](catalog/rules/lock.md)
 - 做T：[`catalog/rules/swing.md`](catalog/rules/swing.md)

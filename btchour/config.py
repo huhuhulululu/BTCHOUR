@@ -52,6 +52,12 @@ class Settings:
     swing_runner_gap: float = 0.12
     swing_max_distance: float = 600.0
     swing_fade: float = 0.12
+    swing_stop: float = 0.12
+    impulse_min: float = 100.0
+    impulse_min_p: float = 0.52
+    impulse_min_gap: float = 0.02
+    impulse_max_ask: float = 0.52
+    impulse_lookback_ms: int = 180_000
     scan_15m: bool = True
     scan_daily: bool = True
     scan_weekly: bool = True
@@ -127,6 +133,12 @@ def load_settings() -> Settings:
         swing_runner_gap=_env_float("BTCHOUR_SWING_RUNNER_GAP", 0.12),
         swing_max_distance=_env_float("BTCHOUR_SWING_MAX_DISTANCE", 600.0),
         swing_fade=_env_float("BTCHOUR_SWING_FADE", 0.12),
+        swing_stop=_env_float("BTCHOUR_SWING_STOP", 0.12),
+        impulse_min=_env_float("BTCHOUR_IMPULSE_MIN", 100.0),
+        impulse_min_p=_env_float("BTCHOUR_IMPULSE_MIN_P", 0.52),
+        impulse_min_gap=_env_float("BTCHOUR_IMPULSE_MIN_GAP", 0.02),
+        impulse_max_ask=_env_float("BTCHOUR_IMPULSE_MAX_ASK", 0.52),
+        impulse_lookback_ms=_env_int("BTCHOUR_IMPULSE_LOOKBACK_MS", 180_000),
         scan_15m=_env_bool("BTCHOUR_SCAN_15M", True),
         scan_daily=_env_bool("BTCHOUR_SCAN_DAILY", True),
         scan_weekly=_env_bool("BTCHOUR_SCAN_WEEKLY", True),

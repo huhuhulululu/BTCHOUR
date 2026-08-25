@@ -23,6 +23,7 @@ def probe_book(client: KalshiClient | None = None, settings: Settings | None = N
         twap60=spot_info.get("twap60"),
         annual_vol=spot_info.get("annual_vol") or settings.annual_vol,
         ts_ms=spot_info.get("ts_ms"),
+        impulse=float(spot_info.get("impulse") or 0.0),
     )
     markets = _markets_from_snapshot(snapshot)
     now = datetime.now(timezone.utc)
@@ -48,7 +49,7 @@ def probe_book(client: KalshiClient | None = None, settings: Settings | None = N
     opps = scan_markets(markets, spot, settings, now)
     waits = [row for row in opps if row.play == "lock_wait"]
     takes = [row for row in opps if row.play == "lock_hold"]
-    swings = [row for row in opps if row.play == "swing_t"]
+    swings = [row for row in opps if row.play in {"swing_t", "impulse_t"}]
     if settings.playbook not in {"swing", "flex"}:
         swings = []
         for market in markets:
@@ -77,6 +78,7 @@ def probe_book(client: KalshiClient | None = None, settings: Settings | None = N
             "swing_min_p": settings.swing_min_p,
             "swing_min_gap": settings.swing_min_gap,
             "swing_target": settings.swing_target,
+            "impulse_min": settings.impulse_min,
         },
         "scored": len(scores),
         "passing": [row.as_dict() for row in passing],

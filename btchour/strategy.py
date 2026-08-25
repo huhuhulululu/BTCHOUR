@@ -9,6 +9,8 @@ from btchour.kalshi import Market
 from btchour.model import SpotQuote, digital_prob, effective_vol, sigma_cushion
 from btchour.tickers import is_hourly_window
 
+T_PLAYS = frozenset({"swing_t", "impulse_t"})
+
 
 @dataclass(frozen=True)
 class Opportunity:
@@ -405,6 +407,64 @@ def evaluate_swing_market(
     return found
 
 
+def evaluate_impulse_market(
+    market: Market,
+    spot: SpotQuote,
+    settings: Settings,
+    now: datetime | None = None,
+) -> list[Opportunity]:
+    now = now or datetime.now(timezone.utc)
+    if not is_fast_window(market.open_time, market.close_time):
+        return []
+    seconds = _eligible_market(market, settings, now)
+    if seconds is None or seconds + 1e-12 < settings.swing_min_seconds:
+        return []
+    move = spot.impulse
+    if abs(move) + 1e-9 < settings.impulse_min:
+        return []
+    if abs((market.strike or 0.0) - spot.price) > settings.swing_max_distance + 1e-9:
+        return []
+    vol = effective_vol(spot.annual_vol, settings.annual_vol)
+    p_yes = digital_prob(spot.price, market.strike, seconds, vol)
+    want_yes = move > 0
+    side = "yes" if want_yes else "no"
+    book_side = "bid" if want_yes else "ask"
+    model_p = p_yes if want_yes else 1.0 - p_yes
+    ask = market.yes_ask_effective if want_yes else market.no_ask_effective
+    if ask is None or ask <= 0 or ask >= 1.0:
+        return []
+    if ask + 1e-12 < settings.swing_min_ask or ask > settings.impulse_max_ask + 1e-12:
+        return []
+    if model_p + 1e-12 < settings.impulse_min_p:
+        return []
+    if (model_p - ask) + 1e-12 < settings.impulse_min_gap:
+        return []
+    cost = fill_cost(ask, 1.0, taker=True)
+    edge = cost.edge(model_p)
+    clip = lock_exit_price(cost.cost, 1.0, settings.swing_target)
+    if clip is None or clip > 0.95:
+        return []
+    row = _make_opportunity(
+        market=market,
+        spot=spot,
+        settings=settings,
+        seconds=seconds,
+        side=side,
+        book_side=book_side,
+        model_p=model_p,
+        ask=ask,
+        taker=True,
+        limit=ask,
+        cost=cost,
+        play="impulse_t",
+        reason=(
+            f"impulse_t {side.upper()} 动量 {move:+.0f} p={model_p:.1%} ask={ask:.2f} "
+            f"clip>={clip:.2f} holdEV={edge.ev:.1%}; strike {market.strike:.2f} / spot {spot.price:.2f}"
+        ),
+    )
+    return [row] if row else []
+
+
 @dataclass
 class SwingMemory:
     """Per-event 做T state: stay on one ticker, flip after a clip, stop after a fade."""
@@ -414,13 +474,19 @@ class SwingMemory:
     dead: bool = False
 
 
-def remember_swing_exit(memory: SwingMemory, ticker: str, side: str, reason: str) -> SwingMemory:
-    dead = memory.dead or reason in {"t_fade", "invalidate", "flatten_time"}
+def remember_swing_exit(
+    memory: SwingMemory, ticker: str, side: str, reason: str, play: str = ""
+) -> SwingMemory:
+    dead = (
+        memory.dead
+        or reason in {"t_fade", "t_stop", "invalidate", "flatten_time"}
+        or play == "impulse_t"
+    )
     return SwingMemory(ticker=ticker, side=side, dead=dead)
 
 
 def allow_swing(opportunity: Opportunity, memory: SwingMemory | None) -> bool:
-    if opportunity.play != "swing_t":
+    if opportunity.play not in T_PLAYS:
         return True
     if memory is None or (memory.ticker is None and not memory.dead):
         return True
@@ -456,9 +522,14 @@ def scan_markets(markets: list[Market], spot: SpotQuote, settings: Settings, now
             locks.extend(evaluate_lock_market(market, spot, settings, now))
         locks.sort(key=lambda row: (row.taker, row.expected_roi, row.model_p, -row.seconds_left), reverse=True)
     if settings.playbook in {"swing", "flex"}:
+        impulses: list[Opportunity] = []
         for market in markets:
-            swings.extend(evaluate_swing_market(market, spot, settings, now))
+            impulses.extend(evaluate_impulse_market(market, spot, settings, now))
+            if settings.playbook == "swing":
+                swings.extend(evaluate_swing_market(market, spot, settings, now))
+        impulses.sort(key=lambda row: (abs(spot.impulse), row.ev, -row.seconds_left), reverse=True)
         swings.sort(key=lambda row: ((row.model_p - row.ask), row.ev, -row.seconds_left), reverse=True)
+        swings = impulses + swings
     if settings.playbook == "hold":
         for market in markets:
             hold.extend(evaluate_market(market, spot, settings, now))

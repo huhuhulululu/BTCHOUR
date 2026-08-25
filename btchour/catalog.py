@@ -146,6 +146,7 @@ def sync_catalog(client: KalshiClient, settings: Settings) -> dict:
             "twap60": spot.twap60,
             "annual_vol": spot.annual_vol,
             "ts_ms": spot.ts_ms,
+            "impulse": spot.impulse,
         },
         "series": {
             ticker: {

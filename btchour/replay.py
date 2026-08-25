@@ -24,6 +24,7 @@ class ReplayBar:
     spot: float
     vol: float
     quotes: dict[float, dict]
+    impulse: float = 0.0
 
 
 def _settlement_band(markets) -> tuple[float, float] | None:
@@ -108,7 +109,7 @@ def replay_bars(
     for bar in bars:
         left = maturity_s - bar.end_ts
         now = datetime.fromtimestamp(bar.end_ts, timezone.utc)
-        spot = SpotQuote(bar.spot, "replay", annual_vol=bar.vol)
+        spot = SpotQuote(bar.spot, "replay", annual_vol=bar.vol, impulse=bar.impulse)
         markets = [
             market_at_bar(event_ticker, strike, quotes, open_ts, maturity_s, results.get(strike, ""))
             for strike, quotes in bar.quotes.items()
@@ -182,9 +183,10 @@ def replay_bars(
                         }
                     )
                     just_closed = (position["ticker"], position["side"])
-                    if (position.get("entry") or {}).get("play") == "swing_t":
+                    play = (position.get("entry") or {}).get("play") or ""
+                    if play in {"swing_t", "impulse_t"}:
                         swing_mem = remember_swing_exit(
-                            swing_mem, position["ticker"], position["side"], action.reason
+                            swing_mem, position["ticker"], position["side"], action.reason, play
                         )
                     position = None
 
@@ -253,11 +255,20 @@ def replay_event(client: KalshiClient, event_ticker: str, settings: Settings) ->
 
     lo, hi = band
     settle_price = (lo + hi) / 2
-    strikes = [lo, hi]
-    extras = sorted({m.strike for m in markets if m.strike is not None})
-    for strike in extras:
-        if lo - 200 <= strike <= hi + 200 and strike not in strikes:
-            strikes.append(strike)
+    spot_lo = min(spots.values())
+    spot_hi = max(spots.values())
+    path_lo = min(spot_lo, lo) - 700
+    path_hi = max(spot_hi, hi) + 700
+    strikes = sorted(
+        {
+            m.strike
+            for m in markets
+            if m.strike is not None and (path_lo <= m.strike <= path_hi or m.strike in {lo, hi})
+        }
+    )
+    if len(strikes) > 24:
+        mid = (spot_lo + spot_hi) / 2
+        strikes = sorted(strikes, key=lambda strike: min(abs(strike - lo), abs(strike - hi), abs(strike - mid)))[:24]
 
     start = int(maturity_ms / 1000) - 3600
     end = int(maturity_ms / 1000)
@@ -284,6 +295,8 @@ def replay_event(client: KalshiClient, event_ticker: str, settings: Settings) ->
             continue
         window = [spots[k] for k in minutes[max(0, idx - 30) : idx + 1]]
         vol = effective_vol(realized_annual_vol(window, 60.0), settings.annual_vol)
+        lookback = spots[minutes[max(0, idx - 3)]]
+        impulse = spots[minute_ms] - lookback
         quotes: dict[float, dict] = {}
         for strike in strikes:
             stick = candles.get(strike, {}).get(end_ts)
@@ -296,7 +309,9 @@ def replay_event(client: KalshiClient, event_ticker: str, settings: Settings) ->
             }
         if not quotes:
             continue
-        bars.append(ReplayBar(end_ts=end_ts, spot=spots[minute_ms], vol=vol, quotes=quotes))
+        bars.append(
+            ReplayBar(end_ts=end_ts, spot=spots[minute_ms], vol=vol, quotes=quotes, impulse=impulse)
+        )
 
     session = replay_bars(event_ticker, bars, results, maturity_ms / 1000, settings)
     return {

@@ -73,6 +73,7 @@ def scan_once(client: KalshiClient, settings: Settings | None = None, persist: b
         twap60=spot_info.get("twap60"),
         annual_vol=spot_info.get("annual_vol") or settings.annual_vol,
         ts_ms=spot_info.get("ts_ms"),
+        impulse=float(spot_info.get("impulse") or 0.0),
     )
     markets = _markets_from_snapshot(snapshot)
     opportunities = apply_swing_memory(scan_markets(markets, spot, settings), Store().swing_memories())
@@ -298,6 +299,7 @@ def run_cycle(client: KalshiClient | None = None, settings: Settings | None = No
         twap60=spot_info.get("twap60"),
         annual_vol=spot_info.get("annual_vol") or settings.annual_vol,
         ts_ms=spot_info.get("ts_ms"),
+        impulse=float(spot_info.get("impulse") or 0.0),
     )
     markets = _markets_from_snapshot(scan.get("snapshot") or {})
     waits = refresh_working(store, settings, markets, spot)

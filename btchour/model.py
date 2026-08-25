@@ -78,3 +78,4 @@ class SpotQuote:
     twap60: float | None = None
     annual_vol: float | None = None
     ts_ms: int | None = None
+    impulse: float = 0.0
