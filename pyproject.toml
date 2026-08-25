@@ -1,0 +1,20 @@
+[project]
+name = "btchour"
+version = "0.1.0"
+description = "Kalshi BTC hourly (KXBTCD) catalog and 20% if-win paper/live engine"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+live = ["cryptography>=42.0.0"]
+
+[project.scripts]
+btchour = "btchour.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["btchour*"]
