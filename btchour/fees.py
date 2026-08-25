@@ -106,3 +106,41 @@ def max_entry_price(target_roi: float, *, taker: bool = True, multiplier: float 
         if fill_cost(price, 1.0, taker=taker, multiplier=multiplier).if_win_roi + 1e-12 >= target_roi:
             best = price
     return best
+
+
+def exit_proceeds(price: float, count: float = 1.0, *, taker: bool = True, multiplier: float = 1.0) -> tuple[float, float]:
+    """Cash received when selling `count` contracts at `price` (hit the bid = taker)."""
+    fee = taker_fee(price, count, multiplier) if taker else maker_fee(price, count, 0.0)
+    return price * count - fee, fee
+
+
+def round_trip_roi(
+    entry_cost: float,
+    exit_price: float,
+    count: float = 1.0,
+    *,
+    taker_exit: bool = True,
+    multiplier: float = 1.0,
+) -> float:
+    if entry_cost <= 0:
+        return 0.0
+    proceeds, _fee = exit_proceeds(exit_price, count, taker=taker_exit, multiplier=multiplier)
+    return (proceeds - entry_cost) / entry_cost
+
+
+def lock_exit_price(
+    entry_cost: float,
+    count: float = 1.0,
+    target: float = 0.20,
+    *,
+    taker_exit: bool = True,
+    multiplier: float = 1.0,
+    tick: float = TICK,
+) -> float | None:
+    """Lowest whole-tick sale price that locks `target` ROI after exit fees."""
+    steps = int(round(0.99 / tick))
+    for i in range(1, steps + 1):
+        price = round(i * tick, 4)
+        if round_trip_roi(entry_cost, price, count, taker_exit=taker_exit, multiplier=multiplier) + 1e-12 >= target:
+            return price
+    return None

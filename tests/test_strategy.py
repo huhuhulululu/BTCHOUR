@@ -44,6 +44,7 @@ class StrategyTests(unittest.TestCase):
         self.assertGreaterEqual(yes.if_win_roi, 0.20)
         self.assertGreaterEqual(yes.model_p, 0.95)
         self.assertTrue(yes.taker)
+        self.assertEqual(yes.play, "hold_edge")
 
     def test_expensive_itm_yes_is_skipped(self):
         market = _market(yes_bid_dollars="0.98", yes_ask_dollars="0.99", no_bid_dollars="0.01", no_ask_dollars="0.02")
@@ -58,6 +59,7 @@ class StrategyTests(unittest.TestCase):
         self.assertFalse(yes.taker)
         self.assertEqual(yes.limit_price, 0.83)
         self.assertGreaterEqual(yes.if_win_roi, 0.20)
+        self.assertEqual(yes.play, "maker_rest")
 
     def test_coin_flip_is_skipped(self):
         market = _market(

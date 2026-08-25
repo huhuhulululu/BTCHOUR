@@ -1,18 +1,19 @@
 from __future__ import annotations
 
+import json
 import time
 from datetime import datetime, timezone
 
-from btchour.broker import live_submit
-from btchour.catalog import current_hourly_events, sync_catalog
+from btchour.broker import live_flatten, live_submit
+from btchour.catalog import sync_catalog
 from btchour.config import Settings, load_settings
+from btchour.exits import OpenPosition, evaluate_exit
 from btchour.kalshi import KalshiClient, Market, market_from_api
-from btchour.model import SpotQuote, effective_vol
-from btchour.paper import paper_fill, paper_settle
-from btchour.spot import fetch_spot
-from btchour.store import Store
+from btchour.model import SpotQuote, digital_prob, effective_vol
+from btchour.paper import paper_close, paper_fill, paper_settle
 from btchour.score import score_market
-from btchour.strategy import Opportunity, scan_markets
+from btchour.store import Store
+from btchour.strategy import Opportunity, _seconds_left, scan_markets
 
 
 def make_client(settings: Settings) -> KalshiClient:
@@ -92,9 +93,11 @@ def scan_once(client: KalshiClient, settings: Settings | None = None, persist: b
         "spot": spot_info,
         "event": (snapshot.get("current_hour") or {}).get("event"),
         "market_count": len(markets),
+        "playbook": settings.playbook,
         "opportunities": [item.as_dict() for item in opportunities],
         "formula": "EV = p * b - (1 - p)",
         "best_ev": [row.as_dict() for row in scored[:8]],
+        "snapshot": snapshot,
     }
     if persist:
         store = Store()
@@ -106,15 +109,104 @@ def scan_once(client: KalshiClient, settings: Settings | None = None, persist: b
 def _execute(opportunity: Opportunity, client: KalshiClient, settings: Settings, store: Store) -> dict:
     if store.has_open(opportunity.ticker, opportunity.side):
         return {"skipped": True, "reason": "already open", "ticker": opportunity.ticker}
+    if not opportunity.taker:
+        return {
+            "skipped": True,
+            "reason": "maker rest is not a fill",
+            "ticker": opportunity.ticker,
+            "play": opportunity.play,
+        }
     if settings.live:
         if not settings.can_sign:
             raise RuntimeError("live mode needs KALSHI_API_KEY_ID and a private key")
         trade = live_submit(client, opportunity)
     else:
         trade = paper_fill(opportunity)
+    if trade.get("status") != "open":
+        return {**trade, "skipped": True, "reason": "not a fill"}
     trade_id = store.record_trade(trade)
     trade["id"] = trade_id
     return trade
+
+
+def _lookup_market(client: KalshiClient, trade: dict, markets: list[Market]) -> Market | None:
+    match = next((item for item in markets if item.ticker == trade["ticker"]), None)
+    if match:
+        return match
+    try:
+        found = client.markets_by_event(trade["event_ticker"])
+    except Exception:
+        return None
+    return next((item for item in found if item.ticker == trade["ticker"]), None)
+
+
+def _close_position(row, action, client: KalshiClient, settings: Settings, store: Store) -> dict:
+    trade = dict(row)
+    raw = {}
+    try:
+        raw = json.loads(row["raw"] or "{}")
+    except Exception:
+        raw = {}
+    if settings.live:
+        if not settings.can_sign:
+            raise RuntimeError("live mode needs KALSHI_API_KEY_ID and a private key")
+        try:
+            raw["flatten"] = live_flatten(client, trade, action.price)
+        except Exception as exc:
+            return {"id": row["id"], "ticker": trade["ticker"], "skipped": True, "error": str(exc)}
+    closed = paper_close(trade, action.price, action.reason)
+    raw.update(
+        {
+            "exit_reason": action.reason,
+            "exit_price": action.price,
+            "exit_note": action.note,
+            "exit_fee": closed["exit_fee"],
+        }
+    )
+    store.close_trade(row["id"], action.reason, closed["pnl"], raw)
+    closed["id"] = row["id"]
+    closed["note"] = action.note
+    return closed
+
+
+def manage_open(
+    client: KalshiClient,
+    store: Store,
+    settings: Settings,
+    markets: list[Market],
+    spot: SpotQuote,
+    now: datetime | None = None,
+) -> list[dict]:
+    if not settings.allow_early_exit:
+        return []
+    now = now or datetime.now(timezone.utc)
+    updates = []
+    for row in store.open_trades():
+        market = _lookup_market(client, dict(row), markets)
+        if market is None or market.strike is None:
+            continue
+        if market.result in {"yes", "no"}:
+            continue
+        seconds = _seconds_left(market.close_time, now)
+        vol = effective_vol(spot.annual_vol, settings.annual_vol)
+        p_yes = digital_prob(spot.price, market.strike, max(seconds, 1.0), vol)
+        model_p = p_yes if row["side"] == "yes" else 1.0 - p_yes
+        action = evaluate_exit(
+            OpenPosition(
+                ticker=row["ticker"],
+                event_ticker=row["event_ticker"],
+                side=row["side"],
+                cost=float(row["cost"]),
+                count=float(row["count"]),
+            ),
+            market,
+            model_p,
+            seconds,
+            settings,
+        )
+        if action:
+            updates.append(_close_position(row, action, client, settings, store))
+    return updates
 
 
 def settle_open(client: KalshiClient, store: Store) -> list[dict]:
@@ -136,14 +228,29 @@ def run_cycle(client: KalshiClient | None = None, settings: Settings | None = No
     store = Store()
     settlements = settle_open(client, store)
     scan = scan_once(client, settings, persist=True)
+    spot_info = scan["spot"]
+    spot = SpotQuote(
+        price=spot_info["price"],
+        source=spot_info["source"],
+        twap60=spot_info.get("twap60"),
+        annual_vol=spot_info.get("annual_vol") or settings.annual_vol,
+        ts_ms=spot_info.get("ts_ms"),
+    )
+    markets = _markets_from_snapshot(scan.get("snapshot") or {})
+    exits = manage_open(client, store, settings, markets, spot)
     taken = []
-    for item in scan["opportunities"][:1]:
-        opp = Opportunity(**item)
-        taken.append(_execute(opp, client, settings, store))
+    if not store.open_trades():
+        for item in scan["opportunities"][:1]:
+            opp = Opportunity(**item)
+            taken.append(_execute(opp, client, settings, store))
+            break
+    scan.pop("snapshot", None)
     return {
         "mode": settings.mode,
+        "playbook": settings.playbook,
         "scan": scan,
         "taken": taken,
+        "exits": exits,
         "settlements": settlements,
         "summary": store.summary(),
     }
@@ -157,11 +264,14 @@ def run_loop(settings: Settings | None = None) -> None:
         event = (cycle["scan"].get("event") or {}).get("event_ticker")
         n = len(cycle["scan"]["opportunities"])
         print(
-            f"{datetime.now(timezone.utc).isoformat()} mode={settings.mode} event={event} "
-            f"spot={cycle['scan']['spot']['price']:.2f} opps={n} taken={len(cycle['taken'])} "
-            f"settled_now={len(cycle['settlements'])} pnl={cycle['summary']['realized_pnl']:.4f}",
+            f"{datetime.now(timezone.utc).isoformat()} mode={settings.mode} playbook={settings.playbook} "
+            f"event={event} spot={cycle['scan']['spot']['price']:.2f} opps={n} taken={len(cycle['taken'])} "
+            f"exits={len(cycle['exits'])} settled_now={len(cycle['settlements'])} "
+            f"pnl={cycle['summary']['realized_pnl']:.4f}",
             flush=True,
         )
         for opp in cycle["scan"]["opportunities"][:5]:
             print(f"  {opp['reason']}", flush=True)
+        for item in cycle["exits"]:
+            print(f"  exit {item.get('ticker')} {item.get('result')} pnl={item.get('pnl')}", flush=True)
         time.sleep(max(2, settings.poll_seconds))

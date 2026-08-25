@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import replace
 from datetime import datetime, timezone
 
 from btchour.catalog import sync_catalog
@@ -14,8 +15,19 @@ def _print_json(payload: object) -> None:
     print(json.dumps(payload, indent=2, default=str))
 
 
+def _with_playbook(settings, playbook: str | None, no_early_exit: bool = False):
+    updates = {}
+    if playbook:
+        updates["playbook"] = playbook
+    if no_early_exit:
+        updates["allow_early_exit"] = False
+    return replace(settings, **updates) if updates else settings
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Kalshi BTC hourly (KXBTCD) engine. Score: EV = p*b - (1-p)")
+    parser = argparse.ArgumentParser(
+        description="Kalshi BTC hourly (KXBTCD) engine. Score: EV = p*b - (1-p). Default playbook: flex."
+    )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     calc = sub.add_parser("ev", help="Compute EV = p*b - (1-p)")
@@ -23,12 +35,16 @@ def main(argv: list[str] | None = None) -> int:
     calc.add_argument("--b", type=float, required=True, help="Net odds (if-win profit / stake)")
 
     sub.add_parser("sync", help="Pull Kalshi hourly directory into catalog/")
-    sub.add_parser("scan", help="Sync, score the current hour, print qualifying tickets")
-    sub.add_parser("probe", help="Score the live book, including EV near-misses")
-    replay = sub.add_parser("replay", help="Minute-replay recent settled hours against the 20% EV gate")
+    scan = sub.add_parser("scan", help="Sync, score the current hour, print qualifying tickets")
+    scan.add_argument("--playbook", choices=["hold", "flex", "scalp"])
+    sub.add_parser("probe", help="Score the live book, including EV near-misses and scalp marks")
+    replay = sub.add_parser("replay", help="Minute-replay recent settled hours with the flex/hold/scalp playbook")
     replay.add_argument("--hours", type=int, default=8)
-    run = sub.add_parser("run", help="Loop: scan, paper/live fill, settle")
+    replay.add_argument("--playbook", choices=["hold", "flex", "scalp"])
+    replay.add_argument("--no-early-exit", action="store_true", help="Force hold-to-settle (no lock/invalidate/flatten)")
+    run = sub.add_parser("run", help="Loop: manage exits, scan, paper/live fill, settle")
     run.add_argument("--once", action="store_true", help="Single cycle then exit")
+    run.add_argument("--playbook", choices=["hold", "flex", "scalp"])
     sub.add_parser("status", help="Local paper/live ledger summary")
 
     args = parser.parse_args(argv)
@@ -40,6 +56,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     settings = load_settings()
+    settings = _with_playbook(
+        settings,
+        getattr(args, "playbook", None),
+        getattr(args, "no_early_exit", False),
+    )
     client = make_client(settings)
 
     if args.cmd == "sync":
@@ -65,7 +86,9 @@ def main(argv: list[str] | None = None) -> int:
                 "event": report["event"],
                 "spot": report["spot"],
                 "formula": report["formula"],
+                "playbook": report.get("playbook"),
                 "passing": report["passing"],
+                "scalps": report.get("scalps"),
                 "best_ev": report["best_ev"][:8],
                 "near_miss_high_p": report["near_miss_high_p"],
             }
@@ -79,8 +102,10 @@ def main(argv: list[str] | None = None) -> int:
         _print_json(
             {
                 "hours": summary["hours"],
+                "playbook": summary.get("playbook"),
                 "take_count": summary["take_count"],
                 "wins": summary["wins"],
+                "exit_reasons": summary.get("exit_reasons"),
                 "realized_pnl": summary["realized_pnl"],
                 "events": [
                     {
@@ -88,6 +113,7 @@ def main(argv: list[str] | None = None) -> int:
                         "settlement_band": item.get("settlement_band"),
                         "takes": item.get("takes") or [],
                         "best": item.get("best"),
+                        "hold_candidates": item.get("hold_candidates"),
                         "error": item.get("error"),
                     }
                     for item in summary["events"]
@@ -103,13 +129,15 @@ def main(argv: list[str] | None = None) -> int:
                 "event": payload["event"],
                 "spot": payload["spot"],
                 "market_count": payload["market_count"],
+                "playbook": payload.get("playbook"),
                 "opportunity_count": len(payload["opportunities"]),
                 "opportunities": payload["opportunities"],
                 "formula": payload.get("formula"),
                 "best_ev": payload.get("best_ev"),
                 "note": (
-                    "Empty is normal. Ticket requires EV=p*b-(1-p) "
-                    f">= {settings.min_ev:.0%}, b >= {settings.target_profit:.0%}, p >= {settings.min_win_prob:.0%}."
+                    f"Playbook={settings.playbook}. Hold tickets still need EV=p*b-(1-p) "
+                    f">= {settings.min_ev:.0%}, b >= {settings.target_profit:.0%}, p >= {settings.min_win_prob:.0%}. "
+                    "Scalps may exit on the book instead of holding to settlement."
                 ),
             }
         )
@@ -120,8 +148,10 @@ def main(argv: list[str] | None = None) -> int:
             _print_json(run_cycle(client, settings))
             return 0
         print(
-            f"starting {settings.mode} loop at {datetime.now(timezone.utc).isoformat()} "
-            f"target_if_win={settings.target_profit:.0%} min_p={settings.min_win_prob:.0%}",
+            f"starting {settings.mode} loop playbook={settings.playbook} "
+            f"at {datetime.now(timezone.utc).isoformat()} "
+            f"target_if_win={settings.target_profit:.0%} min_p={settings.min_win_prob:.0%} "
+            f"early_exit={settings.allow_early_exit}",
             flush=True,
         )
         run_loop(settings)

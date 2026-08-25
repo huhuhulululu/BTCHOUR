@@ -109,18 +109,36 @@ class Store:
         )
         self.conn.commit()
 
+    def close_trade(self, trade_id: int, reason: str, pnl: float, raw: dict | None = None) -> None:
+        if raw is None:
+            self.conn.execute(
+                "UPDATE trades SET status = 'closed', result = ?, pnl = ? WHERE id = ?",
+                (reason, pnl, trade_id),
+            )
+        else:
+            self.conn.execute(
+                "UPDATE trades SET status = 'closed', result = ?, pnl = ?, raw = ? WHERE id = ?",
+                (reason, pnl, json.dumps(raw), trade_id),
+            )
+        self.conn.commit()
+
     def summary(self) -> dict:
         open_n = self.conn.execute("SELECT COUNT(*) FROM trades WHERE status = 'open'").fetchone()[0]
         settled = self.conn.execute(
             "SELECT COUNT(*) AS n, COALESCE(SUM(pnl),0) AS pnl, COALESCE(SUM(cost),0) AS cost FROM trades WHERE status = 'settled'"
         ).fetchone()
+        closed = self.conn.execute(
+            "SELECT COUNT(*) AS n, COALESCE(SUM(pnl),0) AS pnl, COALESCE(SUM(cost),0) AS cost FROM trades WHERE status = 'closed'"
+        ).fetchone()
         wins = self.conn.execute(
-            "SELECT COUNT(*) FROM trades WHERE status = 'settled' AND pnl > 0"
+            "SELECT COUNT(*) FROM trades WHERE status IN ('settled', 'closed') AND pnl > 0"
         ).fetchone()[0]
         return {
             "open": open_n,
             "settled": settled["n"],
+            "closed": closed["n"],
+            "completed": settled["n"] + closed["n"],
             "wins": wins,
-            "realized_pnl": settled["pnl"],
-            "settled_cost": settled["cost"],
+            "realized_pnl": settled["pnl"] + closed["pnl"],
+            "settled_cost": settled["cost"] + closed["cost"],
         }

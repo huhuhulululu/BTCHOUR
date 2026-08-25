@@ -57,6 +57,18 @@ class Market:
     def yes_ask_effective(self) -> float | None:
         return self.yes_ask
 
+    @property
+    def yes_bid_effective(self) -> float | None:
+        return self.yes_bid
+
+    @property
+    def no_bid_effective(self) -> float | None:
+        if self.no_bid is not None:
+            return self.no_bid
+        if self.yes_ask is not None:
+            return round(1.0 - self.yes_ask, 4)
+        return None
+
 
 def market_from_api(item: dict) -> Market:
     strike = item.get("floor_strike")

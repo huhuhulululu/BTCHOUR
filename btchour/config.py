@@ -39,6 +39,13 @@ class Settings:
     max_notional: float = 25.0
     hourly_only: bool = True
     allow_maker: bool = False
+    playbook: str = "flex"
+    scalp_min_p: float = 0.60
+    scalp_min_gap: float = 0.10
+    scalp_max_entry: float = 0.80
+    invalidate_p: float = 0.40
+    flatten_seconds: float = 40.0
+    allow_early_exit: bool = True
     series_ticker: str = "KXBTCD"
     kalshi_base: str = "https://external-api.kalshi.com/trade-api/v2"
     kalshi_demo: bool = False
@@ -73,6 +80,9 @@ def load_settings() -> Settings:
     mode = os.environ.get("BTCHOUR_MODE", "paper").strip().lower()
     if mode not in {"paper", "live"}:
         raise ValueError("BTCHOUR_MODE must be paper or live")
+    playbook = os.environ.get("BTCHOUR_PLAYBOOK", "flex").strip().lower()
+    if playbook not in {"hold", "flex", "scalp"}:
+        raise ValueError("BTCHOUR_PLAYBOOK must be hold, flex, or scalp")
     return Settings(
         mode=mode,
         target_profit=_env_float("BTCHOUR_TARGET_PROFIT", 0.20),
@@ -84,6 +94,13 @@ def load_settings() -> Settings:
         max_notional=_env_float("BTCHOUR_MAX_NOTIONAL", 25.0),
         hourly_only=_env_bool("BTCHOUR_HOURLY_ONLY", True),
         allow_maker=_env_bool("BTCHOUR_ALLOW_MAKER", False),
+        playbook=playbook,
+        scalp_min_p=_env_float("BTCHOUR_SCALP_MIN_P", 0.60),
+        scalp_min_gap=_env_float("BTCHOUR_SCALP_MIN_GAP", 0.10),
+        scalp_max_entry=_env_float("BTCHOUR_SCALP_MAX_ENTRY", 0.80),
+        invalidate_p=_env_float("BTCHOUR_INVALIDATE_P", 0.40),
+        flatten_seconds=_env_float("BTCHOUR_FLATTEN_SECONDS", 40.0),
+        allow_early_exit=_env_bool("BTCHOUR_ALLOW_EARLY_EXIT", True),
         series_ticker=os.environ.get("BTCHOUR_SERIES", "KXBTCD"),
         kalshi_base=base.rstrip("/"),
         kalshi_demo=demo,

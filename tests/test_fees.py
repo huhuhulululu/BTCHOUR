@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from btchour.fees import betting_ev, fill_cost, max_entry_price, taker_fee
+from btchour.fees import betting_ev, fill_cost, lock_exit_price, max_entry_price, round_trip_roi, taker_fee
 
 
 class FeeTests(unittest.TestCase):
@@ -24,3 +24,14 @@ class FeeTests(unittest.TestCase):
         cost = fill_cost(0.82, taker=True)
         self.assertAlmostEqual(cost.betting_ev(0.99), cost.expected_roi(0.99), places=10)
         self.assertGreater(cost.betting_ev(0.997), 0.20)
+
+    def test_lock_exit_price_is_lowest_tick_that_clears_target(self):
+        cost = fill_cost(0.50, taker=True)
+        lock = lock_exit_price(cost.cost, 1.0, 0.20)
+        self.assertIsNotNone(lock)
+        self.assertGreaterEqual(round_trip_roi(cost.cost, lock), 0.20)
+        self.assertLess(round_trip_roi(cost.cost, round(lock - 0.01, 4)), 0.20)
+
+    def test_expensive_entry_cannot_lock_twenty_percent(self):
+        cost = fill_cost(0.90, taker=True)
+        self.assertIsNone(lock_exit_price(cost.cost, 1.0, 0.20))

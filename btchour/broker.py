@@ -33,5 +33,31 @@ def live_submit(client: KalshiClient, opportunity: Opportunity) -> dict:
         "if_win_roi": cost.if_win_roi,
         "expected_roi": cost.expected_roi(opportunity.model_p),
         "status": "open",
-        "raw": {"client_order_id": client_order_id, "response": response, "reason": opportunity.reason},
+        "raw": {
+            "client_order_id": client_order_id,
+            "response": response,
+            "reason": opportunity.reason,
+            "play": opportunity.play,
+            "lock_price": opportunity.lock_price,
+        },
     }
+
+
+def live_flatten(client: KalshiClient, trade: dict, exit_price: float) -> dict:
+    """Close a long: sell YES (book ask) or sell NO (book bid at 1 - no_price)."""
+    client_order_id = str(uuid.uuid4())
+    if trade["side"] == "yes":
+        book_side = "ask"
+        price = exit_price
+    else:
+        book_side = "bid"
+        price = round(max(0.01, min(0.99, 1.0 - exit_price)), 4)
+    response = client.create_order(
+        ticker=trade["ticker"],
+        side=book_side,
+        price=price,
+        count=trade["count"],
+        time_in_force="immediate_or_cancel",
+        client_order_id=client_order_id,
+    )
+    return {"client_order_id": client_order_id, "response": response, "book_side": book_side, "price": price}
