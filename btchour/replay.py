@@ -147,19 +147,25 @@ def replay_bars(
             if market is not None and market.strike is not None:
                 p_yes = digital_prob(bar.spot, market.strike, max(left, 1.0), bar.vol)
                 model_p = p_yes if position["side"] == "yes" else 1.0 - p_yes
-                action = evaluate_exit(
+                action = None
+                decision = evaluate_exit(
                     OpenPosition(
                         ticker=position["ticker"],
                         event_ticker=event_ticker,
                         side=position["side"],
                         cost=position["cost"],
                         count=position["count"],
+                        peak_bid=position.get("peak_bid"),
+                        play=(position.get("entry") or {}).get("play") or "",
+                        entry_p=position.get("model_p") or (position.get("entry") or {}).get("model_p"),
                     ),
                     market,
                     model_p,
                     left,
                     settings,
                 )
+                position["peak_bid"] = decision.peak_bid
+                action = decision.action
                 if action:
                     closed = paper_close(position, action.price, action.reason)
                     takes.append(
@@ -336,6 +342,15 @@ def replay_recent_hours(hours: int = 8, settings: Settings | None = None) -> dic
             "scalp_max_entry": settings.scalp_max_entry,
             "scalp_min_seconds": settings.scalp_min_seconds,
             "scalp_max_lock": settings.scalp_max_lock,
+            "swing_min_p": settings.swing_min_p,
+            "swing_min_gap": settings.swing_min_gap,
+            "swing_min_ask": settings.swing_min_ask,
+            "swing_max_ask": settings.swing_max_ask,
+            "swing_target": settings.swing_target,
+            "swing_trail": settings.swing_trail,
+            "swing_fade": settings.swing_fade,
+            "lock_min_p": settings.lock_min_p,
+            "min_sigma": settings.min_sigma,
             "invalidate_p": settings.invalidate_p,
             "flatten_seconds": settings.flatten_seconds,
             "allow_early_exit": settings.allow_early_exit,

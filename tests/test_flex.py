@@ -68,7 +68,7 @@ class FlexStrategyTests(unittest.TestCase):
         market = _market(yes_bid_dollars="0.80", yes_ask_dollars="0.81")
         opps = scan_markets([market], self.spot, settings, self.now)
         self.assertGreaterEqual(len(opps), 1)
-        self.assertEqual(opps[0].play, "hold_edge")
+        self.assertIn(opps[0].play, {"hold_edge", "lock_hold"})
 
     def test_late_or_expensive_scalp_is_skipped(self):
         settings = Settings(playbook="scalp", max_contracts=1)

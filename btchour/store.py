@@ -115,6 +115,10 @@ class Store:
         )
         self.conn.commit()
 
+    def update_raw(self, trade_id: int, raw: dict) -> None:
+        self.conn.execute("UPDATE trades SET raw = ? WHERE id = ?", (json.dumps(raw), trade_id))
+        self.conn.commit()
+
     def cancel_trade(self, trade_id: int, reason: str = "cancelled") -> None:
         self.conn.execute(
             "UPDATE trades SET status = 'cancelled', result = ? WHERE id = ?",

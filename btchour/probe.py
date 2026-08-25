@@ -9,7 +9,7 @@ from btchour.engine import _markets_from_snapshot, make_client
 from btchour.kalshi import KalshiClient
 from btchour.model import SpotQuote, effective_vol
 from btchour.score import score_market
-from btchour.strategy import evaluate_scalp_market, market_window_ok, scan_markets
+from btchour.strategy import evaluate_scalp_market, evaluate_swing_market, market_window_ok, scan_markets
 
 
 def probe_book(client: KalshiClient | None = None, settings: Settings | None = None) -> dict:
@@ -45,14 +45,20 @@ def probe_book(client: KalshiClient | None = None, settings: Settings | None = N
         )
     scores.sort(key=lambda row: row.ev, reverse=True)
     passing = [row for row in scores if row.passes]
-    locks = scan_markets(markets, spot, settings, now) if settings.playbook == "lock" else []
+    opps = scan_markets(markets, spot, settings, now)
+    waits = [row for row in opps if row.play == "lock_wait"]
+    takes = [row for row in opps if row.play == "lock_hold"]
+    swings = [row for row in opps if row.play == "swing_t"]
+    if settings.playbook not in {"swing", "flex"}:
+        swings = []
+        for market in markets:
+            swings.extend(evaluate_swing_market(market, spot, settings, now))
+        swings.sort(key=lambda row: ((row.model_p - row.ask), row.ev), reverse=True)
     scalps = []
     if settings.playbook in {"flex", "scalp"}:
         for market in markets:
             scalps.extend(evaluate_scalp_market(market, spot, settings, now))
         scalps.sort(key=lambda row: ((row.model_p - row.ask), row.ev), reverse=True)
-    waits = [row for row in locks if row.play == "lock_wait"]
-    takes = [row for row in locks if row.play == "lock_hold"]
     high_p = [row for row in scores if row.model_p >= settings.min_win_prob]
     cheapest_high_p = sorted(high_p, key=lambda row: row.ask)[:5]
     report = {
@@ -67,11 +73,16 @@ def probe_book(client: KalshiClient | None = None, settings: Settings | None = N
             "min_win_prob": settings.min_win_prob,
             "min_ev": settings.min_expected_roi,
             "min_sigma": settings.min_sigma,
+            "lock_min_p": settings.lock_min_p,
+            "swing_min_p": settings.swing_min_p,
+            "swing_min_gap": settings.swing_min_gap,
+            "swing_target": settings.swing_target,
         },
         "scored": len(scores),
         "passing": [row.as_dict() for row in passing],
         "lock_takes": [row.as_dict() for row in takes],
         "lock_waits": [row.as_dict() for row in waits[:8]],
+        "swings": [row.as_dict() for row in swings[:8]],
         "cheapest_high_p": [row.as_dict() for row in cheapest_high_p],
         "best_ev": [row.as_dict() for row in scores[:12]],
         "near_miss_high_p": [

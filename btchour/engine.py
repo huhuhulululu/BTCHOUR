@@ -215,7 +215,7 @@ def refresh_working(
         p_yes = digital_prob(spot.price, market.strike, max(seconds, 1.0), vol)
         model_p = p_yes if row["side"] == "yes" else 1.0 - p_yes
         sigma = sigma_cushion(spot.price, market.strike, max(seconds, 1.0), vol)
-        if model_p + 1e-12 < settings.min_win_prob or sigma + 1e-12 < settings.min_sigma or seconds < 8:
+        if model_p + 1e-12 < settings.lock_min_p or sigma + 1e-12 < settings.min_sigma or seconds < 8:
             store.cancel_trade(row["id"], "wait_invalid")
             updates.append({"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": "wait_invalid"})
     return updates
@@ -243,21 +243,32 @@ def manage_open(
         vol = effective_vol(spot.annual_vol, settings.annual_vol)
         p_yes = digital_prob(spot.price, market.strike, max(seconds, 1.0), vol)
         model_p = p_yes if row["side"] == "yes" else 1.0 - p_yes
-        action = evaluate_exit(
+        raw = {}
+        try:
+            raw = json.loads(row["raw"] or "{}")
+        except Exception:
+            raw = {}
+        decision = evaluate_exit(
             OpenPosition(
                 ticker=row["ticker"],
                 event_ticker=row["event_ticker"],
                 side=row["side"],
                 cost=float(row["cost"]),
                 count=float(row["count"]),
+                peak_bid=raw.get("peak_bid"),
+                play=raw.get("play") or "",
+                entry_p=float(row["model_p"]),
             ),
             market,
             model_p,
             seconds,
             settings,
         )
-        if action:
-            updates.append(_close_position(row, action, client, settings, store))
+        if decision.peak_bid != raw.get("peak_bid"):
+            raw["peak_bid"] = decision.peak_bid
+            store.update_raw(row["id"], raw)
+        if decision.action:
+            updates.append(_close_position(row, decision.action, client, settings, store))
     return updates
 
 

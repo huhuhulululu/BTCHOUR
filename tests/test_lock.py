@@ -39,7 +39,7 @@ def _market(**overrides):
 
 class LockStrategyTests(unittest.TestCase):
     def setUp(self):
-        self.settings = Settings(playbook="lock", max_contracts=1)
+        self.settings = Settings(playbook="lock", max_contracts=1, allow_early_exit=False)
         self.now = datetime(2026, 8, 25, 19, 30, tzinfo=timezone.utc)
         self.spot = SpotQuote(79200, "test", annual_vol=0.55)
 

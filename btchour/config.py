@@ -31,16 +31,27 @@ def _env_int(name: str, default: int) -> int:
 class Settings:
     mode: str = "paper"
     target_profit: float = 0.20
-    min_win_prob: float = 0.998
+    min_win_prob: float = 0.95
     min_expected_roi: float = 0.20
     annual_vol: float = 0.55
-    poll_seconds: int = 5
+    poll_seconds: int = 3
     max_contracts: float = 10.0
     max_notional: float = 25.0
     hourly_only: bool = True
     allow_maker: bool = True
-    playbook: str = "lock"
+    playbook: str = "flex"
     min_sigma: float = 3.2
+    lock_min_p: float = 0.998
+    swing_min_p: float = 0.55
+    swing_min_gap: float = 0.08
+    swing_min_ask: float = 0.28
+    swing_max_ask: float = 0.72
+    swing_min_seconds: float = 180.0
+    swing_target: float = 0.12
+    swing_trail: float = 0.04
+    swing_runner_gap: float = 0.12
+    swing_max_distance: float = 600.0
+    swing_fade: float = 0.20
     scan_15m: bool = True
     scan_daily: bool = True
     scan_weekly: bool = True
@@ -51,7 +62,7 @@ class Settings:
     scalp_max_lock: float = 0.90
     invalidate_p: float = 0.40
     flatten_seconds: float = 40.0
-    allow_early_exit: bool = False
+    allow_early_exit: bool = True
     series_ticker: str = "KXBTCD"
     kalshi_base: str = "https://external-api.kalshi.com/trade-api/v2"
     kalshi_demo: bool = False
@@ -86,25 +97,36 @@ def load_settings() -> Settings:
     mode = os.environ.get("BTCHOUR_MODE", "paper").strip().lower()
     if mode not in {"paper", "live"}:
         raise ValueError("BTCHOUR_MODE must be paper or live")
-    playbook = os.environ.get("BTCHOUR_PLAYBOOK", "lock").strip().lower()
-    if playbook not in {"hold", "flex", "scalp", "lock"}:
-        raise ValueError("BTCHOUR_PLAYBOOK must be lock, hold, flex, or scalp")
+    playbook = os.environ.get("BTCHOUR_PLAYBOOK", "flex").strip().lower()
+    if playbook not in {"hold", "flex", "scalp", "lock", "swing"}:
+        raise ValueError("BTCHOUR_PLAYBOOK must be flex, lock, swing, hold, or scalp")
     min_win_prob = _env_float("BTCHOUR_MIN_WIN_PROB", 0.998 if playbook == "lock" else 0.95)
-    allow_maker = _env_bool("BTCHOUR_ALLOW_MAKER", playbook == "lock")
-    allow_early_exit = _env_bool("BTCHOUR_ALLOW_EARLY_EXIT", playbook in {"flex", "scalp"})
+    allow_maker = _env_bool("BTCHOUR_ALLOW_MAKER", playbook in {"lock", "flex"})
+    allow_early_exit = _env_bool("BTCHOUR_ALLOW_EARLY_EXIT", playbook in {"flex", "scalp", "swing"})
     return Settings(
         mode=mode,
         target_profit=_env_float("BTCHOUR_TARGET_PROFIT", 0.20),
         min_win_prob=min_win_prob,
         min_expected_roi=_env_float("BTCHOUR_MIN_EXPECTED_ROI", 0.20),
         annual_vol=_env_float("BTCHOUR_ANNUAL_VOL", 0.55),
-        poll_seconds=_env_int("BTCHOUR_POLL_SECONDS", 5 if playbook == "lock" else 10),
+        poll_seconds=_env_int("BTCHOUR_POLL_SECONDS", 3 if playbook in {"flex", "swing"} else 5),
         max_contracts=_env_float("BTCHOUR_MAX_CONTRACTS", 10.0),
         max_notional=_env_float("BTCHOUR_MAX_NOTIONAL", 25.0),
         hourly_only=_env_bool("BTCHOUR_HOURLY_ONLY", True),
         allow_maker=allow_maker,
         playbook=playbook,
         min_sigma=_env_float("BTCHOUR_MIN_SIGMA", 3.2),
+        lock_min_p=_env_float("BTCHOUR_LOCK_MIN_P", 0.998),
+        swing_min_p=_env_float("BTCHOUR_SWING_MIN_P", 0.55),
+        swing_min_gap=_env_float("BTCHOUR_SWING_MIN_GAP", 0.08),
+        swing_min_ask=_env_float("BTCHOUR_SWING_MIN_ASK", 0.28),
+        swing_max_ask=_env_float("BTCHOUR_SWING_MAX_ASK", 0.72),
+        swing_min_seconds=_env_float("BTCHOUR_SWING_MIN_SECONDS", 180.0),
+        swing_target=_env_float("BTCHOUR_SWING_TARGET", 0.12),
+        swing_trail=_env_float("BTCHOUR_SWING_TRAIL", 0.04),
+        swing_runner_gap=_env_float("BTCHOUR_SWING_RUNNER_GAP", 0.12),
+        swing_max_distance=_env_float("BTCHOUR_SWING_MAX_DISTANCE", 600.0),
+        swing_fade=_env_float("BTCHOUR_SWING_FADE", 0.20),
         scan_15m=_env_bool("BTCHOUR_SCAN_15M", True),
         scan_daily=_env_bool("BTCHOUR_SCAN_DAILY", True),
         scan_weekly=_env_bool("BTCHOUR_SCAN_WEEKLY", True),

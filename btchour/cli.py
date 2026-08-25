@@ -19,6 +19,20 @@ def _with_playbook(settings, playbook: str | None, no_early_exit: bool = False):
     updates = {}
     if playbook:
         updates["playbook"] = playbook
+        if playbook == "lock":
+            updates["allow_early_exit"] = False
+            updates["allow_maker"] = True
+            updates["min_win_prob"] = settings.lock_min_p
+            updates["poll_seconds"] = max(settings.poll_seconds, 5)
+        elif playbook in {"flex", "swing"}:
+            updates["allow_early_exit"] = True
+            updates["allow_maker"] = playbook == "flex"
+            updates["poll_seconds"] = min(settings.poll_seconds, 3)
+        elif playbook == "scalp":
+            updates["allow_early_exit"] = True
+            updates["allow_maker"] = False
+        elif playbook == "hold":
+            updates["allow_early_exit"] = False
     if no_early_exit:
         updates["allow_early_exit"] = False
     return replace(settings, **updates) if updates else settings
@@ -26,7 +40,7 @@ def _with_playbook(settings, playbook: str | None, no_early_exit: bool = False):
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Kalshi BTC hourly engine. Score: EV = p*b - (1-p). Default playbook: lock (robust 20%)."
+        description="Kalshi BTC hourly engine. Score: EV = p*b - (1-p). Default playbook: flex (lock first, then 做T)."
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
@@ -36,15 +50,16 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("sync", help="Pull Kalshi hourly directory into catalog/")
     scan = sub.add_parser("scan", help="Sync, score the current hour, print qualifying tickets")
-    scan.add_argument("--playbook", choices=["lock", "hold", "flex", "scalp"])
-    sub.add_parser("probe", help="Score the live book, including EV near-misses and scalp marks")
-    replay = sub.add_parser("replay", help="Minute-replay recent settled hours with the flex/hold/scalp playbook")
+    scan.add_argument("--playbook", choices=["flex", "swing", "lock", "hold", "scalp"])
+    probe = sub.add_parser("probe", help="Score the live book: lock takes/waits, 做T swings, EV near-misses")
+    probe.add_argument("--playbook", choices=["flex", "swing", "lock", "hold", "scalp"])
+    replay = sub.add_parser("replay", help="Minute-replay recent settled hours (flex / swing / lock / hold / scalp)")
     replay.add_argument("--hours", type=int, default=8)
-    replay.add_argument("--playbook", choices=["lock", "hold", "flex", "scalp"])
+    replay.add_argument("--playbook", choices=["flex", "swing", "lock", "hold", "scalp"])
     replay.add_argument("--no-early-exit", action="store_true", help="Force hold-to-settle (no lock/invalidate/flatten)")
     run = sub.add_parser("run", help="Loop: manage exits, scan, paper/live fill, settle")
-    run.add_argument("--once", action="store_true", help="Single cycle then exit")
-    run.add_argument("--playbook", choices=["lock", "hold", "flex", "scalp"])
+    run.add_argument("--once", action="store_true")
+    run.add_argument("--playbook", choices=["flex", "swing", "lock", "hold", "scalp"])
     sub.add_parser("status", help="Local paper/live ledger summary")
 
     args = parser.parse_args(argv)
@@ -91,6 +106,7 @@ def main(argv: list[str] | None = None) -> int:
                 "passing": report["passing"],
                 "lock_takes": report.get("lock_takes"),
                 "lock_waits": report.get("lock_waits"),
+                "swings": report.get("swings"),
                 "cheapest_high_p": report.get("cheapest_high_p"),
                 "scalps": report.get("scalps"),
                 "best_ev": report["best_ev"][:8],
@@ -139,9 +155,10 @@ def main(argv: list[str] | None = None) -> int:
                 "formula": payload.get("formula"),
                 "best_ev": payload.get("best_ev"),
                 "note": (
-                    f"Playbook={settings.playbook}. Hold tickets still need EV=p*b-(1-p) "
-                    f">= {settings.min_ev:.0%}, b >= {settings.target_profit:.0%}, p >= {settings.min_win_prob:.0%}. "
-                    "Scalps may exit on the book instead of holding to settlement."
+                    f"Playbook={settings.playbook}. flex = lock_hold first, then swing_t 做T, then lock_wait. "
+                    f"Lock still needs EV=p*b-(1-p) >= {settings.min_ev:.0%}, σ>={settings.min_sigma}, "
+                    f"p>={settings.lock_min_p:.1%}, ask<=$0.82. 做T clips ~{settings.swing_target:.0%} or trails; "
+                    "it is not a locked 20%."
                 ),
             }
         )
