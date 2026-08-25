@@ -60,6 +60,7 @@ class FlexStrategyTests(unittest.TestCase):
         self.assertTrue(scalps)
         self.assertEqual(scalps[0].play, "markout_scalp")
         self.assertEqual(scalps[0].side, "yes")
+        self.assertGreaterEqual(scalps[0].ev, 0.20)
         self.assertIsNotNone(scalps[0].lock_price)
 
     def test_flex_prefers_hold_over_scalp(self):
@@ -68,6 +69,22 @@ class FlexStrategyTests(unittest.TestCase):
         opps = scan_markets([market], self.spot, settings, self.now)
         self.assertGreaterEqual(len(opps), 1)
         self.assertEqual(opps[0].play, "hold_edge")
+
+    def test_late_or_expensive_scalp_is_skipped(self):
+        settings = Settings(playbook="scalp", max_contracts=1)
+        late = datetime(2026, 8, 25, 17, 55, tzinfo=timezone.utc)
+        market = _market(
+            ticker="KXBTCD-26AUG2514-T79199.99",
+            floor_strike=79199.99,
+            yes_bid_dollars="0.61",
+            yes_ask_dollars="0.62",
+            no_bid_dollars="0.38",
+            no_ask_dollars="0.39",
+        )
+        spot = SpotQuote(79600, "test", annual_vol=0.55)
+        self.assertEqual(evaluate_scalp_market(market, spot, settings, late), [])
+        expensive = _market(yes_bid_dollars="0.74", yes_ask_dollars="0.75")
+        self.assertEqual(evaluate_scalp_market(expensive, self.spot, settings, self.now), [])
 
     def test_coin_flip_is_not_a_scalp(self):
         settings = Settings(playbook="flex", max_contracts=1)
@@ -134,3 +151,37 @@ class FlexReplayTests(unittest.TestCase):
         take = report["takes"][0]
         self.assertEqual(take["exit_reason"], "invalidate")
         self.assertLess(take["pnl"], 0)
+
+    def test_can_flip_side_after_invalidate(self):
+        settings = Settings(playbook="scalp", max_contracts=1, max_notional=10, allow_early_exit=True)
+        maturity = datetime(2026, 8, 25, 18, 0, tzinfo=timezone.utc).timestamp()
+        first = int(maturity - 1800)
+        second = int(maturity - 1740)
+        third = int(maturity - 1680)
+        bars = [
+            ReplayBar(
+                end_ts=first,
+                spot=79600,
+                vol=0.55,
+                quotes={79199.99: {"yes_ask": 0.62, "yes_bid": 0.61}},
+            ),
+            ReplayBar(
+                end_ts=second,
+                spot=78800,
+                vol=0.55,
+                quotes={79199.99: {"yes_ask": 0.52, "yes_bid": 0.51}},
+            ),
+            ReplayBar(
+                end_ts=third,
+                spot=78750,
+                vol=0.55,
+                quotes={79199.99: {"yes_ask": 0.32, "yes_bid": 0.31}},
+            ),
+        ]
+        report = replay_bars("KXBTCD-26AUG2514", bars, {79199.99: "no"}, maturity, settings)
+        reasons = [take["exit_reason"] for take in report["takes"]]
+        sides = [take["side"] for take in report["takes"]]
+        self.assertGreaterEqual(len(report["takes"]), 2)
+        self.assertEqual(sides[0], "yes")
+        self.assertEqual(reasons[0], "invalidate")
+        self.assertEqual(sides[1], "no")

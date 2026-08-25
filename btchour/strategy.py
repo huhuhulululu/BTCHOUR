@@ -203,6 +203,8 @@ def evaluate_scalp_market(
     for side, book_side, model_p, ask in sides:
         if ask is None or ask <= 0 or ask >= 1.0:
             continue
+        if seconds + 1e-12 < settings.scalp_min_seconds:
+            continue
         if ask > settings.scalp_max_entry + 1e-12:
             continue
         if model_p + 1e-12 < settings.scalp_min_p:
@@ -211,10 +213,10 @@ def evaluate_scalp_market(
             continue
         cost = fill_cost(ask, 1.0, taker=True)
         edge = cost.edge(model_p)
-        if edge.ev + 1e-12 < 0:
+        if edge.ev + 1e-12 < settings.min_ev:
             continue
         lock = lock_exit_price(cost.cost, 1.0, settings.target_profit)
-        if lock is None:
+        if lock is None or lock > settings.scalp_max_lock + 1e-12:
             continue
         row = _make_opportunity(
             market=market,

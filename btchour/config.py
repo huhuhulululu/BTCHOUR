@@ -42,7 +42,9 @@ class Settings:
     playbook: str = "flex"
     scalp_min_p: float = 0.60
     scalp_min_gap: float = 0.10
-    scalp_max_entry: float = 0.80
+    scalp_max_entry: float = 0.65
+    scalp_min_seconds: float = 600.0
+    scalp_max_lock: float = 0.90
     invalidate_p: float = 0.40
     flatten_seconds: float = 40.0
     allow_early_exit: bool = True
@@ -97,7 +99,9 @@ def load_settings() -> Settings:
         playbook=playbook,
         scalp_min_p=_env_float("BTCHOUR_SCALP_MIN_P", 0.60),
         scalp_min_gap=_env_float("BTCHOUR_SCALP_MIN_GAP", 0.10),
-        scalp_max_entry=_env_float("BTCHOUR_SCALP_MAX_ENTRY", 0.80),
+        scalp_max_entry=_env_float("BTCHOUR_SCALP_MAX_ENTRY", 0.65),
+        scalp_min_seconds=_env_float("BTCHOUR_SCALP_MIN_SECONDS", 600.0),
+        scalp_max_lock=_env_float("BTCHOUR_SCALP_MAX_LOCK", 0.90),
         invalidate_p=_env_float("BTCHOUR_INVALIDATE_P", 0.40),
         flatten_seconds=_env_float("BTCHOUR_FLATTEN_SECONDS", 40.0),
         allow_early_exit=_env_bool("BTCHOUR_ALLOW_EARLY_EXIT", True),

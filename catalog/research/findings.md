@@ -27,14 +27,35 @@ Closest rejected EV: 16:48 UTC `T79199.99` YES ask 0.62, p=76%, EV≈19.7%. It w
 
 Command: `python3 -m btchour replay --hours 8`.
 
-First pass used raw 1-minute realized vol (~0.30) and took two tickets:
+First pass used raw 1-minute realized vol (~0.30) and took two **hold-to-settle** tickets:
 
 | Hour | Ticket | EV | Result |
 | --- | --- | --- | --- |
 | `KXBTCD-26AUG2511` | NO `T79499.99` @ 0.78 | +21.9% | win +0.21 |
 | `KXBTCD-26AUG2510` | YES `T78599.99` @ 0.77 | +21.9% | **loss −0.78** (BTC sold off through the strike) |
 
-Net −0.57. The loser had only ~1.7σ of cushion once vol was understated. After flooring vol at `BTCHOUR_ANNUAL_VOL` (0.55), the same 8 hours replay at **0 takes / 0 pnl**. The previous winner is also filtered. Conservative idle is the point of the 20% gate.
+Net −0.57. After flooring vol at `BTCHOUR_ANNUAL_VOL` (0.55), hold-to-settle on the same 8 hours is **0 takes / 0 pnl**.
+
+## Flex playbook (not hold-to-settle)
+
+`python3 -m btchour replay --hours 8 --playbook flex` on the same window, default size (up to 10 contracts):
+
+| Hour | Play | Ticket | Exit | ROI | PnL |
+| --- | --- | --- | --- | --- | --- |
+| `KXBTCD-26AUG2510` | scalp YES `T78599.99` @ 0.62 | 3 minutes later p collapsed | `invalidate` @ 0.51 | −22.6% | −1.44 |
+| same minute | scalp NO `T78599.99` @ 0.49 | bid paid 0.67 | `lock_on_book` | **+29.0%** | +1.47 |
+
+Net **+0.03**. Other 7 hours idle. Hold-edge tickets still 0.
+
+That dump hour is the point of flexibility:
+
+- Holding the YES to expiry would have been a full-stake loss (band settled `78499.99–78599.99`).
+- Invalidating at 0.51 cut it to −23% instead of −100%.
+- Flipping to NO and selling when the bid locked 20% is the trade style that hold-to-settle cannot take.
+
+Live 3pm book (`KXBTCD-26AUG2515`, ~37 minutes left, BRTI ≈ 79260): **0 hold tickets, 0 scalps**. Best raw EV sides are cheap OTM lotteries with p ≪ 60%.
+
+This is still not “every fill makes 20%.” One clip locked +29%; the other was a cut. Empty hours are normal.
 
 ## Order book
 

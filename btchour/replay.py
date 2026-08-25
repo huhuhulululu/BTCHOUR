@@ -141,7 +141,7 @@ def replay_bars(
             ):
                 hold_candidates += 1
 
-        exited = False
+        just_closed = None
         if position is not None:
             market = next((item for item in markets if item.ticker == position["ticker"]), None)
             if market is not None and market.strike is not None:
@@ -174,11 +174,15 @@ def replay_bars(
                             "result": action.reason,
                         }
                     )
+                    just_closed = (position["ticker"], position["side"])
                     position = None
-                    exited = True
 
-        if position is None and not exited:
-            opps = scan_markets(markets, spot, settings, now)
+        if position is None:
+            opps = [
+                item
+                for item in scan_markets(markets, spot, settings, now)
+                if (item.ticker, item.side) != just_closed
+            ]
             if opps:
                 fill = paper_fill(opps[0])
                 if fill.get("status") == "open":
@@ -328,6 +332,9 @@ def replay_recent_hours(hours: int = 8, settings: Settings | None = None) -> dic
             "min_ev": settings.min_expected_roi,
             "scalp_min_p": settings.scalp_min_p,
             "scalp_min_gap": settings.scalp_min_gap,
+            "scalp_max_entry": settings.scalp_max_entry,
+            "scalp_min_seconds": settings.scalp_min_seconds,
+            "scalp_max_lock": settings.scalp_max_lock,
             "invalidate_p": settings.invalidate_p,
             "flatten_seconds": settings.flatten_seconds,
             "allow_early_exit": settings.allow_early_exit,

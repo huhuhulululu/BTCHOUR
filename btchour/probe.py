@@ -63,6 +63,8 @@ def probe_book(client: KalshiClient | None = None, settings: Settings | None = N
             "min_ev": settings.min_expected_roi,
             "scalp_min_p": settings.scalp_min_p,
             "scalp_min_gap": settings.scalp_min_gap,
+            "scalp_max_entry": settings.scalp_max_entry,
+            "scalp_min_seconds": settings.scalp_min_seconds,
         },
         "scored": len(scores),
         "passing": [row.as_dict() for row in passing],
