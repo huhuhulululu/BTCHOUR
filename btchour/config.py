@@ -32,7 +32,7 @@ class Settings:
     mode: str = "paper"
     target_profit: float = 0.20
     min_win_prob: float = 0.95
-    min_expected_roi: float = 0.12
+    min_expected_roi: float = 0.20
     annual_vol: float = 0.55
     poll_seconds: int = 10
     max_contracts: float = 10.0
@@ -73,7 +73,7 @@ def load_settings() -> Settings:
         mode=mode,
         target_profit=_env_float("BTCHOUR_TARGET_PROFIT", 0.20),
         min_win_prob=_env_float("BTCHOUR_MIN_WIN_PROB", 0.95),
-        min_expected_roi=_env_float("BTCHOUR_MIN_EXPECTED_ROI", 0.12),
+        min_expected_roi=_env_float("BTCHOUR_MIN_EXPECTED_ROI", 0.20),
         annual_vol=_env_float("BTCHOUR_ANNUAL_VOL", 0.55),
         poll_seconds=_env_int("BTCHOUR_POLL_SECONDS", 10),
         max_contracts=_env_float("BTCHOUR_MAX_CONTRACTS", 10.0),

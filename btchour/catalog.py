@@ -87,8 +87,9 @@ def sync_catalog(client: KalshiClient, settings: Settings) -> dict:
     for event in open_events:
         markets = by_event.get(event["event_ticker"], [])
         sample = markets[0] if markets else None
-        hourly = True
-        if sample:
+        cadence = (event.get("product_metadata") or {}).get("cadence")
+        hourly = cadence == "hourly" if cadence else True
+        if sample and cadence is None:
             hourly = is_hourly_window(sample.open_time, sample.close_time)
         if settings.hourly_only and not hourly:
             continue

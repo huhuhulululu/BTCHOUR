@@ -29,6 +29,7 @@ class LedgerTests(unittest.TestCase):
             taker=True,
             if_win_roi=0.21,
             expected_roi=0.18,
+            ev=0.18,
             fee=0.01,
             count=10,
             reason="test",

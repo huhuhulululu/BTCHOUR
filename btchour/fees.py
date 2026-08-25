@@ -50,6 +50,14 @@ class FillCost:
             return 0.0
         return self.expected_pnl(win_prob) / self.cost
 
+    def betting_ev(self, win_prob: float) -> float:
+        """EV per unit stake: p * b - (1 - p), where b is if-win net odds."""
+        return betting_ev(win_prob, self.if_win_roi)
+
+
+def betting_ev(win_prob: float, net_odds: float) -> float:
+    return win_prob * net_odds - (1.0 - win_prob)
+
 
 def fill_cost(price: float, count: float = 1.0, *, taker: bool = True, multiplier: float = 1.0) -> FillCost:
     fee = taker_fee(price, count, multiplier) if taker else maker_fee(price, count, 0.0)

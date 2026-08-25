@@ -27,6 +27,7 @@ class Opportunity:
     taker: bool
     if_win_roi: float
     expected_roi: float
+    ev: float
     fee: float
     count: float
     reason: str
@@ -87,7 +88,8 @@ def evaluate_market(
         if cost.if_win_roi + 1e-12 < settings.target_profit:
             continue
         expected = cost.expected_roi(model_p)
-        if expected + 1e-12 < settings.min_expected_roi:
+        ev = cost.betting_ev(model_p)
+        if ev + 1e-12 < settings.min_expected_roi:
             continue
         count = _clip_count(limit, settings)
         if count < 1:
@@ -109,6 +111,7 @@ def evaluate_market(
                 taker=taker,
                 if_win_roi=cost.if_win_roi,
                 expected_roi=expected,
+                ev=ev,
                 fee=cost.fee,
                 count=int(count),
                 reason=(

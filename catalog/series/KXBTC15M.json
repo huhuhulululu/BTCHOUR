@@ -10,6 +10,7 @@
   "fee_multiplier": 1,
   "fee_type": "quadratic",
   "frequency": "fifteen_min",
+  "last_updated_ts": "2026-08-24T16:04:33.472131Z",
   "product_metadata": {
     "important_info": {
       "id": "CRYPTO15M-bulk-2026-04-20",

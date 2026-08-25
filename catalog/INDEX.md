@@ -17,6 +17,8 @@ python3 -m btchour sync
 | `catalog/snapshot/latest.json` | 最近一次从 Kalshi 拉回的小时盘快照 |
 | `data/catalog/latest.json` | 运行时副本（不入库） |
 
+同一 `KXBTCD` 系列里还有 daily / weekly 场次（例如 5pm EDT）。小时盘以 `product_metadata.cadence=hourly` 为准。
+
 相关但不作为小时盘主路径的系列：
 
 - `KXBTC`：同一 BRTI 结算的区间盘（between / less / greater）

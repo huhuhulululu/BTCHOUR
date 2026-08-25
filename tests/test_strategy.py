@@ -32,7 +32,7 @@ def _market(**overrides):
 
 class StrategyTests(unittest.TestCase):
     def setUp(self):
-        self.settings = Settings(target_profit=0.20, min_win_prob=0.95, min_expected_roi=0.12)
+        self.settings = Settings(target_profit=0.20, min_win_prob=0.95, min_expected_roi=0.20)
         self.now = datetime(2026, 8, 25, 17, 30, tzinfo=timezone.utc)
         self.spot = SpotQuote(79200, "test", annual_vol=0.55)
 
@@ -52,7 +52,7 @@ class StrategyTests(unittest.TestCase):
 
     def test_maker_can_rest_at_twenty_percent(self):
         market = _market(yes_bid_dollars="0.98", yes_ask_dollars="0.99", no_bid_dollars="0.01", no_ask_dollars="0.02")
-        settings = Settings(target_profit=0.20, min_win_prob=0.95, min_expected_roi=0.12, allow_maker=True)
+        settings = Settings(target_profit=0.20, min_win_prob=0.95, min_expected_roi=0.20, allow_maker=True)
         opps = evaluate_market(market, self.spot, settings, self.now)
         yes = next(row for row in opps if row.side == "yes")
         self.assertFalse(yes.taker)

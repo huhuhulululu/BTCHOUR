@@ -10,6 +10,7 @@
   "fee_multiplier": 1,
   "fee_type": "quadratic",
   "frequency": "hourly",
+  "last_updated_ts": "2026-08-24T16:04:33.777344Z",
   "product_metadata": {
     "important_info": {
       "id": "KXBTCD-2026-04-09",
