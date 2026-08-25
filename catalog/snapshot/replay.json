@@ -1,11 +1,11 @@
 {
-  "replayed_at": "2026-08-25T18:24:40.653970+00:00",
+  "replayed_at": "2026-08-25T19:11:41.061935+00:00",
   "hours": 8,
-  "playbook": "flex",
+  "playbook": "lock",
   "formula": "EV = p * b - (1 - p)",
   "gates": {
     "target_if_win": 0.2,
-    "min_win_prob": 0.95,
+    "min_win_prob": 0.998,
     "min_ev": 0.2,
     "scalp_min_p": 0.6,
     "scalp_min_gap": 0.1,
@@ -14,9 +14,41 @@
     "scalp_max_lock": 0.9,
     "invalidate_p": 0.4,
     "flatten_seconds": 40.0,
-    "allow_early_exit": true
+    "allow_early_exit": false
   },
   "events": [
+    {
+      "event_ticker": "KXBTCD-26AUG2515",
+      "settlement_band": [
+        79099.99,
+        79199.99
+      ],
+      "settle_mid": 79149.99,
+      "candles": {
+        "79099.99": 60,
+        "79199.99": 60,
+        "78899.99": 60,
+        "78999.99": 60,
+        "79299.99": 60,
+        "79399.99": 60
+      },
+      "playbook": "lock",
+      "takes": [],
+      "best": {
+        "ts": "2026-08-25T18:51:00+00:00",
+        "event_ticker": "KXBTCD-26AUG2515",
+        "strike": 79399.99,
+        "side": "yes",
+        "spot": 79201.38349999992,
+        "seconds_left": 540.0,
+        "ask": 0.01,
+        "model_p": 0.13524400499963918,
+        "if_win_roi": 92.45794392523365,
+        "ev": 11.6396266354803,
+        "vol": 0.55
+      },
+      "hold_candidates": 0
+    },
     {
       "event_ticker": "KXBTCD-26AUG2514",
       "settlement_band": [
@@ -32,7 +64,7 @@
         "79399.99": 60,
         "79499.99": 60
       },
-      "playbook": "flex",
+      "playbook": "lock",
       "takes": [],
       "best": {
         "ts": "2026-08-25T17:58:00+00:00",
@@ -64,19 +96,19 @@
         "79299.99": 60,
         "79399.99": 60
       },
-      "playbook": "flex",
+      "playbook": "lock",
       "takes": [],
       "best": {
-        "ts": "2026-08-25T16:58:00+00:00",
+        "ts": "2026-08-25T16:59:00+00:00",
         "event_ticker": "KXBTCD-26AUG2513",
-        "strike": 79299.99,
+        "strike": 79199.99,
         "side": "yes",
-        "spot": 79161.58366666673,
-        "seconds_left": 120.0,
-        "ask": 0.01,
-        "model_p": 0.051623698822574116,
-        "if_win_roi": 92.45794392523365,
-        "ev": 3.824644749773282,
+        "spot": 79149.35449999999,
+        "seconds_left": 60.0,
+        "ask": 0.03,
+        "model_p": 0.1994241262610137,
+        "if_win_roi": 30.152647975077883,
+        "ev": 5.212589603146844,
         "vol": 0.55
       },
       "hold_candidates": 0
@@ -96,19 +128,19 @@
         "79699.99": 60,
         "79799.99": 60
       },
-      "playbook": "flex",
+      "playbook": "lock",
       "takes": [],
       "best": {
-        "ts": "2026-08-25T15:57:00+00:00",
+        "ts": "2026-08-25T15:59:00+00:00",
         "event_ticker": "KXBTCD-26AUG2512",
         "strike": 79499.99,
         "side": "yes",
-        "spot": 79393.23916666668,
-        "seconds_left": 180.0,
+        "spot": 79477.19233333334,
+        "seconds_left": 60.0,
         "ask": 0.03,
-        "model_p": 0.15301353882771573,
+        "model_p": 0.35250738532722514,
         "if_win_roi": 30.152647975077883,
-        "ev": 3.7667769105207394,
+        "ev": 9.98153848371418,
         "vol": 0.55
       },
       "hold_candidates": 0
@@ -128,7 +160,7 @@
         "79399.99": 60,
         "79499.99": 60
       },
-      "playbook": "flex",
+      "playbook": "lock",
       "takes": [],
       "best": {
         "ts": "2026-08-25T14:58:00+00:00",
@@ -160,67 +192,20 @@
         "78699.99": 60,
         "78799.99": 60
       },
-      "playbook": "flex",
-      "takes": [
-        {
-          "ts": "2026-08-25T13:44:00+00:00",
-          "event_ticker": "KXBTCD-26AUG2510",
-          "ticker": "KXBTCD-26AUG2510-T78599.99",
-          "strike": 78599.99,
-          "side": "yes",
-          "spot": 78802.259,
-          "seconds_left": 960.0,
-          "ask": 0.62,
-          "model_p": 0.7714340627289638,
-          "if_win_roi": 0.5710919088766694,
-          "ev": 0.21199381418533197,
-          "vol": 0.625219696370554,
-          "play": "markout_scalp",
-          "lock_price": 0.78,
-          "exit_ts": "2026-08-25T13:47:00+00:00",
-          "exit_reason": "invalidate",
-          "exit_price": 0.51,
-          "exit_note": "model p=34.6% < 40%; flatten at bid 0.51",
-          "pnl": -1.4400000000000004,
-          "roi": -0.22623723487824043,
-          "result": "invalidate"
-        },
-        {
-          "ts": "2026-08-25T13:47:00+00:00",
-          "event_ticker": "KXBTCD-26AUG2510",
-          "ticker": "KXBTCD-26AUG2510-T78599.99",
-          "strike": 78599.99,
-          "side": "no",
-          "spot": 78493.7295,
-          "seconds_left": 780.0,
-          "ask": 0.49,
-          "model_p": 0.6540343025756972,
-          "if_win_roi": 0.9704433497536947,
-          "ev": 0.28873754202107826,
-          "vol": 0.689727926195502,
-          "play": "markout_scalp",
-          "lock_price": 0.63,
-          "exit_ts": "2026-08-25T13:50:00+00:00",
-          "exit_reason": "lock_on_book",
-          "exit_price": 0.67,
-          "exit_note": "bid 0.67 locks >= 20% after exit fees (need 0.63)",
-          "pnl": 1.4702000000000002,
-          "roi": 0.2896945812807882,
-          "result": "lock_on_book"
-        }
-      ],
+      "playbook": "lock",
+      "takes": [],
       "best": {
-        "ts": "2026-08-25T13:59:00+00:00",
+        "ts": "2026-08-25T13:57:00+00:00",
         "event_ticker": "KXBTCD-26AUG2510",
-        "strike": 78699.99,
+        "strike": 78599.99,
         "side": "yes",
-        "spot": 78526.89183333333,
-        "seconds_left": 60.0,
-        "ask": 0.01,
-        "model_p": 0.018928321205360366,
-        "if_win_roi": 92.45794392523365,
-        "ev": 0.7690019818093801,
-        "vol": 0.7692568512728032
+        "spot": 78487.34900000003,
+        "seconds_left": 180.0,
+        "ask": 0.1,
+        "model_p": 0.218153755824737,
+        "if_win_roi": 8.40733772342427,
+        "ev": 1.0522460566767355,
+        "vol": 0.7723048375186445
       },
       "hold_candidates": 0
     },
@@ -239,7 +224,7 @@
         "79099.99": 60,
         "79199.99": 60
       },
-      "playbook": "flex",
+      "playbook": "lock",
       "takes": [],
       "best": {
         "ts": "2026-08-25T12:59:00+00:00",
@@ -271,7 +256,7 @@
         "79299.99": 60,
         "79399.99": 60
       },
-      "playbook": "flex",
+      "playbook": "lock",
       "takes": [],
       "best": {
         "ts": "2026-08-25T11:59:00+00:00",
@@ -287,45 +272,10 @@
         "vol": 0.55
       },
       "hold_candidates": 0
-    },
-    {
-      "event_ticker": "KXBTCD-26AUG2507",
-      "settlement_band": [
-        79299.99,
-        79399.99
-      ],
-      "settle_mid": 79349.99,
-      "candles": {
-        "79299.99": 60,
-        "79399.99": 60,
-        "79099.99": 60,
-        "79199.99": 60,
-        "79499.99": 60,
-        "79599.99": 60
-      },
-      "playbook": "flex",
-      "takes": [],
-      "best": {
-        "ts": "2026-08-25T10:54:00+00:00",
-        "event_ticker": "KXBTCD-26AUG2507",
-        "strike": 79599.99,
-        "side": "yes",
-        "spot": 79401.3533333333,
-        "seconds_left": 360.0,
-        "ask": 0.01,
-        "model_p": 0.08916043605871526,
-        "if_win_roi": 92.45794392523365,
-        "ev": 7.332751033524791,
-        "vol": 0.55
-      },
-      "hold_candidates": 0
     }
   ],
-  "take_count": 2,
-  "wins": 1,
-  "exit_reasons": {
-    "invalidate": 1,
-    "lock_on_book": 1
-  },
-  "realized_pnl": 0.030199999999999783
+  "take_count": 0,
+  "wins": 0,
+  "exit_reasons": {},
+  "realized_pnl": 0
 }

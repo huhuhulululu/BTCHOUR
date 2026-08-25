@@ -84,6 +84,7 @@ def main(argv: list[str] | None = None) -> int:
         _print_json(
             {
                 "event": report["event"],
+                "horizons": report.get("horizons"),
                 "spot": report["spot"],
                 "formula": report["formula"],
                 "playbook": report.get("playbook"),

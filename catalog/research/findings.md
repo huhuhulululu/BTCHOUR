@@ -57,6 +57,19 @@ Live 3pm book (`KXBTCD-26AUG2515`, ~37 minutes left, BRTI ≈ 79260): **0 hold t
 
 This is still not “every fill makes 20%.” One clip locked +29%; the other was a cut. Empty hours are normal.
 
+## Lock playbook (稳健 20%)
+
+Default is now `BTCHOUR_PLAYBOOK=lock`. Gates: σ ≥ 3.2, p ≥ 99.8%, b ≥ 20%, EV ≥ 20%. Taker only at ≤ $0.82; otherwise rest $0.83 (`lock_wait`, paper status `working`).
+
+Live 4pm window (2026-08-25 ~19:05 UTC, BRTI ≈ 79094):
+
+- Hourly / daily / weekly / 15m **lock_hold takes: 0**
+- One wait: daily **NO** `KXBTCD-26AUG2517-T81249.99` (ask 0.99, p≈99.97%, EV at $0.83 wait ≈ +20.4%)
+- Cheapest already-decided touch is still $0.98–$0.99, so if-win is ~1–2%, not 20%
+- Paper `run --once` recorded that wait as `working`, not a fill
+
+8-hour hourly replay with candle **ask lows** (`replay --hours 8 --playbook lock`): **0 takes / 0 pnl**. The 95% / $0.81 tickets that used to look like 20% are rejected (σ≈2.3). That is the point.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.

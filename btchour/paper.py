@@ -20,6 +20,7 @@ def paper_fill(opportunity: Opportunity) -> dict:
         "if_win_roi": cost.if_win_roi,
         "expected_roi": cost.expected_roi(opportunity.model_p),
         "status": "open" if opportunity.taker else "working",
+        "play": opportunity.play,
         "raw": {
             "reason": opportunity.reason,
             "ask": opportunity.ask,
