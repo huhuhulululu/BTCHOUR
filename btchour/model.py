@@ -47,6 +47,12 @@ def realized_annual_vol(prices: list[float], bar_seconds: float) -> float | None
     return min(1.8, max(0.25, annual))
 
 
+def effective_vol(realized: float | None, floor: float) -> float:
+    if realized is None or realized <= 0:
+        return floor
+    return max(realized, floor)
+
+
 @dataclass(frozen=True)
 class SpotQuote:
     price: float

@@ -20,6 +20,9 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("sync", help="Pull Kalshi hourly directory into catalog/")
     sub.add_parser("scan", help="Sync, score the current hour, print qualifying tickets")
+    sub.add_parser("probe", help="Score the live book, including EV near-misses")
+    replay = sub.add_parser("replay", help="Minute-replay recent settled hours against the 20% EV gate")
+    replay.add_argument("--hours", type=int, default=8)
     run = sub.add_parser("run", help="Loop: scan, paper/live fill, settle")
     run.add_argument("--once", action="store_true", help="Single cycle then exit")
     sub.add_parser("status", help="Local paper/live ledger summary")
@@ -42,6 +45,46 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
+    if args.cmd == "probe":
+        from btchour.probe import probe_book
+
+        report = probe_book(client, settings)
+        _print_json(
+            {
+                "event": report["event"],
+                "spot": report["spot"],
+                "formula": report["formula"],
+                "passing": report["passing"],
+                "best_ev": report["best_ev"][:8],
+                "near_miss_high_p": report["near_miss_high_p"],
+            }
+        )
+        return 0
+
+    if args.cmd == "replay":
+        from btchour.replay import replay_recent_hours
+
+        summary = replay_recent_hours(args.hours, settings)
+        _print_json(
+            {
+                "hours": summary["hours"],
+                "take_count": summary["take_count"],
+                "wins": summary["wins"],
+                "realized_pnl": summary["realized_pnl"],
+                "events": [
+                    {
+                        "event_ticker": item.get("event_ticker"),
+                        "settlement_band": item.get("settlement_band"),
+                        "takes": item.get("takes") or [],
+                        "best": item.get("best"),
+                        "error": item.get("error"),
+                    }
+                    for item in summary["events"]
+                ],
+            }
+        )
+        return 0
+
     if args.cmd == "scan":
         payload = scan_once(client, settings)
         _print_json(
@@ -51,6 +94,8 @@ def main(argv: list[str] | None = None) -> int:
                 "market_count": payload["market_count"],
                 "opportunity_count": len(payload["opportunities"]),
                 "opportunities": payload["opportunities"],
+                "formula": payload.get("formula"),
+                "best_ev": payload.get("best_ev"),
                 "note": (
                     "Empty opportunities is normal. The bot only prints a ticket when "
                     f"if-win ROI >= {settings.target_profit:.0%} and model P(win) >= {settings.min_win_prob:.0%}."

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from btchour.model import digital_prob, realized_annual_vol
+from btchour.model import digital_prob, effective_vol, realized_annual_vol
 
 
 class ModelTests(unittest.TestCase):
@@ -23,6 +23,11 @@ class ModelTests(unittest.TestCase):
         # KXBTCD-26AUG2513 finalized yes at 79099.99 and no at 79199.99.
         self.assertGreater(digital_prob(79150, 79099.99, 30, 0.55), 0.75)
         self.assertLess(digital_prob(79150, 79199.99, 30, 0.55), 0.25)
+
+    def test_effective_vol_never_below_floor(self):
+        self.assertEqual(effective_vol(0.31, 0.55), 0.55)
+        self.assertEqual(effective_vol(0.90, 0.55), 0.90)
+        self.assertEqual(effective_vol(None, 0.55), 0.55)
 
     def test_realized_vol_clamp(self):
         prices = [80000 + i for i in range(20)]

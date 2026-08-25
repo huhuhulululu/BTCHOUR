@@ -21,6 +21,8 @@ Kalshi 二元合约结算 $1 或 $0。若猜对要净赚 20%，taker 最高大�
 ```bash
 python3 -m btchour sync    # 搬运 Kalshi 目录
 python3 -m btchour scan    # 评估当前小时
+python3 -m btchour probe   # 实盘 EV 表面 + 未过门槛的近失
+python3 -m btchour replay --hours 8
 python3 -m btchour run --once
 python3 -m btchour run     # 纸交易循环（默认）
 python3 -m btchour status

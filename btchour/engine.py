@@ -7,10 +7,11 @@ from btchour.broker import live_submit
 from btchour.catalog import current_hourly_events, sync_catalog
 from btchour.config import Settings, load_settings
 from btchour.kalshi import KalshiClient, Market, market_from_api
-from btchour.model import SpotQuote
+from btchour.model import SpotQuote, effective_vol
 from btchour.paper import paper_fill, paper_settle
 from btchour.spot import fetch_spot
 from btchour.store import Store
+from btchour.score import score_market
 from btchour.strategy import Opportunity, scan_markets
 
 
@@ -67,12 +68,33 @@ def scan_once(client: KalshiClient, settings: Settings | None = None, persist: b
     )
     markets = _markets_from_snapshot(snapshot)
     opportunities = scan_markets(markets, spot, settings)
+    now = datetime.now(timezone.utc)
+    close_raw = markets[0].close_time if markets else None
+    seconds = 0.0
+    if close_raw:
+        seconds = (datetime.fromisoformat(close_raw.replace("Z", "+00:00")) - now).total_seconds()
+    scored = []
+    for market in markets:
+        scored.extend(
+            score_market(
+                market,
+                spot,
+                seconds,
+                effective_vol(spot.annual_vol, settings.annual_vol),
+                settings.target_profit,
+                settings.min_win_prob,
+                settings.min_expected_roi,
+            )
+        )
+    scored.sort(key=lambda row: row.ev, reverse=True)
     payload = {
         "synced_at": snapshot["synced_at"],
         "spot": spot_info,
         "event": (snapshot.get("current_hour") or {}).get("event"),
         "market_count": len(markets),
         "opportunities": [item.as_dict() for item in opportunities],
+        "formula": "EV = p * b - (1 - p)",
+        "best_ev": [row.as_dict() for row in scored[:8]],
     }
     if persist:
         store = Store()

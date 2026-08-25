@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from btchour.config import Settings
 from btchour.fees import fill_cost, max_entry_price
 from btchour.kalshi import Market
-from btchour.model import SpotQuote, digital_prob
+from btchour.model import SpotQuote, digital_prob, effective_vol
 from btchour.tickers import is_hourly_window
 
 
@@ -64,7 +64,7 @@ def evaluate_market(
     seconds = _seconds_left(market.close_time, now)
     if seconds < 8:
         return []
-    vol = spot.annual_vol or settings.annual_vol
+    vol = effective_vol(spot.annual_vol, settings.annual_vol)
     p_yes = digital_prob(spot.price, market.strike, seconds, vol)
     sides = [
         ("yes", "bid", p_yes, market.yes_ask_effective),
