@@ -24,12 +24,14 @@ EV = p · b − (1 − p)
 
 `flex` 扫描顺序：**`lock_hold` → `swing_t` → `lock_wait`**。已经决定、还能吃到 $0.82 的票，先锁，不做 T。
 
+同一小时只盯**第一次进场的那张合约**：clip 之后可以翻对面；`t_fade` / 失效之后这小时不再做 T。不要在砸盘里换行权价连打。
+
 ## 何时出
 
 1. **`lock_on_book`**：对方买价已经锁住 **20%**，直接兑现（比 12% 更好就拿）。
 2. **`t_clip`**：往返 ROI ≥ **12%**，且 `p − bid` 已经不够大，不再让它跑。
 3. **`t_trail`**：曾经摸到过 12%，再从最高买价回撤 **4¢** 就走。
-4. **`t_fade`**：模型 p 比进场掉了 **20 个百分点**，方向不对，先出来。
+4. **`t_fade`**：模型 p 比进场掉了 **12 个百分点**，方向不对，先出来。同一小时不再新开 T。
 5. **`invalidate` / `flatten_time`**：p 掉到 40% 以下，或进入最后约 40 秒 TWAP 窗口。
 
 `lock_hold` 仓位即使在 `flex` 里也**不会**被做T规则刮走，也不会在 TWAP 前被 flatten。锁仓就是拿到结算（或盘口真的锁住 20%）。
@@ -51,7 +53,7 @@ python3 -m btchour run --once --playbook flex
 | `BTCHOUR_SWING_MIN_ASK` / `MAX_ASK` | 0.28 / 0.72 |
 | `BTCHOUR_SWING_TARGET` | 0.12 |
 | `BTCHOUR_SWING_TRAIL` | 0.04 |
-| `BTCHOUR_SWING_FADE` | 0.20 |
+| `BTCHOUR_SWING_FADE` | 0.12 |
 | `BTCHOUR_SWING_MAX_DISTANCE` | 600 |
 
 这不是「每笔 T 都赚 12–20%」。12% 是**出货目标**，不是保证。缺口消失、模型反转、或最后一分钟 TWAP，都可以把一截利润吐回去。空仓仍然是正确动作。

@@ -146,6 +146,31 @@ class Store:
             )
         self.conn.commit()
 
+    def swing_memories(self) -> dict:
+        from btchour.strategy import SwingMemory, remember_swing_exit
+
+        memories: dict = {}
+        rows = self.conn.execute(
+            "SELECT event_ticker, ticker, side, status, result, raw FROM trades ORDER BY id"
+        ).fetchall()
+        for row in rows:
+            raw = {}
+            try:
+                raw = json.loads(row["raw"] or "{}")
+            except Exception:
+                raw = {}
+            if raw.get("play") != "swing_t":
+                continue
+            event = row["event_ticker"]
+            current = memories.get(event) or SwingMemory()
+            if row["status"] in {"closed", "settled"}:
+                memories[event] = remember_swing_exit(
+                    current, row["ticker"], row["side"], row["result"] or ""
+                )
+            elif row["status"] in {"open", "working"}:
+                memories[event] = SwingMemory(ticker=row["ticker"], side=row["side"], dead=current.dead)
+        return memories
+
     def summary(self) -> dict:
         open_n = self.conn.execute("SELECT COUNT(*) FROM trades WHERE status = 'open'").fetchone()[0]
         settled = self.conn.execute(

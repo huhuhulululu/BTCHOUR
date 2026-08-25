@@ -51,7 +51,7 @@ class Settings:
     swing_trail: float = 0.04
     swing_runner_gap: float = 0.12
     swing_max_distance: float = 600.0
-    swing_fade: float = 0.20
+    swing_fade: float = 0.12
     scan_15m: bool = True
     scan_daily: bool = True
     scan_weekly: bool = True
@@ -126,7 +126,7 @@ def load_settings() -> Settings:
         swing_trail=_env_float("BTCHOUR_SWING_TRAIL", 0.04),
         swing_runner_gap=_env_float("BTCHOUR_SWING_RUNNER_GAP", 0.12),
         swing_max_distance=_env_float("BTCHOUR_SWING_MAX_DISTANCE", 600.0),
-        swing_fade=_env_float("BTCHOUR_SWING_FADE", 0.20),
+        swing_fade=_env_float("BTCHOUR_SWING_FADE", 0.12),
         scan_15m=_env_bool("BTCHOUR_SCAN_15M", True),
         scan_daily=_env_bool("BTCHOUR_SCAN_DAILY", True),
         scan_weekly=_env_bool("BTCHOUR_SCAN_WEEKLY", True),

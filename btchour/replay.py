@@ -12,7 +12,7 @@ from btchour.fees import fill_cost
 from btchour.kalshi import KalshiClient, Market, market_from_api
 from btchour.model import SpotQuote, digital_prob, effective_vol, realized_annual_vol
 from btchour.paper import paper_close, paper_fill, paper_settle
-from btchour.strategy import scan_markets
+from btchour.strategy import SwingMemory, apply_swing_memory, remember_swing_exit, scan_markets
 from btchour.tickers import format_event_ticker
 
 ET = ZoneInfo("America/New_York")
@@ -104,6 +104,7 @@ def replay_bars(
     takes: list[dict] = []
     best = None
     hold_candidates = 0
+    swing_mem = SwingMemory()
     for bar in bars:
         left = maturity_s - bar.end_ts
         now = datetime.fromtimestamp(bar.end_ts, timezone.utc)
@@ -181,12 +182,16 @@ def replay_bars(
                         }
                     )
                     just_closed = (position["ticker"], position["side"])
+                    if (position.get("entry") or {}).get("play") == "swing_t":
+                        swing_mem = remember_swing_exit(
+                            swing_mem, position["ticker"], position["side"], action.reason
+                        )
                     position = None
 
         if position is None:
             opps = [
                 item
-                for item in scan_markets(markets, spot, settings, now)
+                for item in apply_swing_memory(scan_markets(markets, spot, settings, now), swing_mem)
                 if (item.ticker, item.side) != just_closed
             ]
             if opps:

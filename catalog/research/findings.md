@@ -59,7 +59,7 @@ This is still not “every fill makes 20%.” One clip locked +29%; the other wa
 
 ## Lock playbook (稳健 20%)
 
-Default is now `BTCHOUR_PLAYBOOK=lock`. Gates: σ ≥ 3.2, p ≥ 99.8%, b ≥ 20%, EV ≥ 20%. Taker only at ≤ $0.82; otherwise rest $0.83 (`lock_wait`, paper status `working`).
+`BTCHOUR_PLAYBOOK=lock` only does this path. Gates: σ ≥ 3.2, p ≥ 99.8%, b ≥ 20%, EV ≥ 20%. Taker only at ≤ $0.82; otherwise rest $0.83 (`lock_wait`, paper status `working`).
 
 Live 4pm window (2026-08-25 ~19:05 UTC, BRTI ≈ 79094):
 
@@ -69,6 +69,34 @@ Live 4pm window (2026-08-25 ~19:05 UTC, BRTI ≈ 79094):
 - Paper `run --once` recorded that wait as `working`, not a fill
 
 8-hour hourly replay with candle **ask lows** (`replay --hours 8 --playbook lock`): **0 takes / 0 pnl**. The 95% / $0.81 tickets that used to look like 20% are rejected (σ≈2.3). That is the point.
+
+## 做T / short swing (2026-08-25 ~19:26 UTC)
+
+Default is `BTCHOUR_PLAYBOOK=flex`: `lock_hold` first, then `swing_t`, then `lock_wait`. 12% is a **clip target**, not a locked 20%.
+
+Live 4pm book (BRTI ≈ 79050, ~33 minutes left):
+
+- **0 lock_hold**, **0 swing_t**. ATM is already tight: closest YES `T78999.99` ask 0.68 / p≈56% (gap −12%); YES `T79199.99` ask 0.22 / p≈33%.
+- One wait: daily NO `KXBTCD-26AUG2517-T80999.99` rest $0.83 (touch $0.99, p≈99.98%)
+- 15m `KXBTC15M-26AUG251530` already one-sided (YES 0.1¢ / NO $1.00) — not a T
+- Paper `run --once --playbook flex` recorded the wait as `working`
+
+First 8-hour swing replay (no same-hour discipline) **overtraded the dump**: 10 takes / 6 wins / **−4.74** at 10 contracts. `AUG2510` hopped five nearby strikes.
+
+After “one ticker per hour, flip only after a clip, stop after a fade, fade at 12 points”:
+
+`replay --hours 8 --playbook swing` (same window, default 10 contracts):
+
+| Hour | Ticket | Exit | ROI | PnL |
+| --- | --- | --- | --- | --- |
+| `AUG2514` | YES `T79199.99` @ 0.48 | `lock_on_book` | +23% | +1.16 |
+| `AUG2513` | NO `T79299.99` @ 0.44 | `t_fade` | −27% | −1.23 |
+| `AUG2511` | NO `T79399.99` @ 0.70 | `t_fade` | −17% | −1.21 |
+| `AUG2510` | YES `T78399.99` @ 0.71 | `t_clip` | +16% | +1.17 |
+| same ticker | NO `T78399.99` @ 0.65 | `t_fade` | −23% | −1.53 |
+| `AUG2509` | YES `T78699.99` @ 0.55 | `lock_on_book` | +21% | +1.18 |
+
+**6 takes / 3 wins / −0.47**. `flex` on the same candles is identical (no lock_hold print). Faster fade cut a previous `AUG2513` 20% lock, and also cut the dump flip from −76% to −23%. Empty hours are still the common case.
 
 ## Order book
 

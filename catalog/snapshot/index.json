@@ -1,11 +1,11 @@
 {
-  "synced_at": "2026-08-25T19:11:41.138502+00:00",
+  "synced_at": "2026-08-25T19:29:31.572117+00:00",
   "spot": {
-    "price": 79100.66916666672,
+    "price": 78935.08799999997,
     "source": "kalshi_brti_live",
-    "twap60": 79086.27144535525,
-    "annual_vol": 0.2671101204655533,
-    "ts_ms": 1787685101000
+    "twap60": 78931.97217213115,
+    "annual_vol": 0.272728393689232,
+    "ts_ms": 1787686171000
   },
   "open_events": [
     {
@@ -356,10 +356,10 @@
       "close_et": "2026-08-28T17:00:00-04:00"
     },
     {
-      "event_ticker": "KXBTC15M-26AUG251515",
-      "title": "BTC 15 min \u00b7 $79,129.28 target",
-      "sub_title": "Aug 25 - 3:00PM EDT to 3:15PM EDT",
-      "strike_date": "2026-08-25T19:15:00Z",
+      "event_ticker": "KXBTC15M-26AUG251530",
+      "title": "BTC 15 min \u00b7 $79,148.14 target",
+      "sub_title": "Aug 25 - 3:15PM EDT to 3:30PM EDT",
+      "strike_date": "2026-08-25T19:30:00Z",
       "status": null,
       "cadence": "fifteen_min",
       "close_et": null

@@ -14,7 +14,7 @@ from btchour.model import SpotQuote, digital_prob, effective_vol, sigma_cushion
 from btchour.paper import paper_close, paper_fill, paper_settle
 from btchour.score import score_market
 from btchour.store import Store
-from btchour.strategy import Opportunity, _seconds_left, scan_markets
+from btchour.strategy import Opportunity, _seconds_left, apply_swing_memory, scan_markets
 
 
 def make_client(settings: Settings) -> KalshiClient:
@@ -75,7 +75,7 @@ def scan_once(client: KalshiClient, settings: Settings | None = None, persist: b
         ts_ms=spot_info.get("ts_ms"),
     )
     markets = _markets_from_snapshot(snapshot)
-    opportunities = scan_markets(markets, spot, settings)
+    opportunities = apply_swing_memory(scan_markets(markets, spot, settings), Store().swing_memories())
     now = datetime.now(timezone.utc)
     scored = []
     for market in markets:

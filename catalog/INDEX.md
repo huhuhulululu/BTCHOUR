@@ -15,6 +15,7 @@ python3 -m btchour sync
 | `catalog/series/*.json` | 系列元数据、结算源、费率 |
 | `catalog/rules/` | 结算、ticker、费率、**EV = p·b−(1−p)**、锁仓、**做T / 短线**、灵活编排 |
 | `catalog/snapshot/latest.json` | 最近一次从 Kalshi 拉回的小时盘快照 |
+| `catalog/snapshot/replay.json` / `replay-swing.json` | 最近一次小时回放（flex / swing） |
 | `data/catalog/latest.json` | 运行时副本（不入库） |
 
 同一 `KXBTCD` 系列里还有 daily / weekly 场次（例如 5pm EDT）。小时盘以 `product_metadata.cadence=hourly` 为准。

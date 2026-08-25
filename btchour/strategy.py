@@ -405,6 +405,47 @@ def evaluate_swing_market(
     return found
 
 
+@dataclass
+class SwingMemory:
+    """Per-event 做T state: stay on one ticker, flip after a clip, stop after a fade."""
+
+    ticker: str | None = None
+    side: str | None = None
+    dead: bool = False
+
+
+def remember_swing_exit(memory: SwingMemory, ticker: str, side: str, reason: str) -> SwingMemory:
+    dead = memory.dead or reason in {"t_fade", "invalidate", "flatten_time"}
+    return SwingMemory(ticker=ticker, side=side, dead=dead)
+
+
+def allow_swing(opportunity: Opportunity, memory: SwingMemory | None) -> bool:
+    if opportunity.play != "swing_t":
+        return True
+    if memory is None or (memory.ticker is None and not memory.dead):
+        return True
+    if memory.dead:
+        return False
+    return opportunity.ticker == memory.ticker and opportunity.side != memory.side
+
+
+def apply_swing_memory(
+    opportunities: list[Opportunity],
+    memories: dict[str, SwingMemory] | SwingMemory | None,
+) -> list[Opportunity]:
+    if memories is None:
+        return list(opportunities)
+    out: list[Opportunity] = []
+    for row in opportunities:
+        if isinstance(memories, SwingMemory):
+            memory = memories
+        else:
+            memory = memories.get(row.event_ticker)
+        if allow_swing(row, memory):
+            out.append(row)
+    return out
+
+
 def scan_markets(markets: list[Market], spot: SpotQuote, settings: Settings, now: datetime | None = None) -> list[Opportunity]:
     locks: list[Opportunity] = []
     swings: list[Opportunity] = []
