@@ -27,6 +27,7 @@ class LedgerTests(unittest.TestCase):
             max_price=0.82,
             limit_price=0.81,
             taker=True,
+            b=0.21,
             if_win_roi=0.21,
             expected_roi=0.18,
             ev=0.18,
@@ -71,5 +72,6 @@ class SettingsTests(unittest.TestCase):
     def test_defaults_lock_twenty_percent(self):
         settings = Settings()
         self.assertEqual(settings.target_profit, 0.20)
+        self.assertEqual(settings.min_ev, 0.20)
         self.assertEqual(settings.mode, "paper")
         self.assertFalse(settings.live)

@@ -54,6 +54,10 @@ class Settings:
     def can_sign(self) -> bool:
         return bool(self.api_key_id and self.private_key_pem)
 
+    @property
+    def min_ev(self) -> float:
+        return self.min_expected_roi
+
 
 def load_settings() -> Settings:
     demo = _env_bool("KALSHI_DEMO", False)

@@ -25,6 +25,7 @@ class Opportunity:
     max_price: float
     limit_price: float
     taker: bool
+    b: float
     if_win_roi: float
     expected_roi: float
     ev: float
@@ -85,11 +86,10 @@ def evaluate_market(
         if limit <= 0:
             continue
         cost = fill_cost(ask if taker else limit, 1.0, taker=taker)
-        if cost.if_win_roi + 1e-12 < settings.target_profit:
+        edge = cost.edge(model_p)
+        if edge.b + 1e-12 < settings.target_profit:
             continue
-        expected = cost.expected_roi(model_p)
-        ev = cost.betting_ev(model_p)
-        if ev + 1e-12 < settings.min_expected_roi:
+        if edge.ev + 1e-12 < settings.min_ev:
             continue
         count = _clip_count(limit, settings)
         if count < 1:
@@ -109,15 +109,16 @@ def evaluate_market(
                 max_price=taker_cap if taker else maker_cap,
                 limit_price=ask if taker else limit,
                 taker=taker,
-                if_win_roi=cost.if_win_roi,
-                expected_roi=expected,
-                ev=ev,
+                b=edge.b,
+                if_win_roi=edge.b,
+                expected_roi=edge.ev,
+                ev=edge.ev,
                 fee=cost.fee,
                 count=int(count),
                 reason=(
-                    f"{side.upper()} if-win {cost.if_win_roi:.1%} at "
-                    f"{'taker' if taker else 'maker'} {ask if taker else limit:.2f}; "
-                    f"model {model_p:.1%} vs strike {market.strike:.2f} / spot {spot.price:.2f}"
+                    f"{side.upper()} EV={edge.ev:.1%} p={edge.p:.1%} b={edge.b:.1%} "
+                    f"at {'taker' if taker else 'maker'} {ask if taker else limit:.2f}; "
+                    f"strike {market.strike:.2f} / spot {spot.price:.2f}"
                 ),
             )
         )

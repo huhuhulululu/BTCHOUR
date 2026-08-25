@@ -15,8 +15,12 @@ def _print_json(payload: object) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Kalshi BTC hourly (KXBTCD) catalog and 20% if-win engine")
+    parser = argparse.ArgumentParser(description="Kalshi BTC hourly (KXBTCD) engine. Score: EV = p*b - (1-p)")
     sub = parser.add_subparsers(dest="cmd", required=True)
+
+    calc = sub.add_parser("ev", help="Compute EV = p*b - (1-p)")
+    calc.add_argument("--p", type=float, required=True, help="P(win) in [0,1]")
+    calc.add_argument("--b", type=float, required=True, help="Net odds (if-win profit / stake)")
 
     sub.add_parser("sync", help="Pull Kalshi hourly directory into catalog/")
     sub.add_parser("scan", help="Sync, score the current hour, print qualifying tickets")
@@ -28,6 +32,13 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("status", help="Local paper/live ledger summary")
 
     args = parser.parse_args(argv)
+    if args.cmd == "ev":
+        from btchour.fees import Edge
+
+        edge = Edge.from_parts(args.p, args.b)
+        _print_json(edge.as_dict())
+        return 0
+
     settings = load_settings()
     client = make_client(settings)
 
@@ -97,8 +108,8 @@ def main(argv: list[str] | None = None) -> int:
                 "formula": payload.get("formula"),
                 "best_ev": payload.get("best_ev"),
                 "note": (
-                    "Empty opportunities is normal. The bot only prints a ticket when "
-                    f"if-win ROI >= {settings.target_profit:.0%} and model P(win) >= {settings.min_win_prob:.0%}."
+                    "Empty is normal. Ticket requires EV=p*b-(1-p) "
+                    f">= {settings.min_ev:.0%}, b >= {settings.target_profit:.0%}, p >= {settings.min_win_prob:.0%}."
                 ),
             }
         )

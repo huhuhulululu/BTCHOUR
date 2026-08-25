@@ -69,4 +69,5 @@ class ScoreTests(unittest.TestCase):
         yes = next(row for row in scores if row.side == "yes")
         self.assertTrue(yes.passes)
         self.assertGreaterEqual(yes.ev, 0.20)
-        self.assertGreaterEqual(yes.if_win_roi, 0.20)
+        self.assertGreaterEqual(yes.b, 0.20)
+        self.assertAlmostEqual(yes.ev, yes.model_p * yes.b - (1 - yes.model_p))

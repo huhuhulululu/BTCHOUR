@@ -50,13 +50,42 @@ class FillCost:
             return 0.0
         return self.expected_pnl(win_prob) / self.cost
 
+    def edge(self, win_prob: float) -> Edge:
+        return Edge.from_parts(p=win_prob, b=self.if_win_roi)
+
     def betting_ev(self, win_prob: float) -> float:
-        """EV per unit stake: p * b - (1 - p), where b is if-win net odds."""
-        return betting_ev(win_prob, self.if_win_roi)
+        return self.edge(win_prob).ev
+
+
+@dataclass(frozen=True)
+class Edge:
+    """Unit-stake betting edge.
+
+    EV = p · b − (1 − p)
+
+    p: P(win) in [0, 1]
+    b: net odds = if-win profit / stake  (after fees)
+    EV: expected profit per $1 of stake
+    """
+
+    p: float
+    b: float
+    ev: float
+
+    @classmethod
+    def from_parts(cls, p: float, b: float) -> "Edge":
+        return cls(p=p, b=b, ev=p * b - (1.0 - p))
+
+    def as_dict(self) -> dict:
+        return {"p": self.p, "b": self.b, "ev": self.ev, "formula": "EV = p*b - (1-p)"}
+
+
+def ev(p: float, b: float) -> float:
+    return Edge.from_parts(p, b).ev
 
 
 def betting_ev(win_prob: float, net_odds: float) -> float:
-    return win_prob * net_odds - (1.0 - win_prob)
+    return ev(win_prob, net_odds)
 
 
 def fill_cost(price: float, count: float = 1.0, *, taker: bool = True, multiplier: float = 1.0) -> FillCost:

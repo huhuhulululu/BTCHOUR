@@ -16,6 +16,7 @@ class SideScore:
     seconds_left: float
     ask: float
     model_p: float
+    b: float
     if_win_roi: float
     ev: float
     fee: float
@@ -40,14 +41,14 @@ def score_side(
     if ask is None or ask <= 0 or ask >= 1.0:
         return None
     cost = fill_cost(ask, taker=True)
-    ev = cost.betting_ev(model_p)
+    edge = cost.edge(model_p)
     reasons = []
-    if cost.if_win_roi + 1e-12 < target_profit:
-        reasons.append(f"if_win {cost.if_win_roi:.1%} < {target_profit:.0%}")
-    if model_p + 1e-12 < min_win_prob:
-        reasons.append(f"p {model_p:.1%} < {min_win_prob:.0%}")
-    if ev + 1e-12 < min_ev:
-        reasons.append(f"EV {ev:.1%} < {min_ev:.0%}")
+    if edge.b + 1e-12 < target_profit:
+        reasons.append(f"b {edge.b:.1%} < {target_profit:.0%}")
+    if edge.p + 1e-12 < min_win_prob:
+        reasons.append(f"p {edge.p:.1%} < {min_win_prob:.0%}")
+    if edge.ev + 1e-12 < min_ev:
+        reasons.append(f"EV {edge.ev:.1%} < {min_ev:.0%}")
     return SideScore(
         ticker=market.ticker,
         side=side,
@@ -55,9 +56,10 @@ def score_side(
         spot=spot.price,
         seconds_left=seconds_left,
         ask=ask,
-        model_p=model_p,
-        if_win_roi=cost.if_win_roi,
-        ev=ev,
+        model_p=edge.p,
+        b=edge.b,
+        if_win_roi=edge.b,
+        ev=edge.ev,
         fee=cost.fee,
         passes=not reasons,
         reject="; ".join(reasons),
