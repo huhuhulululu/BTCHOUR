@@ -21,6 +21,7 @@ def _write_json(path: Path, payload: object) -> None:
 def _compact_market(market: Market) -> dict:
     return {
         "ticker": market.ticker,
+        "event_ticker": market.event_ticker,
         "subtitle": market.subtitle,
         "strike": market.strike,
         "strike_type": market.strike_type,
@@ -100,6 +101,41 @@ def sync_catalog(client: KalshiClient, settings: Settings) -> dict:
     focus_markets = by_event.get(focus_event["event_ticker"], []) if focus_event else []
     spot = fetch_spot(client, focus_event["event_ticker"] if focus_event else None)
 
+    tradable = []
+    for event in open_events:
+        cadence = (event.get("product_metadata") or {}).get("cadence")
+        if cadence == "hourly":
+            include = True
+        elif cadence == "daily":
+            include = settings.scan_daily
+        elif cadence == "weekly":
+            include = settings.scan_weekly
+        else:
+            include = not settings.hourly_only
+        if not include:
+            continue
+        markets = by_event.get(event["event_ticker"], [])
+        tradable.append(
+            {
+                "event": _event_summary(event),
+                "market_count": len(markets),
+                "markets": [_compact_market(m) for m in sorted(markets, key=lambda m: m.strike or 0)],
+            }
+        )
+    if settings.scan_15m:
+        try:
+            for event in client.events("KXBTC15M", "open"):
+                markets = client.markets_by_event(event["event_ticker"])
+                tradable.append(
+                    {
+                        "event": _event_summary(event),
+                        "market_count": len(markets),
+                        "markets": [_compact_market(m) for m in markets],
+                    }
+                )
+        except Exception:
+            pass
+
     snapshot = {
         "synced_at": now.isoformat(),
         "source": "kalshi",
@@ -132,6 +168,7 @@ def sync_catalog(client: KalshiClient, settings: Settings) -> dict:
             "market_count": len(focus_markets),
             "markets": [_compact_market(m) for m in sorted(focus_markets, key=lambda m: m.strike or 0)],
         },
+        "tradable": tradable,
         "rules_primary_sample": focus_markets[0].rules_primary if focus_markets else "",
     }
 
@@ -146,6 +183,7 @@ def sync_catalog(client: KalshiClient, settings: Settings) -> dict:
             "unopened_hours": snapshot["unopened_hours"],
             "current_hour": snapshot["current_hour"]["event"],
             "current_hour_markets": snapshot["current_hour"]["market_count"],
+            "tradable": [block["event"] for block in snapshot.get("tradable") or []],
         },
     )
     return snapshot

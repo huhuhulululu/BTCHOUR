@@ -32,7 +32,7 @@ def _market(**overrides):
 
 class StrategyTests(unittest.TestCase):
     def setUp(self):
-        self.settings = Settings(target_profit=0.20, min_win_prob=0.95, min_expected_roi=0.20)
+        self.settings = Settings(target_profit=0.20, min_win_prob=0.95, min_expected_roi=0.20, allow_maker=False)
         self.now = datetime(2026, 8, 25, 17, 30, tzinfo=timezone.utc)
         self.spot = SpotQuote(79200, "test", annual_vol=0.55)
 

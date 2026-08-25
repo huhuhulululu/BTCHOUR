@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from btchour.config import Settings
 from btchour.fees import fill_cost, lock_exit_price, max_entry_price
 from btchour.kalshi import Market
-from btchour.model import SpotQuote, digital_prob, effective_vol
+from btchour.model import SpotQuote, digital_prob, effective_vol, sigma_cushion
 from btchour.tickers import is_hourly_window
 
 
@@ -59,9 +59,33 @@ def _clip_count(price: float, settings: Settings) -> float:
     return max(0.0, min(settings.max_contracts, by_notional))
 
 
+def market_window_ok(open_time: str | None, close_time: str | None, settings: Settings) -> bool:
+    if not open_time or not close_time:
+        return False
+    start = datetime.fromisoformat(open_time.replace("Z", "+00:00"))
+    end = datetime.fromisoformat(close_time.replace("Z", "+00:00"))
+    seconds = (end - start).total_seconds()
+    if 8 * 60 <= seconds <= 25 * 60:
+        return settings.scan_15m
+    if 50 * 60 <= seconds <= 70 * 60:
+        return True
+    if 90 * 60 <= seconds <= 36 * 3600:
+        return settings.scan_daily
+    if seconds > 36 * 3600:
+        return settings.scan_weekly
+    return not settings.hourly_only
+
+
 def _eligible_market(market: Market, settings: Settings, now: datetime) -> float | None:
     if market.strike is None or market.strike_type not in {"greater", "greater_or_equal"}:
         return None
+    if settings.playbook == "lock":
+        if not market_window_ok(market.open_time, market.close_time, settings):
+            return None
+        seconds = _seconds_left(market.close_time, now)
+        if seconds < 8:
+            return None
+        return seconds
     if settings.hourly_only and not is_hourly_window(market.open_time, market.close_time):
         return None
     seconds = _seconds_left(market.close_time, now)
@@ -243,7 +267,78 @@ def evaluate_scalp_market(
     return found
 
 
+def evaluate_lock_market(
+    market: Market,
+    spot: SpotQuote,
+    settings: Settings,
+    now: datetime | None = None,
+) -> list[Opportunity]:
+    now = now or datetime.now(timezone.utc)
+    seconds = _eligible_market(market, settings, now)
+    if seconds is None:
+        return []
+    vol = effective_vol(spot.annual_vol, settings.annual_vol)
+    sigma = sigma_cushion(spot.price, market.strike, seconds, vol)
+    if sigma + 1e-12 < settings.min_sigma:
+        return []
+    p_yes = digital_prob(spot.price, market.strike, seconds, vol)
+    sides = [
+        ("yes", "bid", p_yes, market.yes_ask_effective),
+        ("no", "ask", 1.0 - p_yes, market.no_ask_effective),
+    ]
+    found: list[Opportunity] = []
+    for side, book_side, model_p, ask in sides:
+        if ask is None or ask <= 0 or ask >= 1.0:
+            continue
+        if model_p + 1e-12 < settings.min_win_prob:
+            continue
+        taker_cap = max_entry_price(settings.target_profit, taker=True)
+        maker_cap = max_entry_price(settings.target_profit, taker=False)
+        taker = ask <= taker_cap
+        if not taker and not settings.allow_maker:
+            continue
+        limit = ask if taker else maker_cap
+        if limit <= 0:
+            continue
+        cost = fill_cost(ask if taker else limit, 1.0, taker=taker)
+        edge = cost.edge(model_p)
+        if edge.b + 1e-12 < settings.target_profit:
+            continue
+        if edge.ev + 1e-12 < settings.min_ev:
+            continue
+        play = "lock_hold" if taker else "lock_wait"
+        row = _make_opportunity(
+            market=market,
+            spot=spot,
+            settings=settings,
+            seconds=seconds,
+            side=side,
+            book_side=book_side,
+            model_p=model_p,
+            ask=ask,
+            taker=taker,
+            limit=limit,
+            cost=cost,
+            play=play,
+            reason=(
+                f"{play} {side.upper()} EV={edge.ev:.1%} p={edge.p:.1%} b={edge.b:.1%} "
+                f"σ={sigma:.1f} at {'taker' if taker else 'wait'} {ask if taker else limit:.2f}; "
+                f"strike {market.strike:.2f} / spot {spot.price:.2f}"
+            ),
+        )
+        if row:
+            found.append(row)
+    found.sort(key=lambda row: (row.taker, row.expected_roi, row.model_p), reverse=True)
+    return found
+
+
 def scan_markets(markets: list[Market], spot: SpotQuote, settings: Settings, now: datetime | None = None) -> list[Opportunity]:
+    if settings.playbook == "lock":
+        found: list[Opportunity] = []
+        for market in markets:
+            found.extend(evaluate_lock_market(market, spot, settings, now))
+        found.sort(key=lambda row: (row.taker, row.expected_roi, row.model_p, -row.seconds_left), reverse=True)
+        return found
     hold: list[Opportunity] = []
     scalp: list[Opportunity] = []
     if settings.playbook in {"hold", "flex"}:

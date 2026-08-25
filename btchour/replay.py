@@ -42,8 +42,8 @@ def _minute_spot(series: list[dict]) -> dict[int, float]:
     return {minute: values[-1] for minute, values in by_min.items()}
 
 
-def _money(stick: dict, key: str) -> float | None:
-    raw = (stick.get(key) or {}).get("close_dollars")
+def _money(stick: dict, key: str, field: str = "close_dollars") -> float | None:
+    raw = (stick.get(key) or {}).get(field)
     if raw is None or raw == "":
         return None
     value = float(raw)
@@ -278,8 +278,9 @@ def replay_event(client: KalshiClient, event_ticker: str, settings: Settings) ->
             stick = candles.get(strike, {}).get(end_ts)
             if not stick:
                 continue
+            ask_field = "low_dollars" if settings.playbook == "lock" else "close_dollars"
             quotes[strike] = {
-                "yes_ask": _money(stick, "yes_ask"),
+                "yes_ask": _money(stick, "yes_ask", ask_field),
                 "yes_bid": _money(stick, "yes_bid"),
             }
         if not quotes:

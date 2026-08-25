@@ -1,6 +1,6 @@
 # 多种交易方式（flex playbook）
 
-默认玩法是 **`flex`**。优势不在「拿到底」，而在同一小时里按盘口切换：
+默认玩法已经改成 **`lock`**（见 [`lock.md`](lock.md)）。下面是旧的 `flex` 玩法，需要时设 `BTCHOUR_PLAYBOOK=flex`。
 
 | Play | 何时进 | 何时出 |
 | --- | --- | --- |

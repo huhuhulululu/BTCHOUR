@@ -13,7 +13,7 @@ python3 -m btchour sync
 | 路径 | 内容 |
 | --- | --- |
 | `catalog/series/*.json` | 系列元数据、结算源、费率 |
-| `catalog/rules/` | 结算、ticker、费率、**EV = p·b−(1−p)**、多种玩法 |
+| `catalog/rules/` | 结算、ticker、费率、**EV = p·b−(1−p)**、**稳健锁仓**、旧灵活玩法 |
 | `catalog/snapshot/latest.json` | 最近一次从 Kalshi 拉回的小时盘快照 |
 | `data/catalog/latest.json` | 运行时副本（不入库） |
 

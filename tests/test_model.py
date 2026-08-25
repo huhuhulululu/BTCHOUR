@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from btchour.model import digital_prob, effective_vol, realized_annual_vol
+from btchour.model import digital_prob, effective_vol, realized_annual_vol, required_p, sigma_cushion
 
 
 class ModelTests(unittest.TestCase):
@@ -35,3 +35,13 @@ class ModelTests(unittest.TestCase):
         self.assertIsNotNone(vol)
         self.assertGreaterEqual(vol, 0.25)
         self.assertLessEqual(vol, 1.8)
+
+    def test_sigma_cushion_grows_with_distance(self):
+        near = sigma_cushion(79200, 79100, 1800, 0.55)
+        far = sigma_cushion(79200, 78000, 1800, 0.55)
+        self.assertGreater(far, near)
+        self.assertGreater(far, 3.2)
+
+    def test_required_p_at_twenty_percent_odds(self):
+        self.assertAlmostEqual(required_p(0.20, 0.20), 1.0)
+        self.assertLess(required_p(0.20, 0.25), 0.97)

@@ -53,6 +53,24 @@ def effective_vol(realized: float | None, floor: float) -> float:
     return max(realized, floor)
 
 
+def sigma_cushion(spot: float, strike: float, seconds: float, annual_vol: float) -> float:
+    """How many residual-vol sigmas the spot is away from the strike."""
+    if spot <= 0 or strike <= 0 or annual_vol <= 0:
+        return 0.0
+    tau = max(seconds, MIN_TAU_SECONDS) / SECONDS_PER_YEAR
+    denom = annual_vol * math.sqrt(tau)
+    if denom <= 0:
+        return 99.0 if spot != strike else 0.0
+    return abs(math.log(spot / strike)) / denom
+
+
+def required_p(target_ev: float, net_odds: float) -> float:
+    """p needed for EV = p*b - (1-p) to reach target_ev."""
+    if net_odds <= -1:
+        return 1.0
+    return min(1.0, max(0.0, (target_ev + 1.0) / (1.0 + net_odds)))
+
+
 @dataclass(frozen=True)
 class SpotQuote:
     price: float

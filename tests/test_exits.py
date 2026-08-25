@@ -27,7 +27,7 @@ def _market(yes_bid="0.70", yes_ask="0.71", no_bid="0.29", no_ask="0.30"):
 
 class ExitTests(unittest.TestCase):
     def setUp(self):
-        self.settings = Settings()
+        self.settings = Settings(allow_early_exit=True)
         self.cost = fill_cost(0.50, taker=True)
         self.position = OpenPosition(
             ticker="KXBTCD-26AUG2514-T78000",

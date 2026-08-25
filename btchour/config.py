@@ -31,15 +31,19 @@ def _env_int(name: str, default: int) -> int:
 class Settings:
     mode: str = "paper"
     target_profit: float = 0.20
-    min_win_prob: float = 0.95
+    min_win_prob: float = 0.998
     min_expected_roi: float = 0.20
     annual_vol: float = 0.55
-    poll_seconds: int = 10
+    poll_seconds: int = 5
     max_contracts: float = 10.0
     max_notional: float = 25.0
     hourly_only: bool = True
-    allow_maker: bool = False
-    playbook: str = "flex"
+    allow_maker: bool = True
+    playbook: str = "lock"
+    min_sigma: float = 3.2
+    scan_15m: bool = True
+    scan_daily: bool = True
+    scan_weekly: bool = True
     scalp_min_p: float = 0.60
     scalp_min_gap: float = 0.10
     scalp_max_entry: float = 0.65
@@ -47,7 +51,7 @@ class Settings:
     scalp_max_lock: float = 0.90
     invalidate_p: float = 0.40
     flatten_seconds: float = 40.0
-    allow_early_exit: bool = True
+    allow_early_exit: bool = False
     series_ticker: str = "KXBTCD"
     kalshi_base: str = "https://external-api.kalshi.com/trade-api/v2"
     kalshi_demo: bool = False
@@ -82,21 +86,28 @@ def load_settings() -> Settings:
     mode = os.environ.get("BTCHOUR_MODE", "paper").strip().lower()
     if mode not in {"paper", "live"}:
         raise ValueError("BTCHOUR_MODE must be paper or live")
-    playbook = os.environ.get("BTCHOUR_PLAYBOOK", "flex").strip().lower()
-    if playbook not in {"hold", "flex", "scalp"}:
-        raise ValueError("BTCHOUR_PLAYBOOK must be hold, flex, or scalp")
+    playbook = os.environ.get("BTCHOUR_PLAYBOOK", "lock").strip().lower()
+    if playbook not in {"hold", "flex", "scalp", "lock"}:
+        raise ValueError("BTCHOUR_PLAYBOOK must be lock, hold, flex, or scalp")
+    min_win_prob = _env_float("BTCHOUR_MIN_WIN_PROB", 0.998 if playbook == "lock" else 0.95)
+    allow_maker = _env_bool("BTCHOUR_ALLOW_MAKER", playbook == "lock")
+    allow_early_exit = _env_bool("BTCHOUR_ALLOW_EARLY_EXIT", playbook in {"flex", "scalp"})
     return Settings(
         mode=mode,
         target_profit=_env_float("BTCHOUR_TARGET_PROFIT", 0.20),
-        min_win_prob=_env_float("BTCHOUR_MIN_WIN_PROB", 0.95),
+        min_win_prob=min_win_prob,
         min_expected_roi=_env_float("BTCHOUR_MIN_EXPECTED_ROI", 0.20),
         annual_vol=_env_float("BTCHOUR_ANNUAL_VOL", 0.55),
-        poll_seconds=_env_int("BTCHOUR_POLL_SECONDS", 10),
+        poll_seconds=_env_int("BTCHOUR_POLL_SECONDS", 5 if playbook == "lock" else 10),
         max_contracts=_env_float("BTCHOUR_MAX_CONTRACTS", 10.0),
         max_notional=_env_float("BTCHOUR_MAX_NOTIONAL", 25.0),
         hourly_only=_env_bool("BTCHOUR_HOURLY_ONLY", True),
-        allow_maker=_env_bool("BTCHOUR_ALLOW_MAKER", False),
+        allow_maker=allow_maker,
         playbook=playbook,
+        min_sigma=_env_float("BTCHOUR_MIN_SIGMA", 3.2),
+        scan_15m=_env_bool("BTCHOUR_SCAN_15M", True),
+        scan_daily=_env_bool("BTCHOUR_SCAN_DAILY", True),
+        scan_weekly=_env_bool("BTCHOUR_SCAN_WEEKLY", True),
         scalp_min_p=_env_float("BTCHOUR_SCALP_MIN_P", 0.60),
         scalp_min_gap=_env_float("BTCHOUR_SCALP_MIN_GAP", 0.10),
         scalp_max_entry=_env_float("BTCHOUR_SCALP_MAX_ENTRY", 0.65),
@@ -104,7 +115,7 @@ def load_settings() -> Settings:
         scalp_max_lock=_env_float("BTCHOUR_SCALP_MAX_LOCK", 0.90),
         invalidate_p=_env_float("BTCHOUR_INVALIDATE_P", 0.40),
         flatten_seconds=_env_float("BTCHOUR_FLATTEN_SECONDS", 40.0),
-        allow_early_exit=_env_bool("BTCHOUR_ALLOW_EARLY_EXIT", True),
+        allow_early_exit=allow_early_exit,
         series_ticker=os.environ.get("BTCHOUR_SERIES", "KXBTCD"),
         kalshi_base=base.rstrip("/"),
         kalshi_demo=demo,

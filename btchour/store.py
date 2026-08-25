@@ -95,12 +95,32 @@ class Store:
     def open_trades(self) -> list[sqlite3.Row]:
         return list(self.conn.execute("SELECT * FROM trades WHERE status = 'open'"))
 
+    def working_trades(self) -> list[sqlite3.Row]:
+        return list(self.conn.execute("SELECT * FROM trades WHERE status = 'working'"))
+
     def has_open(self, ticker: str, side: str) -> bool:
         row = self.conn.execute(
-            "SELECT id FROM trades WHERE ticker = ? AND side = ? AND status = 'open' LIMIT 1",
+            "SELECT id FROM trades WHERE ticker = ? AND side = ? AND status IN ('open', 'working') LIMIT 1",
             (ticker, side),
         ).fetchone()
         return row is not None
+
+    def promote_working(self, trade_id: int, price: float, fee: float, cost: float, if_win_roi: float) -> None:
+        self.conn.execute(
+            """
+            UPDATE trades SET status = 'open', taker = 1, price = ?, fee = ?, cost = ?, if_win_roi = ?
+            WHERE id = ? AND status = 'working'
+            """,
+            (price, fee, cost, if_win_roi, trade_id),
+        )
+        self.conn.commit()
+
+    def cancel_trade(self, trade_id: int, reason: str = "cancelled") -> None:
+        self.conn.execute(
+            "UPDATE trades SET status = 'cancelled', result = ? WHERE id = ?",
+            (reason, trade_id),
+        )
+        self.conn.commit()
 
     def settle_trade(self, trade_id: int, result: str, pnl: float) -> None:
         self.conn.execute(
@@ -133,8 +153,10 @@ class Store:
         wins = self.conn.execute(
             "SELECT COUNT(*) FROM trades WHERE status IN ('settled', 'closed') AND pnl > 0"
         ).fetchone()[0]
+        working_n = self.conn.execute("SELECT COUNT(*) FROM trades WHERE status = 'working'").fetchone()[0]
         return {
             "open": open_n,
+            "working": working_n,
             "settled": settled["n"],
             "closed": closed["n"],
             "completed": settled["n"] + closed["n"],

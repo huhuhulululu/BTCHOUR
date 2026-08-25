@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 
 from btchour.catalog import sync_catalog
@@ -8,8 +9,7 @@ from btchour.engine import _markets_from_snapshot, make_client
 from btchour.kalshi import KalshiClient
 from btchour.model import SpotQuote, effective_vol
 from btchour.score import score_market
-from btchour.strategy import evaluate_scalp_market
-from btchour.tickers import is_hourly_window
+from btchour.strategy import evaluate_scalp_market, market_window_ok, scan_markets
 
 
 def probe_book(client: KalshiClient | None = None, settings: Settings | None = None) -> dict:
@@ -28,7 +28,7 @@ def probe_book(client: KalshiClient | None = None, settings: Settings | None = N
     now = datetime.now(timezone.utc)
     scores = []
     for market in markets:
-        if settings.hourly_only and not is_hourly_window(market.open_time, market.close_time):
+        if not market_window_ok(market.open_time, market.close_time, settings):
             continue
         close = datetime.fromisoformat((market.close_time or now.isoformat()).replace("Z", "+00:00"))
         seconds = (close - now).total_seconds()
@@ -45,15 +45,20 @@ def probe_book(client: KalshiClient | None = None, settings: Settings | None = N
         )
     scores.sort(key=lambda row: row.ev, reverse=True)
     passing = [row for row in scores if row.passes]
+    locks = scan_markets(markets, spot, settings, now) if settings.playbook == "lock" else []
     scalps = []
-    for market in markets:
-        if settings.hourly_only and not is_hourly_window(market.open_time, market.close_time):
-            continue
-        scalps.extend(evaluate_scalp_market(market, spot, settings, now))
-    scalps.sort(key=lambda row: ((row.model_p - row.ask), row.ev), reverse=True)
+    if settings.playbook in {"flex", "scalp"}:
+        for market in markets:
+            scalps.extend(evaluate_scalp_market(market, spot, settings, now))
+        scalps.sort(key=lambda row: ((row.model_p - row.ask), row.ev), reverse=True)
+    waits = [row for row in locks if row.play == "lock_wait"]
+    takes = [row for row in locks if row.play == "lock_hold"]
+    high_p = [row for row in scores if row.model_p >= settings.min_win_prob]
+    cheapest_high_p = sorted(high_p, key=lambda row: row.ask)[:5]
     report = {
         "probed_at": now.isoformat(),
         "event": (snapshot.get("current_hour") or {}).get("event"),
+        "horizons": [block.get("event") for block in (snapshot.get("tradable") or [])],
         "spot": spot_info,
         "formula": "EV = p * b - (1 - p)  where b = if-win net odds after fees",
         "playbook": settings.playbook,
@@ -61,13 +66,13 @@ def probe_book(client: KalshiClient | None = None, settings: Settings | None = N
             "target_if_win": settings.target_profit,
             "min_win_prob": settings.min_win_prob,
             "min_ev": settings.min_expected_roi,
-            "scalp_min_p": settings.scalp_min_p,
-            "scalp_min_gap": settings.scalp_min_gap,
-            "scalp_max_entry": settings.scalp_max_entry,
-            "scalp_min_seconds": settings.scalp_min_seconds,
+            "min_sigma": settings.min_sigma,
         },
         "scored": len(scores),
         "passing": [row.as_dict() for row in passing],
+        "lock_takes": [row.as_dict() for row in takes],
+        "lock_waits": [row.as_dict() for row in waits[:8]],
+        "cheapest_high_p": [row.as_dict() for row in cheapest_high_p],
         "best_ev": [row.as_dict() for row in scores[:12]],
         "near_miss_high_p": [
             row.as_dict()
@@ -78,7 +83,5 @@ def probe_book(client: KalshiClient | None = None, settings: Settings | None = N
     }
     path = CATALOG_DIR / "snapshot" / "probe.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    import json
-
     path.write_text(json.dumps(report, indent=2) + "\n")
     return report
