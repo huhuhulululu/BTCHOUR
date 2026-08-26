@@ -10,7 +10,7 @@ from btchour.strategy import (
     _seconds_left,
     dump_wait_rest_ready,
     evaluate_impulse_wait_market,
-    is_fast_window,
+    is_next_session_book,
     pick_dump_wait,
 )
 
@@ -110,7 +110,7 @@ def diagnose_impulse(
     rejects: list[ImpulseReject] = []
     ok = 0
     for market in markets:
-        if not is_fast_window(market.open_time, market.close_time):
+        if not is_next_session_book(market, now):
             continue
         if market.strike is None:
             continue

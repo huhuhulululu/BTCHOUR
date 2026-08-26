@@ -150,6 +150,41 @@ class LearnTests(unittest.TestCase):
                 self.assertEqual(len(db.recent_journal(5)), 1)
                 self.assertAlmostEqual(tape_impulse(points, now, 78400.0), -300.0, delta=1.0)
 
+    def test_diagnose_ignores_the_fifteen_minute_book(self):
+        now = datetime(2026, 8, 26, 20, 13, tzinfo=timezone.utc)
+        fifteen = market_from_api(
+            {
+                "ticker": "KXBTC15M-26AUG261615-T78455.56",
+                "event_ticker": "KXBTC15M-26AUG261615",
+                "floor_strike": 78455.56,
+                "strike_type": "greater",
+                "yes_bid_dollars": "0.61",
+                "yes_ask_dollars": "0.62",
+                "no_bid_dollars": "0.37",
+                "no_ask_dollars": "0.38",
+                "open_time": "2026-08-26T20:00:00Z",
+                "close_time": "2026-08-26T20:15:00Z",
+            }
+        )
+        hourly = market_from_api(
+            {
+                "ticker": "KXBTCD-26AUG2617-T78499.99",
+                "event_ticker": "KXBTCD-26AUG2617",
+                "floor_strike": 78499.99,
+                "strike_type": "greater",
+                "yes_bid_dollars": "0.63",
+                "yes_ask_dollars": "0.64",
+                "no_bid_dollars": "0.35",
+                "no_ask_dollars": "0.36",
+                "open_time": "2026-08-25T20:00:00Z",
+                "close_time": "2026-08-26T21:00:00Z",
+            }
+        )
+        spot = SpotQuote(78468, "test", annual_vol=0.55, impulse=-20)
+        report = diagnose_impulse([fifteen, hourly], spot, Settings(playbook="flex"), now)
+        self.assertEqual(report["status"], "wait")
+        self.assertEqual(report["wait"], "KXBTCD-26AUG2617-T78499.99")
+
     def test_journal_line_skips_empty_placeholder(self):
         self.assertEqual(journal_line({"status": "no_impulse"}), "")
         self.assertNotIn("None", journal_line({"status": "blocked", "candidates": []}))
