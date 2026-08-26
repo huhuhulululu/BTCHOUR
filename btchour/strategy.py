@@ -13,6 +13,17 @@ T_PLAYS = frozenset({"swing_t", "impulse_t", "impulse_wait"})
 WAIT_PLAYS = frozenset({"lock_wait", "impulse_wait"})
 
 
+def dump_wait_rest_ready(impulse: float, settings: Settings) -> bool:
+    """Hang the 25¢ coupon while a dump is forming. Fill still needs impulse_min.
+
+    Paper AUG2616 15:21 ET: T78299 NO ≈0.36 while impulse was only −$40 to −$95.
+    Waiting for −$100 to rest meant the live ask was already 0.51. Humans hang
+    under 32–42¢ as the smash starts; they do not wait until the book is gone.
+    """
+    need = settings.impulse_wait_rest_min
+    return impulse < 0 and abs(impulse) + 1e-9 >= need
+
+
 def impulse_wait_flipped(side: str, impulse: float, settings: Settings) -> bool:
     """Pull a dump wait only when the tape has flipped, not when the 3-minute print fades."""
     if side == "no":
@@ -535,7 +546,7 @@ def evaluate_impulse_wait_market(
     if seconds is None or seconds + 1e-12 < settings.swing_min_seconds:
         return []
     move = spot.impulse
-    if move >= 0 or abs(move) + 1e-9 < settings.impulse_min:
+    if not dump_wait_rest_ready(move, settings):
         return []
     reach = settings.impulse_wait_max_distance or settings.swing_max_distance
     if abs((market.strike or 0.0) - spot.price) > reach + 1e-9:

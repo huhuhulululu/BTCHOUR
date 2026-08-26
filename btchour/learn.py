@@ -6,7 +6,13 @@ from datetime import datetime, timezone
 from btchour.config import Settings
 from btchour.kalshi import Market
 from btchour.model import SpotQuote, digital_prob, effective_vol
-from btchour.strategy import _seconds_left, evaluate_impulse_wait_market, is_fast_window, pick_dump_wait
+from btchour.strategy import (
+    _seconds_left,
+    dump_wait_rest_ready,
+    evaluate_impulse_wait_market,
+    is_fast_window,
+    pick_dump_wait,
+)
 
 
 @dataclass(frozen=True)
@@ -69,7 +75,35 @@ def diagnose_impulse(
         "need": settings.impulse_min,
         "candidates": [],
     }
-    if abs(move) + 1e-9 < settings.impulse_min:
+    dump_on = abs(move) + 1e-9 >= settings.impulse_min
+    forming = dump_wait_rest_ready(move, settings)
+    if not dump_on and not forming:
+        return report
+    waits = []
+    if move < 0:
+        for market in markets:
+            waits.extend(evaluate_impulse_wait_market(market, spot, settings, now))
+    wait_count = len(waits)
+    waits = pick_dump_wait(waits, spot)
+    if waits:
+        report["status"] = "wait"
+        report["wait"] = waits[0].ticker
+        report["open"] = 0
+        report["wait_count"] = wait_count
+        wait = waits[0]
+        report["candidates"] = [
+            {
+                "ticker": wait.ticker,
+                "side": wait.side,
+                "ask": wait.ask,
+                "p": wait.model_p,
+                "reasons": [],
+            }
+        ]
+        return report
+    if not dump_on:
+        report["wait_count"] = 0
+        report["open"] = 0
         return report
     want_yes = move > 0
     side = "yes" if want_yes else "no"
@@ -105,21 +139,12 @@ def diagnose_impulse(
             ok += 1
         rejects.append(ImpulseReject(market.ticker, side, ask, model_p, reasons))
     rejects.sort(key=lambda row: abs((row.ask or 1.0) - 0.45))
-    waits = []
-    if move < 0:
-        for market in markets:
-            waits.extend(evaluate_impulse_wait_market(market, spot, settings, now))
-    wait_count = len(waits)
-    waits = pick_dump_wait(waits, spot)
     if ok:
         report["status"] = "open"
-    elif waits:
-        report["status"] = "wait"
-        report["wait"] = waits[0].ticker
     else:
         report["status"] = "blocked"
     report["open"] = ok
-    report["wait_count"] = wait_count
+    report["wait_count"] = 0
     report["candidates"] = [
         {"ticker": row.ticker, "side": row.side, "ask": row.ask, "p": row.model_p, "reasons": row.reasons}
         for row in rejects[:8]

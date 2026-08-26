@@ -664,6 +664,7 @@ def summarize_replays(
             "impulse_taker": getattr(settings, "impulse_taker", False),
             "impulse_wait": settings.impulse_wait,
             "impulse_rest": settings.impulse_rest,
+            "impulse_wait_rest_min": settings.impulse_wait_rest_min,
             "impulse_wait_min_ask": settings.impulse_wait_min_ask,
             "impulse_wait_max_ask": settings.impulse_wait_max_ask,
             "impulse_wait_max_distance": settings.impulse_wait_max_distance,

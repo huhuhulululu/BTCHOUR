@@ -76,6 +76,27 @@ class LearnTests(unittest.TestCase):
         self.assertEqual(report["wait"], "KXBTCD-26AUG2520-T78699.99")
         self.assertGreaterEqual(report["wait_count"], 1)
 
+    def test_diagnose_journals_wait_on_a_forming_dump(self):
+        now = datetime(2026, 8, 26, 19, 21, tzinfo=timezone.utc)
+        market = market_from_api(
+            {
+                "ticker": "KXBTCD-26AUG2616-T78299.99",
+                "event_ticker": "KXBTCD-26AUG2616",
+                "floor_strike": 78299.99,
+                "strike_type": "greater",
+                "yes_bid_dollars": "0.63",
+                "yes_ask_dollars": "0.64",
+                "no_bid_dollars": "0.35",
+                "no_ask_dollars": "0.36",
+                "open_time": "2026-08-26T19:00:00Z",
+                "close_time": "2026-08-26T20:00:00Z",
+            }
+        )
+        spot = SpotQuote(78340, "test", annual_vol=0.55, impulse=-45)
+        report = diagnose_impulse([market], spot, Settings(playbook="flex"), now)
+        self.assertEqual(report["status"], "wait")
+        self.assertEqual(report["wait"], "KXBTCD-26AUG2616-T78299.99")
+
     def test_diagnose_wait_picks_near_atm_not_cheapest_ask(self):
         now = datetime(2026, 8, 26, 5, 6, tzinfo=timezone.utc)
         far = market_from_api(

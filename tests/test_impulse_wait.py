@@ -18,6 +18,7 @@ from btchour.strategy import (
     SwingMemory,
     apply_swing_memory,
     evaluate_impulse_market,
+    dump_wait_rest_ready,
     evaluate_impulse_wait_market,
     impulse_wait_flipped,
     pick_flex_entries,
@@ -124,6 +125,35 @@ class ImpulseWaitTests(unittest.TestCase):
         self.assertFalse(opps[0].taker)
         self.assertAlmostEqual(opps[0].limit_price, 0.25)
         self.assertGreater(opps[0].ask, 0.25)
+
+    def test_forming_dump_rests_before_impulse_hits_one_hundred(self):
+        # Paper AUG2616 15:21 ET: T78299 NO ≈0.36, impulse −$40 to −$95.
+        # Waiting for −$100 left the live ask at 0.51. Hang while the smash starts.
+        now = datetime(2026, 8, 26, 19, 21, tzinfo=timezone.utc)
+        forming = SpotQuote(78340, "test", annual_vol=0.55, impulse=-45)
+        coupon = _market(
+            ticker="KXBTCD-26AUG2616-T78299.99",
+            event_ticker="KXBTCD-26AUG2616",
+            floor_strike=78299.99,
+            yes_bid_dollars="0.63",
+            yes_ask_dollars="0.64",
+            no_bid_dollars="0.35",
+            no_ask_dollars="0.36",
+            open_time="2026-08-26T19:00:00Z",
+            close_time="2026-08-26T20:00:00Z",
+        )
+        self.assertTrue(dump_wait_rest_ready(-45, self.settings))
+        self.assertFalse(dump_wait_rest_ready(-20, self.settings))
+        self.assertFalse(dump_wait_rest_ready(45, self.settings))
+        opps = evaluate_impulse_wait_market(coupon, forming, self.settings, now)
+        self.assertTrue(opps)
+        self.assertEqual(opps[0].side, "no")
+        self.assertAlmostEqual(opps[0].ask, 0.36)
+        self.assertAlmostEqual(opps[0].limit_price, 0.25)
+        shallow = SpotQuote(78340, "test", annual_vol=0.55, impulse=-20)
+        self.assertEqual(evaluate_impulse_wait_market(coupon, shallow, self.settings, now), [])
+        rally = SpotQuote(78340, "test", annual_vol=0.55, impulse=80)
+        self.assertEqual(evaluate_impulse_wait_market(coupon, rally, self.settings, now), [])
 
     def test_already_dumped_twenty_nine_cent_ask_is_not_a_gap(self):
         # Paper AUG2602 T78499: rest 0.25 under ask 0.29 filled immediately, then 0.03.

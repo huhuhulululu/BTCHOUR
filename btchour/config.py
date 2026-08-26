@@ -79,6 +79,7 @@ class Settings:
     impulse_taker: bool = False
     impulse_wait: bool = True
     impulse_rest: float = 0.25
+    impulse_wait_rest_min: float = 40.0
     impulse_wait_min_ask: float = 0.32
     impulse_wait_max_ask: float = 0.42
     impulse_wait_max_distance: float = 150.0
@@ -171,6 +172,7 @@ def load_settings() -> Settings:
         impulse_taker=_env_bool("BTCHOUR_IMPULSE_TAKER", False),
         impulse_wait=_env_bool("BTCHOUR_IMPULSE_WAIT", True),
         impulse_rest=_env_float("BTCHOUR_IMPULSE_REST", 0.25),
+        impulse_wait_rest_min=_env_float("BTCHOUR_IMPULSE_WAIT_REST_MIN", 40.0),
         impulse_wait_min_ask=_env_float("BTCHOUR_IMPULSE_WAIT_MIN_ASK", 0.32),
         impulse_wait_max_ask=_env_float("BTCHOUR_IMPULSE_WAIT_MAX_ASK", 0.42),
         impulse_wait_max_distance=_env_float("BTCHOUR_IMPULSE_WAIT_MAX_DISTANCE", 150.0),
