@@ -368,6 +368,14 @@ def replay_recent_hours(hours: int = 8, settings: Settings | None = None) -> dic
         except Exception as exc:
             reports.append({"event_ticker": event_ticker, "error": str(exc), "takes": []})
     reports.reverse()
+    for report in reports:
+        mem = report.pop("session", None)
+        if mem is not None and hasattr(mem, "last_loss_event"):
+            report["session"] = {
+                "last_loss_event": mem.last_loss_event,
+                "skip_next": mem.skip_next,
+                "skipped_event": mem.skipped_event,
+            }
 
     taken = [take for report in reports for take in report.get("takes") or []]
     wins = [take for take in taken if (take.get("pnl") or 0) > 0]

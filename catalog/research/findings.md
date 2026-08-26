@@ -139,6 +139,19 @@ After that, direction broke: flip YES at $0.61 on `T78499`, hop strikes, chase $
 
 Engine change: T clips **10% immediately**, no runner, **no flip**, **skip the next hour after a loss**, ask floor **$0.18** so a 20¢ dump NO can print, ask cap stays **$0.52** so the tired YES chase cannot. See [`manual.md`](manual.md).
 
+`replay --hours 16 --playbook flex` after that change (AUG2505–AUG2520, 10 contracts): **6 takes / 3 wins / −0.84**.
+
+| Hour | Side | Exit | ROI |
+| --- | --- | --- | --- |
+| `AUG2516` | NO | `t_clip` | +15% |
+| `AUG2513` | YES | `t_stop` | −37% |
+| `AUG2511` | YES | `lock_on_book` | +26% |
+| `AUG2509` | NO | `t_stop` | −15% |
+| `AUG2508` | NO | `t_clip` | +16% |
+| `AUG2518` | NO | `t_stop` | −22% |
+
+Clips and the 20% lock are still green. `AUG2520` (the manual dump hour) is **0 takes** on minute closes — the 20–25¢ maker NO prints do not show up as candle closes. `AUG2510` is skipped because `AUG2509` stopped; that is the tired-direction rule, not a missed lock. Leftover loss is still **1-minute stop gaps**. This is not “10% every hour.”
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.
