@@ -568,3 +568,18 @@ Two bugs on that print:
 | flex_nowait | 5 / 3 / −0.22 | 6 / 3 / −1.26 |
 | flex_wait_loose | 7 / 6 / +7.17 | 11 / 10 / +14.38 |
 | flex cheap p30/ask35 | 9 / 6 / +5.12 | 13 / 9 / +4.63 |
+
+## AUG2618 close / AUG2619 open (2026-08-26 18:01 ET)
+
+Live `AUG2618`: leftover `T78499` YES rest cancelled `wait_invalid` at the close (never filled). The hour's only fill remains `T78699` YES `t_clip` +1.4306. Paper still **11 / 5 / −3.0341**. Session clear — next hour may rest.
+
+18:00 ET rolled to 7pm hourly `AUG2619`. Quiet/down hung `T78599` NO 0.25 under 0.33, then `T78699` NO 0.25 under 0.38. Tape faded to +$41 (not a $100 flip, NOs stay) and added `T78899` YES 0.25 under 0.36. Three working, mixed sides. Fill still needs same-way |impulse| ≥$100. Do not eat taker.
+
+18:01 ET sweep (window starts at `AUG2618`). Replay does not print the live YES clip. Coupon still beats nowait. Replay green is not 达成.
+
+| Run | 16h | 24h |
+| --- | ---: | ---: |
+| dump coupon (default) | 5 / 5 / **+7.57** | 9 / 8 / **+6.99** |
+| flex_nowait | 5 / 3 / −0.22 | 6 / 4 / +0.64 |
+| flex_wait_loose | 7 / 6 / +7.17 | 10 / 9 / +12.56 |
+| flex cheap p30/ask35 | 7 / 5 / +5.74 | 12 / 8 / +3.79 |
