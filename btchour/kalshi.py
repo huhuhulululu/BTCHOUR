@@ -175,7 +175,14 @@ class KalshiClient:
             "KALSHI-ACCESS-SIGNATURE": base64.b64encode(signature).decode(),
         }
 
-    def paginate(self, path: str, list_key: str, params: dict | None = None, limit: int = 200) -> list:
+    def paginate(
+        self,
+        path: str,
+        list_key: str,
+        params: dict | None = None,
+        limit: int = 200,
+        signed: bool = False,
+    ) -> list:
         items: list = []
         cursor = None
         while True:
@@ -183,7 +190,7 @@ class KalshiClient:
             query["limit"] = limit
             if cursor:
                 query["cursor"] = cursor
-            payload = self.get(path, query)
+            payload = self.get(path, query, signed=signed)
             items.extend(payload.get(list_key) or [])
             cursor = payload.get("cursor")
             if not cursor:
@@ -234,3 +241,34 @@ class KalshiClient:
 
     def balance(self) -> dict:
         return self.get("/portfolio/balance", signed=True)
+
+    def fills(self, min_ts: int | None = None, max_ts: int | None = None, ticker: str | None = None) -> list:
+        return self.paginate(
+            "/portfolio/fills",
+            "fills",
+            {"min_ts": min_ts, "max_ts": max_ts, "ticker": ticker},
+            signed=True,
+        )
+
+    def orders(self, min_ts: int | None = None, status: str | None = None, ticker: str | None = None) -> list:
+        return self.paginate(
+            "/portfolio/orders",
+            "orders",
+            {"min_ts": min_ts, "status": status, "ticker": ticker},
+            signed=True,
+        )
+
+    def positions(self, event_ticker: str | None = None, ticker: str | None = None) -> dict:
+        return self.get(
+            "/portfolio/positions",
+            {"event_ticker": event_ticker, "ticker": ticker, "limit": 200},
+            signed=True,
+        )
+
+    def settlements(self, min_ts: int | None = None, ticker: str | None = None) -> list:
+        return self.paginate(
+            "/portfolio/settlements",
+            "settlements",
+            {"min_ts": min_ts, "ticker": ticker},
+            signed=True,
+        )

@@ -62,6 +62,8 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--playbook", choices=["flex", "swing", "lock", "hold", "scalp"])
     sub.add_parser("status", help="Local paper/live ledger summary")
     sub.add_parser("learn", help="Show recent impulse journal: what printed, what was rejected, why")
+    fills = sub.add_parser("fills", help="Read-only: pull recent Kalshi fills and same-side clips (never prints keys)")
+    fills.add_argument("--hours", type=int, default=36)
 
     args = parser.parse_args(argv)
     if args.cmd == "ev":
@@ -158,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
                 "note": (
                     f"Playbook={settings.playbook}. flex = lock_hold first, then swing_t 做T, then lock_wait. "
                     f"Lock still needs EV=p*b-(1-p) >= {settings.min_ev:.0%}, σ>={settings.min_sigma}, "
-                    f"p>={settings.lock_min_p:.1%}, ask<=$0.82. 做T clips ~{settings.swing_target:.0%} or trails; "
+                    f"p>={settings.lock_min_p:.1%}, ask<=$0.82. 做T clips {settings.swing_target:.0%} and runs; "
                     "it is not a locked 20%."
                 ),
             }
@@ -188,6 +190,12 @@ def main(argv: list[str] | None = None) -> int:
         store = Store()
         rows = [dict(row) for row in store.recent_journal(20)]
         _print_json({"journal": rows, "summary": store.summary()})
+        return 0
+
+    if args.cmd == "fills":
+        from btchour.account import summarize_fills
+
+        _print_json(summarize_fills(client, settings, hours=args.hours))
         return 0
 
     parser.error(f"unknown command {args.cmd}")

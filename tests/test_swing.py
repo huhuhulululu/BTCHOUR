@@ -8,11 +8,14 @@ from btchour.kalshi import market_from_api
 from btchour.model import SpotQuote
 from btchour.replay import ReplayBar, replay_bars
 from btchour.strategy import (
+    SessionMemory,
     SwingMemory,
     apply_swing_memory,
     evaluate_lock_market,
     evaluate_swing_market,
+    remember_session_exit,
     remember_swing_exit,
+    refresh_session,
     scan_markets,
 )
 
@@ -92,7 +95,7 @@ class SwingStrategyTests(unittest.TestCase):
 
 
 class SwingReplayTests(unittest.TestCase):
-    def test_fast_t_clips_then_can_flip(self):
+    def test_fast_t_clips_then_stops(self):
         settings = Settings(playbook="swing", max_contracts=1, max_notional=10, allow_early_exit=True)
         maturity = datetime(2026, 8, 25, 20, 0, tzinfo=timezone.utc).timestamp()
         bars = [
@@ -101,12 +104,10 @@ class SwingReplayTests(unittest.TestCase):
             ReplayBar(int(maturity - 1680), 78800, 0.55, {79199.99: {"yes_ask": 0.32, "yes_bid": 0.31}}),
         ]
         report = replay_bars("KXBTCD-26AUG2516", bars, {79199.99: "no"}, maturity, settings)
-        self.assertGreaterEqual(len(report["takes"]), 2)
+        self.assertEqual(len(report["takes"]), 1)
         self.assertEqual(report["takes"][0]["side"], "yes")
         self.assertEqual(report["takes"][0]["exit_reason"], "t_clip")
         self.assertGreater(report["takes"][0]["pnl"], 0)
-        self.assertEqual(report["takes"][1]["side"], "no")
-        self.assertEqual(report["takes"][1]["play"], "swing_t")
 
     def test_fade_stops_more_t_in_the_same_hour(self):
         settings = Settings(playbook="swing", max_contracts=1, max_notional=10, allow_early_exit=True)
@@ -120,7 +121,7 @@ class SwingReplayTests(unittest.TestCase):
         self.assertEqual(len(report["takes"]), 1)
         self.assertIn(report["takes"][0]["exit_reason"], {"t_fade", "t_stop"})
 
-    def test_memory_allows_flip_but_not_a_new_strike(self):
+    def test_memory_blocks_flip_after_clip(self):
         now = datetime(2026, 8, 25, 19, 30, tzinfo=timezone.utc)
         memory = remember_swing_exit(SwingMemory(), "KXBTCD-26AUG2516-T79199.99", "yes", "t_clip")
         settings = Settings(playbook="swing", max_contracts=1)
@@ -143,5 +144,5 @@ class SwingReplayTests(unittest.TestCase):
             now,
         )
         kept = apply_swing_memory(same + other, memory)
-        self.assertTrue(kept)
-        self.assertTrue(all(row.ticker == memory.ticker and row.side == "no" for row in kept))
+        self.assertEqual(kept, [])
+        self.assertTrue(memory.dead)

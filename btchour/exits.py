@@ -86,6 +86,20 @@ def evaluate_exit(
             )
 
     clip = lock_exit_price(position.cost, position.count, settings.swing_target) if do_t else None
+    if do_t and bid is not None and clip is not None and bid + 1e-12 >= clip:
+        roi = round_trip_roi(position.cost, bid, position.count)
+        return ExitDecision(
+            ExitAction(
+                reason="t_clip",
+                price=bid,
+                note=(
+                    f"做T clip {roi:.1%} at bid {bid:.2f} (target {settings.swing_target:.0%}); "
+                    "落袋为安, no runner"
+                ),
+            ),
+            peak,
+        )
+
     if do_t and bid is not None and peak is not None and clip is not None and peak + 1e-12 >= clip:
         if peak - bid + 1e-12 >= settings.swing_trail:
             roi = round_trip_roi(position.cost, bid, position.count)
@@ -94,19 +108,6 @@ def evaluate_exit(
                     reason="t_trail",
                     price=bid,
                     note=f"trail {settings.swing_trail:.2f} from peak {peak:.2f} → {bid:.2f} (roi {roi:.1%})",
-                ),
-                peak,
-            )
-
-    if do_t and bid is not None and clip is not None and bid + 1e-12 >= clip:
-        gap = model_p - bid
-        if gap + 1e-12 < settings.swing_runner_gap:
-            roi = round_trip_roi(position.cost, bid, position.count)
-            return ExitDecision(
-                ExitAction(
-                    reason="t_clip",
-                    price=bid,
-                    note=f"做T clip {roi:.1%} at bid {bid:.2f} (target {settings.swing_target:.0%}); gap {gap:.1%} too small to runner",
                 ),
                 peak,
             )

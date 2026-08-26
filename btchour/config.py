@@ -10,6 +10,22 @@ CATALOG_DIR = ROOT / "catalog"
 DATA_DIR = Path(os.environ.get("BTCHOUR_DATA_DIR", ROOT / "data"))
 
 
+def _load_dotenv(path: Path | None = None) -> None:
+    """Load gitignored .env into os.environ without overwriting a real env var."""
+    env_path = path or (ROOT / ".env")
+    if not env_path.is_file():
+        return
+    for raw in env_path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip("'").strip('"')
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
 def _env_bool(name: str, default: bool) -> bool:
     raw = os.environ.get(name)
     if raw is None:
@@ -44,15 +60,16 @@ class Settings:
     lock_min_p: float = 0.998
     swing_min_p: float = 0.55
     swing_min_gap: float = 0.08
-    swing_min_ask: float = 0.28
+    swing_min_ask: float = 0.18
     swing_max_ask: float = 0.72
     swing_min_seconds: float = 180.0
-    swing_target: float = 0.12
+    swing_target: float = 0.10
     swing_trail: float = 0.04
-    swing_runner_gap: float = 0.12
+    swing_runner_gap: float = 1.0
     swing_max_distance: float = 600.0
     swing_fade: float = 0.12
     swing_stop: float = 0.12
+    skip_after_loss: bool = True
     impulse_min: float = 100.0
     impulse_min_p: float = 0.52
     impulse_min_gap: float = 0.02
@@ -90,6 +107,7 @@ class Settings:
 
 
 def load_settings() -> Settings:
+    _load_dotenv()
     demo = _env_bool("KALSHI_DEMO", False)
     base = (
         "https://external-api.demo.kalshi.co/trade-api/v2"
@@ -125,15 +143,16 @@ def load_settings() -> Settings:
         lock_min_p=_env_float("BTCHOUR_LOCK_MIN_P", 0.998),
         swing_min_p=_env_float("BTCHOUR_SWING_MIN_P", 0.55),
         swing_min_gap=_env_float("BTCHOUR_SWING_MIN_GAP", 0.08),
-        swing_min_ask=_env_float("BTCHOUR_SWING_MIN_ASK", 0.28),
+        swing_min_ask=_env_float("BTCHOUR_SWING_MIN_ASK", 0.18),
         swing_max_ask=_env_float("BTCHOUR_SWING_MAX_ASK", 0.72),
         swing_min_seconds=_env_float("BTCHOUR_SWING_MIN_SECONDS", 180.0),
-        swing_target=_env_float("BTCHOUR_SWING_TARGET", 0.12),
+        swing_target=_env_float("BTCHOUR_SWING_TARGET", 0.10),
         swing_trail=_env_float("BTCHOUR_SWING_TRAIL", 0.04),
-        swing_runner_gap=_env_float("BTCHOUR_SWING_RUNNER_GAP", 0.12),
+        swing_runner_gap=_env_float("BTCHOUR_SWING_RUNNER_GAP", 1.0),
         swing_max_distance=_env_float("BTCHOUR_SWING_MAX_DISTANCE", 600.0),
         swing_fade=_env_float("BTCHOUR_SWING_FADE", 0.12),
         swing_stop=_env_float("BTCHOUR_SWING_STOP", 0.12),
+        skip_after_loss=_env_bool("BTCHOUR_SKIP_AFTER_LOSS", True),
         impulse_min=_env_float("BTCHOUR_IMPULSE_MIN", 100.0),
         impulse_min_p=_env_float("BTCHOUR_IMPULSE_MIN_P", 0.52),
         impulse_min_gap=_env_float("BTCHOUR_IMPULSE_MIN_GAP", 0.02),

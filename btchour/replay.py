@@ -12,7 +12,15 @@ from btchour.fees import fill_cost
 from btchour.kalshi import KalshiClient, Market, market_from_api
 from btchour.model import SpotQuote, digital_prob, effective_vol, realized_annual_vol
 from btchour.paper import paper_close, paper_fill, paper_settle
-from btchour.strategy import SwingMemory, apply_swing_memory, remember_swing_exit, scan_markets
+from btchour.strategy import (
+    SessionMemory,
+    SwingMemory,
+    apply_swing_memory,
+    remember_session_exit,
+    remember_swing_exit,
+    refresh_session,
+    scan_markets,
+)
 from btchour.tickers import format_event_ticker
 
 ET = ZoneInfo("America/New_York")
@@ -99,6 +107,7 @@ def replay_bars(
     results: dict[float, str],
     maturity_s: float,
     settings: Settings,
+    session: SessionMemory | None = None,
 ) -> dict:
     open_ts = maturity_s - 3600
     position = None
@@ -106,6 +115,7 @@ def replay_bars(
     best = None
     hold_candidates = 0
     swing_mem = SwingMemory()
+    session = refresh_session(session, event_ticker) if settings.skip_after_loss else SessionMemory()
     for bar in bars:
         left = maturity_s - bar.end_ts
         now = datetime.fromtimestamp(bar.end_ts, timezone.utc)
@@ -188,12 +198,18 @@ def replay_bars(
                         swing_mem = remember_swing_exit(
                             swing_mem, position["ticker"], position["side"], action.reason, play
                         )
+                        if settings.skip_after_loss:
+                            session = remember_session_exit(
+                                session, event_ticker, action.reason, closed["pnl"]
+                            )
                     position = None
 
         if position is None:
             opps = [
                 item
-                for item in apply_swing_memory(scan_markets(markets, spot, settings, now), swing_mem)
+                for item in apply_swing_memory(
+                    scan_markets(markets, spot, settings, now), swing_mem, session
+                )
                 if (item.ticker, item.side) != just_closed
             ]
             if opps:
@@ -238,10 +254,16 @@ def replay_bars(
         "takes": takes,
         "best": best,
         "hold_candidates": hold_candidates,
+        "session": session,
     }
 
 
-def replay_event(client: KalshiClient, event_ticker: str, settings: Settings) -> dict:
+def replay_event(
+    client: KalshiClient,
+    event_ticker: str,
+    settings: Settings,
+    session: SessionMemory | None = None,
+) -> dict:
     payload = client.get(f"/events/{event_ticker}")
     markets = [market_from_api(item) for item in payload.get("markets") or []]
     band = _settlement_band(markets)
@@ -313,16 +335,17 @@ def replay_event(client: KalshiClient, event_ticker: str, settings: Settings) ->
             ReplayBar(end_ts=end_ts, spot=spots[minute_ms], vol=vol, quotes=quotes, impulse=impulse)
         )
 
-    session = replay_bars(event_ticker, bars, results, maturity_ms / 1000, settings)
+    played = replay_bars(event_ticker, bars, results, maturity_ms / 1000, settings, session)
     return {
         "event_ticker": event_ticker,
         "settlement_band": [lo, hi],
         "settle_mid": settle_price,
         "candles": {str(k): len(v) if isinstance(v, dict) else 0 for k, v in candles.items()},
         "playbook": settings.playbook,
-        "takes": session["takes"],
-        "best": session["best"],
-        "hold_candidates": session["hold_candidates"],
+        "takes": played["takes"],
+        "best": played["best"],
+        "hold_candidates": played["hold_candidates"],
+        "session": played.get("session"),
     }
 
 
@@ -336,11 +359,15 @@ def replay_recent_hours(hours: int = 8, settings: Settings | None = None) -> dic
         events.append(format_event_ticker(close))
 
     reports = []
-    for event_ticker in events:
+    session = SessionMemory()
+    for event_ticker in reversed(events):
         try:
-            reports.append(replay_event(client, event_ticker, settings))
+            report = replay_event(client, event_ticker, settings, session)
+            session = report.get("session") or session
+            reports.append(report)
         except Exception as exc:
             reports.append({"event_ticker": event_ticker, "error": str(exc), "takes": []})
+    reports.reverse()
 
     taken = [take for report in reports for take in report.get("takes") or []]
     wins = [take for take in taken if (take.get("pnl") or 0) > 0]
@@ -369,6 +396,7 @@ def replay_recent_hours(hours: int = 8, settings: Settings | None = None) -> dic
             "swing_target": settings.swing_target,
             "swing_trail": settings.swing_trail,
             "swing_fade": settings.swing_fade,
+            "skip_after_loss": settings.skip_after_loss,
             "lock_min_p": settings.lock_min_p,
             "min_sigma": settings.min_sigma,
             "invalidate_p": settings.invalidate_p,

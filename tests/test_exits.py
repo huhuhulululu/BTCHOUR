@@ -49,19 +49,21 @@ class ExitTests(unittest.TestCase):
         self.assertEqual(action.reason, "lock_on_book")
         self.assertAlmostEqual(action.price, lock)
 
-    def test_t_clip_when_twelve_percent_prints_and_gap_is_gone(self):
-        clip = lock_exit_price(self.cost.cost, 1.0, 0.12)
-        action = self._act(self.position, _market(yes_bid=f"{clip:.2f}"), 0.62, 1200, self.settings)
+    def test_t_clip_when_ten_percent_prints(self):
+        clip = lock_exit_price(self.cost.cost, 1.0, 0.10)
+        action = self._act(self.position, _market(yes_bid=f"{clip:.2f}"), 0.80, 1200, self.settings)
         self.assertIsNotNone(action)
         self.assertEqual(action.reason, "t_clip")
 
-    def test_runner_holds_twelve_percent_when_gap_is_still_wide(self):
-        clip = lock_exit_price(self.cost.cost, 1.0, 0.12)
+    def test_no_runner_when_ten_percent_is_already_there(self):
+        clip = lock_exit_price(self.cost.cost, 1.0, 0.10)
         action = self._act(self.position, _market(yes_bid=f"{clip:.2f}"), clip + 0.20, 1200, self.settings)
-        self.assertIsNone(action)
+        self.assertIsNotNone(action)
+        self.assertEqual(action.reason, "t_clip")
 
     def test_trail_gives_back_from_peak(self):
-        clip = lock_exit_price(self.cost.cost, 1.0, 0.12)
+        clip = lock_exit_price(self.cost.cost, 1.0, 0.10)
+        pulled = round(clip - 0.03, 2)
         peaked = OpenPosition(
             ticker=self.position.ticker,
             event_ticker=self.position.event_ticker,
@@ -72,7 +74,7 @@ class ExitTests(unittest.TestCase):
             play="swing_t",
             entry_p=0.80,
         )
-        action = self._act(peaked, _market(yes_bid=f"{clip:.2f}"), 0.70, 1200, self.settings)
+        action = self._act(peaked, _market(yes_bid=f"{pulled:.2f}"), 0.70, 1200, self.settings)
         self.assertIsNotNone(action)
         self.assertEqual(action.reason, "t_trail")
 

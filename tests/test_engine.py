@@ -119,4 +119,5 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.target_profit, 0.20)
         self.assertTrue(settings.allow_early_exit)
         self.assertTrue(settings.allow_maker)
-        self.assertEqual(settings.swing_target, 0.12)
+        self.assertEqual(settings.swing_target, 0.10)
+        self.assertTrue(settings.skip_after_loss)

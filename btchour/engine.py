@@ -15,7 +15,13 @@ from btchour.paper import paper_close, paper_fill, paper_settle
 from btchour.score import score_market
 from btchour.store import Store
 from btchour.learn import diagnose_impulse, merge_impulse, tape_impulse
-from btchour.strategy import Opportunity, _seconds_left, apply_swing_memory, scan_markets
+from btchour.strategy import (
+    Opportunity,
+    _seconds_left,
+    apply_swing_memory,
+    refresh_session,
+    scan_markets,
+)
 
 _LAST_FULL_SYNC = 0.0
 
@@ -92,7 +98,12 @@ def scan_once(client: KalshiClient, settings: Settings | None = None, persist: b
         impulse=merged,
     )
     markets = _markets_from_snapshot(snapshot)
-    opportunities = apply_swing_memory(scan_markets(markets, spot, settings), store.swing_memories())
+    session = refresh_session(store.session_memory(), event_hint)
+    opportunities = apply_swing_memory(
+        scan_markets(markets, spot, settings),
+        store.swing_memories(),
+        session,
+    )
     diagnosis = diagnose_impulse(markets, spot, settings, now)
     scored = []
     for market in markets:

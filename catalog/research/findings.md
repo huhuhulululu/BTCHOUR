@@ -131,6 +131,14 @@ The flex paper loop ran ~4 hours: **0 T fills**. Three `$0.83` waits cancelled a
 
 Next learning step is in the engine: tape impulse + reject journal (`btchour learn`) and a light 45s sync so the loop does not stall. See [`learn.md`](learn.md).
 
+## Manual tape (2026-08-25 evening)
+
+Account fills (read-only). Same-side clips on the dump were the working rule: maker NO at $0.20–$0.25, out in 2–16 minutes, **+85% to well past 30%**. Holding NO from $0.24 to $0.92 (+280%) ate the whole move — not repeatable.
+
+After that, direction broke: flip YES at $0.61 on `T78499`, hop strikes, chase $0.58–$0.86 YES, then `AUG2521` YES→NO flip. That is fatigue, not a new edge.
+
+Engine change: T clips **10% immediately**, no runner, **no flip**, **skip the next hour after a loss**, ask floor **$0.18** so a 20¢ dump NO can print, ask cap stays **$0.52** so the tired YES chase cannot. See [`manual.md`](manual.md).
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.

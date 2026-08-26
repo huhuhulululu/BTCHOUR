@@ -397,7 +397,7 @@ def evaluate_swing_market(
             play="swing_t",
             reason=(
                 f"swing_t {side.upper()} 做T gap={model_p - ask:.1%} p={model_p:.1%} "
-                f"ask={ask:.2f} clip>={clip:.2f} runner={settings.target_profit:.0%} "
+                f"ask={ask:.2f} clip>={clip:.2f} pocket={settings.swing_target:.0%} "
                 f"holdEV={edge.ev:.1%}; strike {market.strike:.2f} / spot {spot.price:.2f}"
             ),
         )
@@ -467,22 +467,52 @@ def evaluate_impulse_market(
 
 @dataclass
 class SwingMemory:
-    """Per-event 做T state: stay on one ticker, flip after a clip, stop after a fade."""
+    """Per-event 做T state: one ticker, one clip, then hands off. No flip."""
 
     ticker: str | None = None
     side: str | None = None
     dead: bool = False
 
 
+@dataclass
+class SessionMemory:
+    """After a losing T, skip the next hourly event. Tired direction is the failure mode."""
+
+    last_loss_event: str | None = None
+    skip_next: bool = False
+    skipped_event: str | None = None
+
+
 def remember_swing_exit(
     memory: SwingMemory, ticker: str, side: str, reason: str, play: str = ""
 ) -> SwingMemory:
-    dead = (
-        memory.dead
-        or reason in {"t_fade", "t_stop", "invalidate", "flatten_time"}
-        or play == "impulse_t"
-    )
-    return SwingMemory(ticker=ticker, side=side, dead=dead)
+    return SwingMemory(ticker=ticker, side=side, dead=True)
+
+
+def remember_session_exit(
+    session: SessionMemory | None, event_ticker: str, reason: str, pnl: float | None
+) -> SessionMemory:
+    lost = (pnl is not None and pnl < 0) or reason in {"t_stop", "t_fade", "invalidate", "flatten_time"}
+    if lost:
+        return SessionMemory(last_loss_event=event_ticker, skip_next=True)
+    return SessionMemory()
+
+
+def refresh_session(session: SessionMemory | None, current_event: str | None) -> SessionMemory:
+    session = session or SessionMemory()
+    if not session.skip_next or not current_event:
+        return session
+    if current_event == session.last_loss_event:
+        return session
+    if session.skipped_event is None:
+        return SessionMemory(
+            last_loss_event=session.last_loss_event,
+            skip_next=True,
+            skipped_event=current_event,
+        )
+    if current_event != session.skipped_event:
+        return SessionMemory()
+    return session
 
 
 def allow_swing(opportunity: Opportunity, memory: SwingMemory | None) -> bool:
@@ -495,19 +525,34 @@ def allow_swing(opportunity: Opportunity, memory: SwingMemory | None) -> bool:
     return opportunity.ticker == memory.ticker and opportunity.side != memory.side
 
 
+def allow_session(opportunity: Opportunity, session: SessionMemory | None) -> bool:
+    if opportunity.play not in T_PLAYS:
+        return True
+    if session is None or not session.skip_next:
+        return True
+    if opportunity.event_ticker == session.last_loss_event:
+        return False
+    if session.skipped_event is None or opportunity.event_ticker == session.skipped_event:
+        return False
+    return True
+
+
 def apply_swing_memory(
     opportunities: list[Opportunity],
     memories: dict[str, SwingMemory] | SwingMemory | None,
+    session: SessionMemory | None = None,
 ) -> list[Opportunity]:
-    if memories is None:
+    if memories is None and session is None:
         return list(opportunities)
     out: list[Opportunity] = []
     for row in opportunities:
         if isinstance(memories, SwingMemory):
             memory = memories
+        elif memories is None:
+            memory = None
         else:
             memory = memories.get(row.event_ticker)
-        if allow_swing(row, memory):
+        if allow_swing(row, memory) and allow_session(row, session):
             out.append(row)
     return out
 
