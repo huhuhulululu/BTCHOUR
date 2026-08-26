@@ -245,6 +245,100 @@ class ImpulseWaitTests(unittest.TestCase):
         self.assertEqual(waits[0].play, "impulse_wait")
         self.assertEqual(waits[0].side, "no")
 
+    def test_skip_hour_taker_loss_does_not_chain_another_skip(self):
+        # AUG2518: after a loss, skip wait next hour; same-dir taker still ok.
+        # AUG2605/AUG2606: that taker lost on the skip hour and re-armed skip,
+        # so the dump coupon never got a live hour. Sit-out is one hour.
+        first = remember_session_exit(SessionMemory(), "KXBTCD-26AUG2605", "t_stop", -1.24, "no")
+        skip = refresh_session(first, "KXBTCD-26AUG2606")
+        self.assertTrue(skip.skip_next)
+        self.assertEqual(skip.skipped_event, "KXBTCD-26AUG2606")
+        chained = remember_session_exit(skip, "KXBTCD-26AUG2606", "t_stop", -0.65, "no")
+        still_skip = refresh_session(chained, "KXBTCD-26AUG2606")
+        self.assertTrue(still_skip.skip_next)
+        self.assertEqual(still_skip.skipped_event, "KXBTCD-26AUG2606")
+        live = refresh_session(chained, "KXBTCD-26AUG2607")
+        self.assertFalse(live.skip_next)
+        wait_mkt = _market(
+            ticker="KXBTCD-26AUG2607-T78699.99",
+            event_ticker="KXBTCD-26AUG2607",
+            open_time="2026-08-26T10:00:00Z",
+            close_time="2026-08-26T11:00:00Z",
+        )
+        now = datetime(2026, 8, 26, 10, 20, tzinfo=timezone.utc)
+        waits = apply_swing_memory(
+            scan_markets([wait_mkt], self.spot, self.settings, now),
+            None,
+            live,
+        )
+        self.assertTrue(waits)
+        self.assertEqual(waits[0].play, "impulse_wait")
+
+    def test_store_rebuild_skip_hour_loss_allows_the_next_coupon(self):
+        wait_skip = _market(
+            ticker="KXBTCD-26AUG2606-T78699.99",
+            event_ticker="KXBTCD-26AUG2606",
+            open_time="2026-08-26T09:00:00Z",
+            close_time="2026-08-26T10:00:00Z",
+        )
+        wait_live = _market(
+            ticker="KXBTCD-26AUG2607-T78699.99",
+            event_ticker="KXBTCD-26AUG2607",
+            open_time="2026-08-26T10:00:00Z",
+            close_time="2026-08-26T11:00:00Z",
+        )
+        first = {
+            "ticker": "KXBTCD-26AUG2605-T78699.99",
+            "event_ticker": "KXBTCD-26AUG2605",
+            "side": "no",
+            "price": 0.49,
+            "count": 10,
+            "fee": 0.175,
+            "cost": 5.075,
+            "mode": "paper",
+            "taker": True,
+            "model_p": 0.56,
+            "if_win_roi": 0.97,
+            "expected_roi": 0.11,
+            "status": "closed",
+            "result": "t_stop",
+            "pnl": -1.243,
+            "raw": {"play": "impulse_t"},
+        }
+        skip_loss = {
+            **first,
+            "ticker": "KXBTCD-26AUG2606-T78499.99",
+            "event_ticker": "KXBTCD-26AUG2606",
+            "price": 0.46,
+            "pnl": -0.6455,
+        }
+        now_skip = datetime(2026, 8, 26, 9, 20, tzinfo=timezone.utc)
+        now_live = datetime(2026, 8, 26, 10, 20, tzinfo=timezone.utc)
+        with tempfile.TemporaryDirectory() as tmp:
+            db = store_mod.Store(Path(tmp) / "t.sqlite")
+            db.record_trade(first)
+            db.record_trade(skip_loss)
+            mem = db.session_memory()
+        skip = refresh_session(mem, "KXBTCD-26AUG2606")
+        live = refresh_session(mem, "KXBTCD-26AUG2607")
+        self.assertTrue(skip.skip_next)
+        self.assertFalse(live.skip_next)
+        self.assertEqual(
+            apply_swing_memory(
+                scan_markets([wait_skip], self.spot, self.settings, now_skip),
+                None,
+                skip,
+            ),
+            [],
+        )
+        live_waits = apply_swing_memory(
+            scan_markets([wait_live], self.spot, self.settings, now_live),
+            None,
+            live,
+        )
+        self.assertTrue(live_waits)
+        self.assertEqual(live_waits[0].play, "impulse_wait")
+
     def test_rally_does_not_rest_yes(self):
         rally = SpotQuote(78800, "test", annual_vol=0.55, impulse=160)
         market = _market(

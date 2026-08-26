@@ -594,7 +594,12 @@ class SwingMemory:
 
 @dataclass
 class SessionMemory:
-    """After a losing T, skip the opposite side next hour. Same-direction continuation is allowed."""
+    """After a losing T, skip wait on the next hour ticker. Same-direction taker is allowed.
+
+    A loss on that already-skipped hour does not chain another skip. Paper
+    `AUG2605` then `AUG2606` same-dir taker stops kept pushing the live dump
+    coupon one more hour each time.
+    """
 
     last_loss_event: str | None = None
     last_side: str | None = None
@@ -624,6 +629,15 @@ def remember_session_exit(
         "flatten_time",
     }
     if lost:
+        skip_hour = _skip_hour(session) if session and session.skip_next else None
+        if session and session.skip_next and skip_hour and event_ticker == skip_hour:
+            # Already sitting this hour out. Do not skip the hour after that.
+            return SessionMemory(
+                last_loss_event=session.last_loss_event,
+                last_side=session.last_side,
+                skip_next=True,
+                skipped_event=skip_hour,
+            )
         return SessionMemory(last_loss_event=event_ticker, last_side=side, skip_next=True)
     return SessionMemory()
 

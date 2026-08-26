@@ -346,6 +346,14 @@ New window (AUG2605–AUG2514 / AUG2605–AUG2506) after dump-only fill:
 
 16h rose because `AUG2513` YES stop −1.93 rolled out, not because this hour printed a clip. Coupon still beats nowait. `AUG2520` still +41.5%. Cheap still red. Paper completed **3 / 0 / −4.8374**. Skip wait on `AUG2606`. Replay green is not 达成.
 
+## AUG2606 mid-hour — skip-hour taker loss no longer chains skip (2026-08-26 ~09:30 UTC)
+
+Skip-wait held: 36 coupon journals, 0 rests. First dump at 09:16 `T78599` ask **0.36**, impulse −$102 — the human 32–42¢ book. Same-dir `impulse_t` NO `T78499` @ **0.46** at 09:20 (p 55%, impulse −$170) peaked 0.49 and `t_stop` **−0.6455**.
+
+Second skip-hour taker stop in a row (`AUG2605` then `AUG2606`). Chaining skip would sit `AUG2607` too and the dump coupon never goes live. Sit-out stays one hour. Same-dir taker on the skip hour is still allowed (AUG2518). A loss on that skip hour does not arm another skip. Remainder of `AUG2606` still skips wait. `AUG2607` is the next live coupon rest.
+
+Paper completed **4 / 0 / −5.4829**. Hour still open; no sweep. Replay green is not 达成.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.
