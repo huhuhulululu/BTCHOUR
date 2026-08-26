@@ -9,8 +9,8 @@ from btchour.model import SpotQuote, digital_prob, effective_vol
 from btchour.strategy import (
     _seconds_left,
     coupon_min_ask,
+    coupon_rest_ready,
     coupon_sides,
-    dump_wait_rest_ready,
     evaluate_impulse_wait_market,
     is_coupon_window,
     is_next_session_book,
@@ -123,7 +123,7 @@ def diagnose_impulse(
         "candidates": [],
     }
     dump_on = abs(move) + 1e-9 >= settings.impulse_min
-    forming = dump_wait_rest_ready(move, settings)
+    forming = any(coupon_rest_ready(side, move, settings) for side in coupon_sides(move, settings))
     if not dump_on and not forming:
         return report
     waits = []
@@ -137,7 +137,6 @@ def diagnose_impulse(
         report["wait"] = waits[0].ticker
         report["open"] = 0
         report["wait_count"] = wait_count
-        wait = waits[0]
         report["candidates"] = [
             {
                 "ticker": wait.ticker,
@@ -146,6 +145,7 @@ def diagnose_impulse(
                 "p": wait.model_p,
                 "reasons": [],
             }
+            for wait in waits
         ]
         return report
     if forming and not dump_on:

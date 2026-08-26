@@ -540,3 +540,11 @@ The win marks the hour `swing.dead`: a later dump can journal a coupon and will 
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.
+
+## AUG2618 open — working coupon ate the other rungs (2026-08-26 17:03 ET)
+
+5pm `AUG2617` daily closed with **0 coupon fills**. 17:00 ET rolled to 6pm hourly `KXBTCD-26AUG2618` ($100 ladder). Paper immediately rested `T78499` YES **0.25** under 0.39, impulse +$9, id **65**. That hang is the tape-follow YES rest.
+
+By 17:02 ET impulse faded to −$3 / −$10. Journal kept printing wait `T78399` NO 0.39 then `T78299` NO 0.33 — in-band, near ATM. Scan `opps=0`. `pick_dump_wait` / `_execute` already allow 3 unique tickers, but `allow_swing` treated a live (not dead) coupon like a one-ticker T: `ticker==memory.ticker and side!=memory.side`. Second and third rungs never reached the book. Human `AUG2520` hung three. Patch: a working `impulse_wait` still allows nearby coupon rungs; clip-after-dead still blocks hop. Diagnose forming now uses the tape side, so a +$100 rally journals YES wait instead of falling through the old NO-only `dump_wait_rest_ready`.
+
+Do not cancel the working YES on a −$10 fade. Fill still needs same-way |impulse| ≥$100 and ask==rest. Do not eat taker. Replay green is not 达成.

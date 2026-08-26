@@ -586,7 +586,7 @@ def evaluate_impulse_wait_market(
     Scan every nearby rung ($600). Rally hangs YES; dump/quiet hangs NO.
     NO still needs 32–42¢ (29¢ is the knife). YES may hang from 28–42¢ —
     the 5pm daily $250 ladder often has only that mid. Fill still needs
-    |impulse| ≥ $100 in that direction. One rest, nearest in-band strike.
+    |impulse| ≥ $100 in that direction. Up to three nearby in-band rests.
     Clip 10–50%. If it will not come back, scratch or stop.
     """
     now = now or datetime.now(timezone.utc)
@@ -783,6 +783,11 @@ def allow_swing(opportunity: Opportunity, memory: SwingMemory | None) -> bool:
         if opportunity.play == "impulse_wait" and memory.play in {"impulse_t", "swing_t"}:
             return True
         return False
+    # Live working fill/rest. Takers stay one ticker. A working coupon
+    # must still allow nearby rungs — AUG2520 hung three. Engine caps at
+    # 3 unique tickers. Clip-after-dead still blocks hop above.
+    if opportunity.play == "impulse_wait" and (memory.play or "impulse_wait") == "impulse_wait":
+        return True
     return opportunity.ticker == memory.ticker and opportunity.side != memory.side
 
 

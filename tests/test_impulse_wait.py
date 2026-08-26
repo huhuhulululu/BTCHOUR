@@ -623,6 +623,35 @@ class ImpulseWaitTests(unittest.TestCase):
             ["KXBTCD-26AUG2520-T78699.99", "KXBTCD-26AUG2520-T78599.99"],
         )
 
+    def test_working_coupon_memory_still_allows_other_rungs(self):
+        # Live AUG2618 17:00 ET: T78499 YES rest was working, journal saw
+        # T78399 / T78299 NO, scan opps stayed 0 because allow_swing treated
+        # a live coupon like a one-ticker T.
+        memory = SwingMemory(
+            ticker="KXBTCD-26AUG2618-T78499.99",
+            side="yes",
+            dead=False,
+            play="impulse_wait",
+        )
+        now = datetime(2026, 8, 26, 21, 3, tzinfo=timezone.utc)
+        dump = SpotQuote(78428, "test", annual_vol=0.55, impulse=-12)
+        other = _market(
+            ticker="KXBTCD-26AUG2618-T78399.99",
+            event_ticker="KXBTCD-26AUG2618",
+            floor_strike=78399.99,
+            yes_bid_dollars="0.60",
+            yes_ask_dollars="0.61",
+            no_bid_dollars="0.38",
+            no_ask_dollars="0.39",
+            open_time="2026-08-26T21:00:00Z",
+            close_time="2026-08-26T22:00:00Z",
+        )
+        waits = evaluate_impulse_wait_market(other, dump, self.settings, now)
+        self.assertTrue(waits)
+        kept = apply_swing_memory(waits, memory)
+        self.assertEqual([row.play for row in kept], ["impulse_wait"])
+        self.assertEqual(kept[0].ticker, other.ticker)
+
     def test_flag_off_disables_the_rest(self):
         settings = Settings(playbook="flex", max_contracts=1, allow_maker=True, impulse_wait=False)
         self.assertEqual(evaluate_impulse_wait_market(_market(), self.spot, settings, self.now), [])
