@@ -205,6 +205,12 @@ Tried lowering p to 30% and cap ask at $0.35 (and $0.52). Also stopped using the
 
 Live `AUG2522` ~01:20 UTC: impulse faded to +$20s, **0 T**, paper completed PnL still **0**.
 
+## Maker wait under the dump (2026-08-26)
+
+Cheap **taker** NO (p 30% / ask 35¢) is the −5.60 tape. Human clips were **resting 20–25¢** while the touch was still ~32¢, then holding the bounce.
+
+New default path `impulse_wait`: same $100 impulse, but only when `impulse_t` does not qualify; rest **$0.25** while ask is **above rest and ≤ $0.48**; fill in replay/paper at the rest as maker (fee 0). Exits keep the 10–50% band; **no −12% stop / no fade**; hard stop −50%. Sweep always prints `flex_nowait` next to default flex so this can be turned off if the cached 16h/24h tape gets worse than +0.12 / +2.18.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.

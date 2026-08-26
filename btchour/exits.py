@@ -57,7 +57,8 @@ def evaluate_exit(
 
     play = position.play or ""
     locked = play.startswith("lock")
-    do_t = (play in {"swing_t", "impulse_t"} or settings.playbook == "swing") and not locked
+    wait_t = play == "impulse_wait"
+    do_t = (play in {"swing_t", "impulse_t", "impulse_wait"} or settings.playbook == "swing") and not locked
 
     lock20 = lock_exit_price(position.cost, position.count, settings.target_profit)
     if (not do_t) and bid is not None and lock20 is not None and bid + 1e-12 >= lock20:
@@ -75,7 +76,20 @@ def evaluate_exit(
 
     if do_t and bid is not None:
         roi_now = round_trip_roi(position.cost, bid, position.count)
-        if roi_now + 1e-12 <= -settings.swing_stop:
+        if wait_t:
+            if roi_now + 1e-12 <= -settings.impulse_wait_stop:
+                return ExitDecision(
+                    ExitAction(
+                        reason="t_wait_stop",
+                        price=bid,
+                        note=(
+                            f"impulse_wait stop {roi_now:.1%} <= -{settings.impulse_wait_stop:.0%} "
+                            f"at bid {bid:.2f}"
+                        ),
+                    ),
+                    peak,
+                )
+        elif roi_now + 1e-12 <= -settings.swing_stop:
             return ExitDecision(
                 ExitAction(
                     reason="t_stop",
@@ -132,6 +146,7 @@ def evaluate_exit(
 
     if (
         do_t
+        and not wait_t
         and position.entry_p is not None
         and bid is not None
         and position.entry_p - model_p + 1e-12 >= settings.swing_fade

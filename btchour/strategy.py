@@ -9,7 +9,8 @@ from btchour.kalshi import Market
 from btchour.model import SpotQuote, digital_prob, effective_vol, sigma_cushion
 from btchour.tickers import is_hourly_window
 
-T_PLAYS = frozenset({"swing_t", "impulse_t"})
+T_PLAYS = frozenset({"swing_t", "impulse_t", "impulse_wait"})
+WAIT_PLAYS = frozenset({"lock_wait", "impulse_wait"})
 
 
 @dataclass(frozen=True)
@@ -465,6 +466,79 @@ def evaluate_impulse_market(
     return [row] if row else []
 
 
+def _taker_impulse_qualifies(ask: float, model_p: float, settings: Settings) -> bool:
+    if ask + 1e-12 < settings.swing_min_ask or ask > settings.impulse_max_ask + 1e-12:
+        return False
+    if model_p + 1e-12 < settings.impulse_min_p:
+        return False
+    return (model_p - ask) + 1e-12 >= settings.impulse_min_gap
+
+
+def evaluate_impulse_wait_market(
+    market: Market,
+    spot: SpotQuote,
+    settings: Settings,
+    now: datetime | None = None,
+) -> list[Opportunity]:
+    """Rest a maker bid under a dump/rally when the taker impulse path does not qualify."""
+    now = now or datetime.now(timezone.utc)
+    if not settings.impulse_wait or not settings.allow_maker:
+        return []
+    if settings.playbook != "flex":
+        return []
+    if not is_fast_window(market.open_time, market.close_time):
+        return []
+    seconds = _eligible_market(market, settings, now)
+    if seconds is None or seconds + 1e-12 < settings.swing_min_seconds:
+        return []
+    move = spot.impulse
+    if abs(move) + 1e-9 < settings.impulse_min:
+        return []
+    if abs((market.strike or 0.0) - spot.price) > settings.swing_max_distance + 1e-9:
+        return []
+    vol = effective_vol(spot.annual_vol, settings.annual_vol)
+    p_yes = digital_prob(spot.price, market.strike, seconds, vol)
+    want_yes = move > 0
+    side = "yes" if want_yes else "no"
+    book_side = "bid" if want_yes else "ask"
+    model_p = p_yes if want_yes else 1.0 - p_yes
+    ask = market.yes_ask_effective if want_yes else market.no_ask_effective
+    rest = settings.impulse_rest
+    if ask is None or ask <= 0 or ask >= 1.0:
+        return []
+    if ask <= rest + 1e-12:
+        return []
+    if ask > settings.impulse_wait_max_ask + 1e-12:
+        return []
+    if _taker_impulse_qualifies(ask, model_p, settings):
+        return []
+    if model_p + 1e-12 < rest:
+        return []
+    cost = fill_cost(rest, 1.0, taker=False)
+    clip = lock_exit_price(cost.cost, 1.0, settings.swing_target)
+    if clip is None or clip > 0.95:
+        return []
+    row = _make_opportunity(
+        market=market,
+        spot=spot,
+        settings=settings,
+        seconds=seconds,
+        side=side,
+        book_side=book_side,
+        model_p=model_p,
+        ask=ask,
+        taker=False,
+        limit=rest,
+        cost=cost,
+        play="impulse_wait",
+        reason=(
+            f"impulse_wait {side.upper()} 动量 {move:+.0f} rest {rest:.2f} under {ask:.2f} "
+            f"p={model_p:.1%} clip>={clip:.2f}; strike {market.strike:.2f} / spot {spot.price:.2f}"
+        ),
+    )
+    return [row] if row else []
+
+
 @dataclass
 class SwingMemory:
     """Per-event 做T state: one ticker, one clip, then hands off. No flip."""
@@ -497,7 +571,13 @@ def remember_session_exit(
     pnl: float | None,
     side: str | None = None,
 ) -> SessionMemory:
-    lost = (pnl is not None and pnl < 0) or reason in {"t_stop", "t_fade", "invalidate", "flatten_time"}
+    lost = (pnl is not None and pnl < 0) or reason in {
+        "t_stop",
+        "t_wait_stop",
+        "t_fade",
+        "invalidate",
+        "flatten_time",
+    }
     if lost:
         return SessionMemory(last_loss_event=event_ticker, last_side=side, skip_next=True)
     return SessionMemory()
@@ -576,13 +656,17 @@ def scan_markets(markets: list[Market], spot: SpotQuote, settings: Settings, now
         locks.sort(key=lambda row: (row.taker, row.expected_roi, row.model_p, -row.seconds_left), reverse=True)
     if settings.playbook in {"swing", "flex"}:
         impulses: list[Opportunity] = []
+        waits: list[Opportunity] = []
         for market in markets:
             impulses.extend(evaluate_impulse_market(market, spot, settings, now))
+            if settings.playbook == "flex":
+                waits.extend(evaluate_impulse_wait_market(market, spot, settings, now))
             if settings.playbook == "swing":
                 swings.extend(evaluate_swing_market(market, spot, settings, now))
         impulses.sort(key=lambda row: (abs(spot.impulse), row.ev, -row.seconds_left), reverse=True)
+        waits.sort(key=lambda row: (row.ask - row.limit_price, -row.ev, -row.seconds_left))
         swings.sort(key=lambda row: ((row.model_p - row.ask), row.ev, -row.seconds_left), reverse=True)
-        swings = impulses + swings
+        swings = impulses + waits + swings
     if settings.playbook == "hold":
         for market in markets:
             hold.extend(evaluate_market(market, spot, settings, now))

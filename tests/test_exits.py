@@ -93,6 +93,49 @@ class ExitTests(unittest.TestCase):
         self.assertIsNotNone(action)
         self.assertEqual(action.reason, "t_trail")
 
+    def test_impulse_wait_holds_a_twelve_percent_bounce(self):
+        cost = fill_cost(0.25, taker=False)
+        waiting = OpenPosition(
+            ticker=self.position.ticker,
+            event_ticker=self.position.event_ticker,
+            side="no",
+            cost=cost.cost,
+            count=1.0,
+            play="impulse_wait",
+            entry_p=0.36,
+        )
+        action = self._act(waiting, _market(yes_bid="0.78", yes_ask="0.79", no_bid="0.21", no_ask="0.22"), 0.30, 1200, self.settings)
+        self.assertIsNone(action)
+
+    def test_impulse_wait_stops_a_fifty_percent_hole(self):
+        cost = fill_cost(0.25, taker=False)
+        waiting = OpenPosition(
+            ticker=self.position.ticker,
+            event_ticker=self.position.event_ticker,
+            side="no",
+            cost=cost.cost,
+            count=1.0,
+            play="impulse_wait",
+            entry_p=0.36,
+        )
+        action = self._act(waiting, _market(yes_bid="0.88", yes_ask="0.89", no_bid="0.11", no_ask="0.12"), 0.20, 1200, self.settings)
+        self.assertIsNotNone(action)
+        self.assertEqual(action.reason, "t_wait_stop")
+
+    def test_impulse_wait_does_not_fade_on_bounce(self):
+        cost = fill_cost(0.25, taker=False)
+        waiting = OpenPosition(
+            ticker=self.position.ticker,
+            event_ticker=self.position.event_ticker,
+            side="no",
+            cost=cost.cost,
+            count=1.0,
+            play="impulse_wait",
+            entry_p=0.36,
+        )
+        action = self._act(waiting, _market(yes_bid="0.76", yes_ask="0.77", no_bid="0.23", no_ask="0.24"), 0.20, 1200, self.settings)
+        self.assertIsNone(action)
+
     def test_hard_stop_cuts_a_twelve_percent_loss(self):
         action = self._act(self.position, _market(yes_bid="0.42"), 0.62, 1200, self.settings)
         self.assertIsNotNone(action)

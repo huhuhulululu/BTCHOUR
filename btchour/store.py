@@ -153,13 +153,22 @@ class Store:
         ).fetchone()
         return row is not None
 
-    def promote_working(self, trade_id: int, price: float, fee: float, cost: float, if_win_roi: float) -> None:
+    def promote_working(
+        self,
+        trade_id: int,
+        price: float,
+        fee: float,
+        cost: float,
+        if_win_roi: float,
+        *,
+        taker: bool = True,
+    ) -> None:
         self.conn.execute(
             """
-            UPDATE trades SET status = 'open', taker = 1, price = ?, fee = ?, cost = ?, if_win_roi = ?
+            UPDATE trades SET status = 'open', taker = ?, price = ?, fee = ?, cost = ?, if_win_roi = ?
             WHERE id = ? AND status = 'working'
             """,
-            (price, fee, cost, if_win_roi, trade_id),
+            (1 if taker else 0, price, fee, cost, if_win_roi, trade_id),
         )
         self.conn.commit()
 
@@ -216,7 +225,7 @@ class Store:
                         current, row["ticker"], row["side"], row["result"] or "", play
                     )
                 continue
-            if play not in {"swing_t", "impulse_t"}:
+            if play not in {"swing_t", "impulse_t", "impulse_wait"}:
                 continue
             if row["status"] in {"closed", "settled"}:
                 memories[event] = remember_swing_exit(
@@ -239,7 +248,7 @@ class Store:
                 raw = json.loads(row["raw"] or "{}")
             except Exception:
                 raw = {}
-            if raw.get("play") not in {"swing_t", "impulse_t"}:
+            if raw.get("play") not in {"swing_t", "impulse_t", "impulse_wait"}:
                 continue
             if row["status"] in {"closed", "settled"}:
                 mem = remember_session_exit(

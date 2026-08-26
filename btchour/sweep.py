@@ -9,6 +9,12 @@ from btchour.replay import EventTape, load_recent_tapes, replay_tapes
 
 DEFAULT_VARIANTS = [
     {"name": "flex_skip", "playbook": "flex", "skip_after_loss": True},
+    {
+        "name": "flex_nowait",
+        "playbook": "flex",
+        "skip_after_loss": True,
+        "impulse_wait": False,
+    },
     {"name": "flex_noskip", "playbook": "flex", "skip_after_loss": False},
     {
         "name": "flex_cheap",
@@ -51,6 +57,7 @@ def compact_run(summary: dict, name: str) -> dict:
         "skip_after_loss": (summary.get("gates") or {}).get("skip_after_loss"),
         "impulse_min_p": (summary.get("gates") or {}).get("impulse_min_p"),
         "impulse_max_ask": (summary.get("gates") or {}).get("impulse_max_ask"),
+        "impulse_wait": (summary.get("gates") or {}).get("impulse_wait"),
         "take_count": summary.get("take_count"),
         "wins": summary.get("wins"),
         "realized_pnl": summary.get("realized_pnl"),

@@ -48,8 +48,9 @@ def probe_book(client: KalshiClient | None = None, settings: Settings | None = N
     passing = [row for row in scores if row.passes]
     opps = scan_markets(markets, spot, settings, now)
     waits = [row for row in opps if row.play == "lock_wait"]
+    impulse_waits = [row for row in opps if row.play == "impulse_wait"]
     takes = [row for row in opps if row.play == "lock_hold"]
-    swings = [row for row in opps if row.play in {"swing_t", "impulse_t"}]
+    swings = [row for row in opps if row.play in {"swing_t", "impulse_t", "impulse_wait"}]
     if settings.playbook not in {"swing", "flex"}:
         swings = []
         for market in markets:
@@ -80,11 +81,14 @@ def probe_book(client: KalshiClient | None = None, settings: Settings | None = N
             "swing_target": settings.swing_target,
             "swing_max_clip": settings.swing_max_clip,
             "impulse_min": settings.impulse_min,
+            "impulse_wait": settings.impulse_wait,
+            "impulse_rest": settings.impulse_rest,
         },
         "scored": len(scores),
         "passing": [row.as_dict() for row in passing],
         "lock_takes": [row.as_dict() for row in takes],
         "lock_waits": [row.as_dict() for row in waits[:8]],
+        "impulse_waits": [row.as_dict() for row in impulse_waits[:8]],
         "swings": [row.as_dict() for row in swings[:8]],
         "cheapest_high_p": [row.as_dict() for row in cheapest_high_p],
         "best_ev": [row.as_dict() for row in scores[:12]],

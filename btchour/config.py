@@ -76,6 +76,10 @@ class Settings:
     impulse_min_gap: float = 0.02
     impulse_max_ask: float = 0.52
     impulse_lookback_ms: int = 180_000
+    impulse_wait: bool = True
+    impulse_rest: float = 0.25
+    impulse_wait_max_ask: float = 0.48
+    impulse_wait_stop: float = 0.50
     scan_15m: bool = True
     scan_daily: bool = True
     scan_weekly: bool = True
@@ -160,6 +164,10 @@ def load_settings() -> Settings:
         impulse_min_gap=_env_float("BTCHOUR_IMPULSE_MIN_GAP", 0.02),
         impulse_max_ask=_env_float("BTCHOUR_IMPULSE_MAX_ASK", 0.52),
         impulse_lookback_ms=_env_int("BTCHOUR_IMPULSE_LOOKBACK_MS", 180_000),
+        impulse_wait=_env_bool("BTCHOUR_IMPULSE_WAIT", True),
+        impulse_rest=_env_float("BTCHOUR_IMPULSE_REST", 0.25),
+        impulse_wait_max_ask=_env_float("BTCHOUR_IMPULSE_WAIT_MAX_ASK", 0.48),
+        impulse_wait_stop=_env_float("BTCHOUR_IMPULSE_WAIT_STOP", 0.50),
         scan_15m=_env_bool("BTCHOUR_SCAN_15M", True),
         scan_daily=_env_bool("BTCHOUR_SCAN_DAILY", True),
         scan_weekly=_env_bool("BTCHOUR_SCAN_WEEKLY", True),
@@ -211,9 +219,12 @@ def apply_playbook(
     if skip_after_loss is not None:
         updates["skip_after_loss"] = skip_after_loss
     reserved = {"name", "playbook", "skip_after_loss"}
+    bool_extras = {"impulse_wait", "allow_maker", "allow_early_exit", "scan_15m", "scan_daily", "scan_weekly"}
     for key, value in (extras or {}).items():
         if key in reserved:
             continue
         if hasattr(settings, key):
+            if key in bool_extras and not isinstance(value, bool):
+                value = str(value).strip().lower() not in {"0", "false", "no", "off", ""}
             updates[key] = value
     return replace(settings, **updates) if updates else settings

@@ -16,6 +16,7 @@ from btchour.score import score_market
 from btchour.store import Store
 from btchour.learn import diagnose_impulse, journal_line, merge_impulse, tape_impulse
 from btchour.strategy import (
+    WAIT_PLAYS,
     Opportunity,
     _seconds_left,
     apply_swing_memory,
@@ -154,7 +155,7 @@ def _execute(opportunity: Opportunity, client: KalshiClient, settings: Settings,
     if store.open_trades() and opportunity.taker:
         return {"skipped": True, "reason": "already have an open fill"}
     if not opportunity.taker:
-        if opportunity.play != "lock_wait":
+        if opportunity.play not in WAIT_PLAYS:
             return {
                 "skipped": True,
                 "reason": "maker rest is not a fill",
@@ -228,6 +229,14 @@ def _close_position(row, action, client: KalshiClient, settings: Settings, store
     return closed
 
 
+def _row_play(row) -> str:
+    try:
+        raw = json.loads(row["raw"] or "{}")
+    except Exception:
+        raw = {}
+    return str(raw.get("play") or "")
+
+
 def refresh_working(
     store: Store,
     settings: Settings,
@@ -242,13 +251,42 @@ def refresh_working(
         market = by_ticker.get(row["ticker"])
         if market is None or market.strike is None:
             continue
+        play = _row_play(row)
+        rest = float(row["price"])
         ask = market.yes_ask_effective if row["side"] == "yes" else market.no_ask_effective
-        if ask is not None and ask + 1e-12 <= float(row["price"]):
+        seconds = _seconds_left(market.close_time, now)
+        if play == "impulse_wait":
+            if ask is not None and ask + 1e-12 <= rest:
+                filled = fill_cost(rest, float(row["count"]), taker=False)
+                store.promote_working(
+                    row["id"], rest, filled.fee, filled.cost, filled.if_win_roi, taker=False
+                )
+                updates.append(
+                    {
+                        "id": row["id"],
+                        "ticker": row["ticker"],
+                        "status": "open",
+                        "price": rest,
+                        "reason": "wait_crossed",
+                    }
+                )
+                continue
+            want = "yes" if spot.impulse > 0 else "no"
+            if (
+                abs(spot.impulse) + 1e-9 < settings.impulse_min
+                or want != row["side"]
+                or seconds + 1e-12 < settings.swing_min_seconds
+            ):
+                store.cancel_trade(row["id"], "wait_invalid")
+                updates.append(
+                    {"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": "wait_invalid"}
+                )
+            continue
+        if ask is not None and ask + 1e-12 <= rest:
             filled = fill_cost(ask, float(row["count"]), taker=True)
             store.promote_working(row["id"], ask, filled.fee, filled.cost, filled.if_win_roi)
             updates.append({"id": row["id"], "ticker": row["ticker"], "status": "open", "price": ask, "reason": "wait_crossed"})
             continue
-        seconds = _seconds_left(market.close_time, now)
         vol = effective_vol(spot.annual_vol, settings.annual_vol)
         p_yes = digital_prob(spot.price, market.strike, max(seconds, 1.0), vol)
         model_p = p_yes if row["side"] == "yes" else 1.0 - p_yes
@@ -345,7 +383,10 @@ def run_cycle(client: KalshiClient | None = None, settings: Settings | None = No
     if not store.open_trades():
         opps = scan["opportunities"]
         takers = [item for item in opps if item.get("taker")]
-        rest = [item for item in opps if not item.get("taker") and item.get("play") == "lock_wait"]
+        working_plays = {_row_play(row) for row in store.working_trades()}
+        rest = [item for item in opps if not item.get("taker") and item.get("play") in WAIT_PLAYS]
+        if "impulse_wait" in working_plays:
+            rest = [item for item in rest if item.get("play") != "impulse_wait"]
         chosen = takers[:1] or rest[:3]
         for item in chosen:
             taken.append(_execute(Opportunity(**item), client, settings, store))

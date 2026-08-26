@@ -26,6 +26,7 @@ def paper_fill(opportunity: Opportunity) -> dict:
             "ask": opportunity.ask,
             "play": opportunity.play,
             "lock_price": opportunity.lock_price,
+            "rest": None if opportunity.taker else opportunity.limit_price,
         },
     }
 

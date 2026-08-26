@@ -16,7 +16,7 @@ def _print_json(payload: object) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Kalshi BTC hourly engine. Score: EV = p*b - (1-p). Default playbook: flex (lock first, then 做T)."
+        description="Kalshi BTC hourly engine. Score: EV = p*b - (1-p). Default playbook: flex (lock, impulse T, dump wait)."
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
@@ -89,6 +89,7 @@ def main(argv: list[str] | None = None) -> int:
                 "passing": report["passing"],
                 "lock_takes": report.get("lock_takes"),
                 "lock_waits": report.get("lock_waits"),
+                "impulse_waits": report.get("impulse_waits"),
                 "swings": report.get("swings"),
                 "cheapest_high_p": report.get("cheapest_high_p"),
                 "scalps": report.get("scalps"),
@@ -154,7 +155,7 @@ def main(argv: list[str] | None = None) -> int:
                 "formula": payload.get("formula"),
                 "best_ev": payload.get("best_ev"),
                 "note": (
-                    f"Playbook={settings.playbook}. flex = lock_hold first, then swing_t 做T, then lock_wait. "
+                    f"Playbook={settings.playbook}. flex = lock_hold, impulse_t, impulse_wait, lock_wait. "
                     f"Lock still needs EV=p*b-(1-p) >= {settings.min_ev:.0%}, σ>={settings.min_sigma}, "
                     f"p>={settings.lock_min_p:.1%}, ask<=$0.82. 做T band "
                     f"{settings.swing_target:.0%}-{settings.swing_max_clip:.0%}; "

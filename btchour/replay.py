@@ -13,6 +13,7 @@ from btchour.kalshi import KalshiClient, Market, market_from_api
 from btchour.model import SpotQuote, digital_prob, effective_vol, realized_annual_vol
 from btchour.paper import paper_close, paper_fill, paper_settle
 from btchour.strategy import (
+    T_PLAYS,
     SessionMemory,
     SwingMemory,
     apply_swing_memory,
@@ -101,6 +102,46 @@ def market_at_bar(
     )
 
 
+def _position_from_fill(fill: dict, opp, now: datetime, event_ticker: str, bar: ReplayBar, left: float) -> dict:
+    ask = fill["price"]
+    return {
+        **fill,
+        "entry": {
+            "ts": now.isoformat(),
+            "event_ticker": event_ticker,
+            "ticker": opp.ticker,
+            "strike": opp.strike,
+            "side": opp.side,
+            "spot": bar.spot,
+            "seconds_left": left,
+            "ask": ask,
+            "model_p": opp.model_p,
+            "if_win_roi": fill.get("if_win_roi", opp.if_win_roi),
+            "ev": opp.ev,
+            "vol": bar.vol,
+            "play": opp.play,
+            "lock_price": opp.lock_price,
+        },
+    }
+
+
+def _promote_wait(working: dict) -> dict:
+    rest = float(working["price"])
+    filled = fill_cost(rest, float(working["count"]), taker=False)
+    promoted = dict(working)
+    promoted["status"] = "open"
+    promoted["taker"] = False
+    promoted["price"] = rest
+    promoted["fee"] = filled.fee
+    promoted["cost"] = filled.cost
+    promoted["if_win_roi"] = filled.if_win_roi
+    entry = dict(promoted.get("entry") or {})
+    entry["ask"] = rest
+    entry["if_win_roi"] = filled.if_win_roi
+    promoted["entry"] = entry
+    return promoted
+
+
 def replay_bars(
     event_ticker: str,
     bars: list[ReplayBar],
@@ -111,6 +152,7 @@ def replay_bars(
 ) -> dict:
     open_ts = maturity_s - 3600
     position = None
+    working = None
     takes: list[dict] = []
     best = None
     hold_candidates = 0
@@ -194,15 +236,35 @@ def replay_bars(
                     )
                     just_closed = (position["ticker"], position["side"])
                     play = (position.get("entry") or {}).get("play") or ""
-                    if play in {"swing_t", "impulse_t"} or play.startswith("lock"):
+                    if play in T_PLAYS or play.startswith("lock"):
                         swing_mem = remember_swing_exit(
                             swing_mem, position["ticker"], position["side"], action.reason, play
                         )
-                    if play in {"swing_t", "impulse_t"} and settings.skip_after_loss:
+                    if play in T_PLAYS and settings.skip_after_loss:
                         session = remember_session_exit(
                             session, event_ticker, action.reason, closed["pnl"], position["side"]
                         )
                     position = None
+
+        if working is not None and position is None:
+            market = next((item for item in markets if item.ticker == working["ticker"]), None)
+            play = (working.get("entry") or {}).get("play") or working.get("play") or ""
+            rest = float(working["price"])
+            side = working["side"]
+            ask = None
+            if market is not None:
+                ask = market.yes_ask_effective if side == "yes" else market.no_ask_effective
+            want = "yes" if bar.impulse > 0 else "no"
+            if ask is not None and ask + 1e-12 <= rest:
+                position = _promote_wait(working)
+                working = None
+                continue
+            if (
+                abs(bar.impulse) + 1e-9 < settings.impulse_min
+                or want != side
+                or left + 1e-12 < settings.swing_min_seconds
+            ):
+                working = None
 
         if position is None:
             opps = [
@@ -212,28 +274,19 @@ def replay_bars(
                 )
                 if (item.ticker, item.side) != just_closed
             ]
-            if opps:
+            takers = [item for item in opps if item.taker]
+            if working is not None:
+                if takers:
+                    working = None
+                    fill = paper_fill(takers[0])
+                    if fill.get("status") == "open":
+                        position = _position_from_fill(fill, takers[0], now, event_ticker, bar, left)
+            elif opps:
                 fill = paper_fill(opps[0])
                 if fill.get("status") == "open":
-                    position = {
-                        **fill,
-                        "entry": {
-                            "ts": now.isoformat(),
-                            "event_ticker": event_ticker,
-                            "ticker": opps[0].ticker,
-                            "strike": opps[0].strike,
-                            "side": opps[0].side,
-                            "spot": bar.spot,
-                            "seconds_left": left,
-                            "ask": opps[0].ask,
-                            "model_p": opps[0].model_p,
-                            "if_win_roi": opps[0].if_win_roi,
-                            "ev": opps[0].ev,
-                            "vol": bar.vol,
-                            "play": opps[0].play,
-                            "lock_price": opps[0].lock_price,
-                        },
-                    }
+                    position = _position_from_fill(fill, opps[0], now, event_ticker, bar, left)
+                elif fill.get("play") == "impulse_wait":
+                    working = _position_from_fill(fill, opps[0], now, event_ticker, bar, left)
 
     if position is not None:
         result = results.get(position["entry"]["strike"], "")
@@ -548,6 +601,10 @@ def summarize_replays(
             "skip_after_loss": settings.skip_after_loss,
             "impulse_min_p": settings.impulse_min_p,
             "impulse_max_ask": settings.impulse_max_ask,
+            "impulse_wait": settings.impulse_wait,
+            "impulse_rest": settings.impulse_rest,
+            "impulse_wait_max_ask": settings.impulse_wait_max_ask,
+            "impulse_wait_stop": settings.impulse_wait_stop,
             "lock_min_p": settings.lock_min_p,
             "min_sigma": settings.min_sigma,
             "invalidate_p": settings.invalidate_p,

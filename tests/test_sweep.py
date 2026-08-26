@@ -32,6 +32,12 @@ class ApplyPlaybookTests(unittest.TestCase):
         self.assertEqual(settings.impulse_min_p, 0.30)
         self.assertEqual(settings.impulse_max_ask, 0.35)
 
+    def test_extras_can_disable_impulse_wait(self):
+        settings = apply_playbook(Settings(), "flex", extras={"impulse_wait": 0})
+        self.assertFalse(settings.impulse_wait)
+        settings = apply_playbook(Settings(), "flex", extras={"impulse_wait": False})
+        self.assertFalse(settings.impulse_wait)
+
 
 class JournalLineTests(unittest.TestCase):
     def test_empty_candidates_are_not_none_ask_none(self):
