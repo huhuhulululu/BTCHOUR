@@ -145,7 +145,8 @@ def evaluate_exit(
             peak,
         )
 
-    if model_p + 1e-12 < settings.invalidate_p and bid is not None:
+    started_above_invalidate = position.entry_p is None or position.entry_p + 1e-12 >= settings.invalidate_p
+    if started_above_invalidate and model_p + 1e-12 < settings.invalidate_p and bid is not None:
         return ExitDecision(
             ExitAction(
                 reason="invalidate",

@@ -23,6 +23,15 @@ class ApplyPlaybookTests(unittest.TestCase):
         self.assertFalse(settings.skip_after_loss)
         self.assertTrue(settings.allow_early_exit)
 
+    def test_extras_override_impulse_gates(self):
+        settings = apply_playbook(
+            Settings(),
+            "flex",
+            extras={"impulse_min_p": 0.30, "impulse_max_ask": 0.35},
+        )
+        self.assertEqual(settings.impulse_min_p, 0.30)
+        self.assertEqual(settings.impulse_max_ask, 0.35)
+
 
 class JournalLineTests(unittest.TestCase):
     def test_empty_candidates_are_not_none_ask_none(self):

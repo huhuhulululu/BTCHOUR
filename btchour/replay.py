@@ -546,6 +546,8 @@ def summarize_replays(
             "swing_trail": settings.swing_trail,
             "swing_fade": settings.swing_fade,
             "skip_after_loss": settings.skip_after_loss,
+            "impulse_min_p": settings.impulse_min_p,
+            "impulse_max_ask": settings.impulse_max_ask,
             "lock_min_p": settings.lock_min_p,
             "min_sigma": settings.min_sigma,
             "invalidate_p": settings.invalidate_p,

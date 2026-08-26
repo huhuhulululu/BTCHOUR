@@ -186,6 +186,7 @@ def apply_playbook(
     *,
     no_early_exit: bool = False,
     skip_after_loss: bool | None = None,
+    extras: dict | None = None,
 ) -> Settings:
     """Copy settings into a playbook (lock / flex / swing / hold / scalp) without env mutation."""
     updates: dict = {}
@@ -209,4 +210,10 @@ def apply_playbook(
         updates["allow_early_exit"] = False
     if skip_after_loss is not None:
         updates["skip_after_loss"] = skip_after_loss
+    reserved = {"name", "playbook", "skip_after_loss"}
+    for key, value in (extras or {}).items():
+        if key in reserved:
+            continue
+        if hasattr(settings, key):
+            updates[key] = value
     return replace(settings, **updates) if updates else settings

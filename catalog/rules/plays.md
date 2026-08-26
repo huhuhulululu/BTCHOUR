@@ -12,7 +12,7 @@
 
 单独只用短线：`BTCHOUR_PLAYBOOK=swing`。单独只用锁仓：`BTCHOUR_PLAYBOOK=lock`（见 [`lock.md`](lock.md)）。做T细则见 [`swing.md`](swing.md)。
 
-反复对照：`python3 -m btchour sweep --hours 16`。每个小时的 K 线只拉一次（缓存在 `data/replay-cache/`），再在同一段带子上跑 flex / swing / lock，以及「亏了下一小时只空反方向」开/关。`--hours 16` 也会拉满 24 小时并同时报告两个窗口。
+反复对照：`python3 -m btchour sweep --hours 16`。每个小时的 K 线只拉一次（缓存在 `data/replay-cache/`），再在同一段带子上跑 flex / swing / lock、skip 开/关，以及「便宜 NO / 低 p」对照。`--hours 16` 也会拉满 24 小时并同时报告两个窗口。便宜对照目前更亏，默认仍是 p≥52% / ask≤$0.52。
 
 ## 盘口锁定 / clip
 

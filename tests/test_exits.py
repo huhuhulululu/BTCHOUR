@@ -103,6 +103,20 @@ class ExitTests(unittest.TestCase):
         self.assertIsNotNone(action)
         self.assertEqual(action.reason, "t_fade")
 
+    def test_cheap_impulse_does_not_use_the_forty_percent_invalidate(self):
+        cost = fill_cost(0.24, taker=True)
+        cheap = OpenPosition(
+            ticker=self.position.ticker,
+            event_ticker=self.position.event_ticker,
+            side="yes",
+            cost=cost.cost,
+            count=1.0,
+            play="impulse_t",
+            entry_p=0.34,
+        )
+        action = self._act(cheap, _market(yes_bid="0.26", yes_ask="0.27"), 0.33, 1200, self.settings)
+        self.assertIsNone(action)
+
     def test_invalidate_when_p_collapses(self):
         dead = OpenPosition(
             ticker=self.position.ticker,

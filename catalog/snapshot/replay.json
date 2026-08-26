@@ -1,5 +1,5 @@
 {
-  "replayed_at": "2026-08-26T01:17:07.749397+00:00",
+  "replayed_at": "2026-08-26T01:23:48.467990+00:00",
   "hours": 16,
   "playbook": "flex",
   "formula": "EV = p * b - (1 - p)",
@@ -21,6 +21,8 @@
     "swing_trail": 0.04,
     "swing_fade": 0.12,
     "skip_after_loss": true,
+    "impulse_min_p": 0.52,
+    "impulse_max_ask": 0.52,
     "lock_min_p": 0.998,
     "min_sigma": 3.2,
     "invalidate_p": 0.4,

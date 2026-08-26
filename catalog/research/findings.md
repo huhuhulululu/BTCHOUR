@@ -150,7 +150,7 @@ Engine change: T realizes a **10%–50%** band (floor / cap), **no flip**, **ski
 | `AUG2508` | NO | `t_clip` | +16% |
 | `AUG2518` | NO | `t_stop` | −22% |
 
-Clips and the 20% lock are still green. `AUG2520` (the manual dump hour) is **0 takes** on minute closes — the 20–25¢ maker NO prints do not show up as candle closes. Leftover loss is still **1-minute stop gaps**. This is not “10% every hour.”
+Clips and the 20% lock are still green. Leftover loss is still **1-minute stop gaps**. This is not “10% every hour.”
 
 ## Repeated sweep (2026-08-26 ~01:17 UTC)
 
@@ -184,6 +184,26 @@ After the fix (lock closes the hour for T; skip only the **opposite** side):
 `AUG2510` NO after `AUG2509` NO stop is now taken. `AUG2519` YES after `AUG2518` NO stop stays skipped (tired flip). `AUG2423` keeps the lock and does not open the −43% T. Value-gap `swing` still overtrades. Ask cap stays **$0.52** — loosening it is how the 16h losers appeared.
 
 Live `AUG2522` at ~01:15 UTC: BRTI ≈ 78725, impulse ≈ −$56, **0 lock / 0 T**. Paper ledger still **0 completed fills** (two $0.83 waits only). This is not “every hour prints 10–50%.”
+
+## Repeated sweep (2026-08-26 ~01:22 UTC)
+
+Same cached tapes. Question this round: why `AUG2520` manual 20–25¢ NO is 0 engine takes.
+
+Minute closes **do** print those prices (`T78599` NO close 0.19–0.27 while the dump is on). The gate that blocks them is `impulse_min_p=0.52`: model p on those strikes is **0.31–0.38**. ATM 0.46–0.51 is what survives p≥52%.
+
+Tried lowering p to 30% and cap ask at $0.35 (and $0.52). Also stopped using the 40% invalidate on tickets that already entered below 40%.
+
+| Run | Takes | Wins | PnL |
+| --- | ---: | ---: | ---: |
+| flex skip (default) 16h | 7 | 4 | **+0.12** |
+| flex cheap p30/ask35 16h | 15 | 6 | **−5.60** |
+| flex cheap p30/ask52 16h | 15 | 8 | −2.48 |
+| flex skip 24h | 11 | 6 | **+2.18** |
+| flex cheap p30/ask35 24h | 24 | 8 | −8.65 |
+
+`AUG2520` cheap NO @ 0.27 then `t_stop` **−57%** on the next minute gap. The human clip to 0.37–0.51 does not survive 1-minute stops. Default stays p≥52% / ask≤$0.52. Sweep now always prints the cheap variant so the next round does not re-guess this.
+
+Live `AUG2522` ~01:20 UTC: impulse faded to +$20s, **0 T**, paper completed PnL still **0**.
 
 ## Order book
 

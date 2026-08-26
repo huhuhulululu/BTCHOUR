@@ -10,6 +10,20 @@ from btchour.replay import EventTape, load_recent_tapes, replay_tapes
 DEFAULT_VARIANTS = [
     {"name": "flex_skip", "playbook": "flex", "skip_after_loss": True},
     {"name": "flex_noskip", "playbook": "flex", "skip_after_loss": False},
+    {
+        "name": "flex_cheap",
+        "playbook": "flex",
+        "skip_after_loss": True,
+        "impulse_min_p": 0.30,
+        "impulse_max_ask": 0.35,
+    },
+    {
+        "name": "flex_cheap_wide",
+        "playbook": "flex",
+        "skip_after_loss": True,
+        "impulse_min_p": 0.30,
+        "impulse_max_ask": 0.52,
+    },
     {"name": "swing_skip", "playbook": "swing", "skip_after_loss": True},
     {"name": "lock", "playbook": "lock", "skip_after_loss": False},
 ]
@@ -35,6 +49,8 @@ def compact_run(summary: dict, name: str) -> dict:
         "hours": summary.get("hours"),
         "playbook": summary.get("playbook"),
         "skip_after_loss": (summary.get("gates") or {}).get("skip_after_loss"),
+        "impulse_min_p": (summary.get("gates") or {}).get("impulse_min_p"),
+        "impulse_max_ask": (summary.get("gates") or {}).get("impulse_max_ask"),
         "take_count": summary.get("take_count"),
         "wins": summary.get("wins"),
         "realized_pnl": summary.get("realized_pnl"),
@@ -61,6 +77,7 @@ def sweep_tapes(
                 settings,
                 variant["playbook"],
                 skip_after_loss=variant.get("skip_after_loss"),
+                extras=variant,
             )
             summary = replay_tapes(slice_tapes, cfg, write=False)
             label = variant["name"]
