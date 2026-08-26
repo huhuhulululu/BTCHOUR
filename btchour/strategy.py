@@ -706,6 +706,44 @@ def pick_dump_wait(waits: list[Opportunity], spot: SpotQuote) -> list[Opportunit
     return chosen[:1]
 
 
+def _entry_play(item) -> str:
+    return item["play"] if isinstance(item, dict) else item.play
+
+
+def _entry_taker(item) -> bool:
+    return bool(item["taker"] if isinstance(item, dict) else item.taker)
+
+
+def pick_flex_entries(opps: list, *, working_plays: set[str] | None = None) -> list:
+    """lock_hold first; dump coupon before impulse_t; do not hop off a live coupon.
+
+    Paper AUG2609 12:39: T78099 ask 0.36 was the human rest, but takers[:1]
+    ate T78299 @ 0.51 and t_stop. Same miss on the AUG2608 minute tape.
+    """
+    working_plays = working_plays or set()
+    lock_takes = [row for row in opps if _entry_play(row) == "lock_hold" and _entry_taker(row)]
+    dump_waits = [row for row in opps if _entry_play(row) == "impulse_wait"]
+    impulse_takes = [
+        row for row in opps if _entry_play(row) in {"impulse_t", "swing_t"} and _entry_taker(row)
+    ]
+    locks = [row for row in opps if _entry_play(row) == "lock_wait"]
+    if "impulse_wait" in working_plays:
+        dump_waits = []
+        impulse_takes = []
+    if lock_takes:
+        return lock_takes[:1]
+    if dump_waits:
+        return dump_waits[:1]
+    if impulse_takes:
+        return impulse_takes[:1]
+    if locks:
+        return locks[:3]
+    if "impulse_wait" in working_plays:
+        return []
+    takers = [row for row in opps if _entry_taker(row)]
+    return takers[:1] or list(opps)[:1]
+
+
 def allow_session(opportunity: Opportunity, session: SessionMemory | None) -> bool:
     if opportunity.play not in T_PLAYS:
         return True
@@ -765,7 +803,7 @@ def scan_markets(markets: list[Market], spot: SpotQuote, settings: Settings, now
         impulses.sort(key=lambda row: (abs(spot.impulse), row.ev, -row.seconds_left), reverse=True)
         waits = pick_dump_wait(waits, spot)
         swings.sort(key=lambda row: ((row.model_p - row.ask), row.ev, -row.seconds_left), reverse=True)
-        swings = impulses + waits + swings
+        swings = waits + impulses + swings
     if settings.playbook == "hold":
         for market in markets:
             hold.extend(evaluate_market(market, spot, settings, now))

@@ -19,6 +19,7 @@ from btchour.strategy import (
     evaluate_impulse_market,
     evaluate_impulse_wait_market,
     impulse_wait_flipped,
+    pick_flex_entries,
     remember_session_exit,
     refresh_session,
     scan_markets,
@@ -149,7 +150,17 @@ class ImpulseWaitTests(unittest.TestCase):
         self.assertEqual(evaluate_impulse_wait_market(market, self.spot, self.settings, self.now), [])
         self.assertEqual(evaluate_impulse_market(market, self.spot, self.settings, self.now), [])
 
-    def test_atm_impulse_still_takes_before_waiting(self):
+    def test_dump_coupon_beats_the_fifty_one_taker(self):
+        # Paper AUG2609 12:39: T78099 ask 0.36 was the human rest; takers[:1]
+        # ate T78299 @ 0.51 and t_stop. Coupon first.
+        coupon = _market(
+            ticker="KXBTCD-26AUG2520-T78599.99",
+            floor_strike=78599.99,
+            yes_bid_dollars="0.63",
+            yes_ask_dollars="0.64",
+            no_bid_dollars="0.35",
+            no_ask_dollars="0.36",
+        )
         atm = _market(
             ticker="KXBTCD-26AUG2520-T78799.99",
             floor_strike=78799.99,
@@ -159,10 +170,50 @@ class ImpulseWaitTests(unittest.TestCase):
             no_ask_dollars="0.50",
         )
         dump = SpotQuote(78680, "test", annual_vol=0.55, impulse=-160)
-        opps = scan_markets([_market(), atm], dump, self.settings, self.now)
-        self.assertTrue(opps)
-        self.assertEqual(opps[0].play, "impulse_t")
-        self.assertEqual(opps[0].side, "no")
+        opps = scan_markets([coupon, atm], dump, self.settings, self.now)
+        chosen = pick_flex_entries(opps)
+        self.assertTrue(chosen)
+        self.assertEqual(chosen[0].play, "impulse_wait")
+        self.assertEqual(chosen[0].ticker, coupon.ticker)
+        self.assertAlmostEqual(chosen[0].ask, 0.36)
+
+    def test_impulse_t_still_takes_when_no_coupon_book(self):
+        atm = _market(
+            ticker="KXBTCD-26AUG2520-T78799.99",
+            floor_strike=78799.99,
+            yes_bid_dollars="0.50",
+            yes_ask_dollars="0.51",
+            no_bid_dollars="0.49",
+            no_ask_dollars="0.50",
+        )
+        dump = SpotQuote(78680, "test", annual_vol=0.55, impulse=-160)
+        opps = scan_markets([atm], dump, self.settings, self.now)
+        chosen = pick_flex_entries(opps)
+        self.assertTrue(chosen)
+        self.assertEqual(chosen[0].play, "impulse_t")
+        self.assertEqual(chosen[0].side, "no")
+
+    def test_working_coupon_is_not_replaced_by_a_taker(self):
+        coupon = _market(
+            ticker="KXBTCD-26AUG2520-T78599.99",
+            floor_strike=78599.99,
+            yes_bid_dollars="0.63",
+            yes_ask_dollars="0.64",
+            no_bid_dollars="0.35",
+            no_ask_dollars="0.36",
+        )
+        atm = _market(
+            ticker="KXBTCD-26AUG2520-T78799.99",
+            floor_strike=78799.99,
+            yes_bid_dollars="0.50",
+            yes_ask_dollars="0.51",
+            no_bid_dollars="0.49",
+            no_ask_dollars="0.50",
+        )
+        dump = SpotQuote(78680, "test", annual_vol=0.55, impulse=-160)
+        opps = scan_markets([coupon, atm], dump, self.settings, self.now)
+        chosen = pick_flex_entries(opps, working_plays={"impulse_wait"})
+        self.assertEqual([row.play for row in chosen], [])
 
     def test_flag_off_disables_the_rest(self):
         settings = Settings(playbook="flex", max_contracts=1, allow_maker=True, impulse_wait=False)
@@ -598,3 +649,38 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         self.assertEqual(len(report["takes"]), 1)
         self.assertTrue(str(report["takes"][0]["play"]).startswith("lock"))
         self.assertNotEqual(report["takes"][0]["play"], "impulse_wait")
+
+    def test_coupon_rest_beats_a_fifty_one_taker_on_the_same_dump(self):
+        settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
+        maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
+        coupon = 78599.99
+        taker = 78799.99
+        bars = [
+            ReplayBar(
+                int(maturity - 1800),
+                78680,
+                0.55,
+                {
+                    coupon: {"yes_ask": 0.64, "yes_bid": 0.63},
+                    taker: {"yes_ask": 0.50, "yes_bid": 0.49},
+                },
+                impulse=-211,
+            ),
+            ReplayBar(
+                int(maturity - 1740),
+                78640,
+                0.55,
+                {
+                    coupon: {"yes_ask": 0.64, "yes_bid": 0.63, "yes_bid_high": 0.76},
+                    taker: {"yes_ask": 0.49, "yes_bid": 0.48},
+                },
+                impulse=-180,
+            ),
+            ReplayBar(int(maturity - 1680), 78580, 0.55, {coupon: {"yes_ask": 0.60, "yes_bid": 0.59}}, impulse=-120),
+        ]
+        report = replay_bars("KXBTCD-26AUG2609", bars, {coupon: "no", taker: "yes"}, maturity, settings)
+        self.assertEqual(len(report["takes"]), 1)
+        self.assertEqual(report["takes"][0]["play"], "impulse_wait")
+        self.assertEqual(report["takes"][0]["ticker"], f"KXBTCD-26AUG2609-T{coupon}")
+        self.assertAlmostEqual(report["takes"][0]["ask"], 0.25)
+        self.assertEqual(report["takes"][0]["exit_reason"], "t_clip")

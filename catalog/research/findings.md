@@ -454,7 +454,11 @@ First rest never filled. At 12:22:52 impulse **+$102** cancelled it `wait_invali
 
 12:31:27 second dump rest: `T78199` NO **0.25** under ask **0.37**, impulse **−$281**, spot 78335, ~$135, p 33.6%. One wait. `T78299` taker ask 0.46 still blocked. Fill only while the dump is on.
 
-Paper completed **5 / 1 / −5.0327**. Hour still open.
+12:34 impulse **+$115** cancelled the second rest (flip). 12:38 third dump: `T78099` ask **0.36** was the human book; `takers[:1]` ate `T78299` NO @ **0.51** (p 61%), peak 0.59 missed the fee-on 10% clip at 0.60, `t_stop` **−0.6498**. Coupon did not fail — the taker stole the slot. Patch: dump coupon before impulse_t; do not hop off a working rest. Skip wait on `AUG2610`.
+
+Paper completed **6 / 1 / −5.6825**. Hour still open. Do not switch.
+
+After the patch, same AUG2608 window: coupon 16h **7 / 4 / +0.15** vs nowait **−3.49**; 24h **+2.72** vs **−3.18**. `AUG2608` minute close still takes the 0.52 taker (the live 0.34 coupon is not on the 1-minute bar). `AUG2518` no longer takes the losing taker. Coupon still beats nowait. `AUG2520` still +41.5%.
 
 ## Order book
 

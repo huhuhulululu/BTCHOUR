@@ -21,6 +21,7 @@ from btchour.strategy import (
     remember_session_exit,
     remember_swing_exit,
     refresh_session,
+    pick_flex_entries,
     scan_markets,
     wait_book_crossed,
 )
@@ -299,21 +300,24 @@ def replay_bars(
                 )
                 if (item.ticker, item.side) != just_closed
             ]
-            takers = [item for item in opps if item.taker]
+            working_plays = set()
             if working is not None:
-                if takers:
+                working_plays.add((working.get("entry") or {}).get("play") or working.get("play") or "")
+            chosen = pick_flex_entries(opps, working_plays=working_plays)
+            if working is not None:
+                if chosen and chosen[0].play == "lock_hold" and chosen[0].taker:
                     working = None
-                    fill = paper_fill(takers[0])
+                    fill = paper_fill(chosen[0])
                     if fill.get("status") == "open":
-                        position = _position_from_fill(fill, takers[0], now, event_ticker, bar, left)
-            elif opps:
-                fill = paper_fill(opps[0])
+                        position = _position_from_fill(fill, chosen[0], now, event_ticker, bar, left)
+            elif chosen:
+                fill = paper_fill(chosen[0])
                 if fill.get("status") == "open":
-                    position = _position_from_fill(fill, opps[0], now, event_ticker, bar, left)
+                    position = _position_from_fill(fill, chosen[0], now, event_ticker, bar, left)
                 elif fill.get("play") == "impulse_wait":
-                    working = _position_from_fill(fill, opps[0], now, event_ticker, bar, left)
-                    quotes = bar.quotes.get(float(opps[0].strike)) or {}
-                    ask = opps[0].ask
+                    working = _position_from_fill(fill, chosen[0], now, event_ticker, bar, left)
+                    quotes = bar.quotes.get(float(chosen[0].strike)) or {}
+                    ask = chosen[0].ask
                     if wait_book_crossed(
                         working["side"],
                         float(working["price"]),

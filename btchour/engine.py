@@ -23,6 +23,7 @@ from btchour.strategy import (
     Opportunity,
     _seconds_left,
     apply_swing_memory,
+    pick_flex_entries,
     impulse_wait_flipped,
     refresh_session,
     wait_book_crossed,
@@ -403,15 +404,8 @@ def run_cycle(client: KalshiClient | None = None, settings: Settings | None = No
     taken = []
     if not store.open_trades():
         opps = scan["opportunities"]
-        takers = [item for item in opps if item.get("taker")]
         working_plays = {_row_play(row) for row in store.working_trades()}
-        rest = [item for item in opps if not item.get("taker") and item.get("play") in WAIT_PLAYS]
-        dump_waits = [item for item in rest if item.get("play") == "impulse_wait"]
-        dump_waits.sort(key=lambda item: abs(float(item.get("strike") or 0.0) - spot.price))
-        locks = [item for item in rest if item.get("play") != "impulse_wait"]
-        if "impulse_wait" in working_plays:
-            dump_waits = []
-        chosen = takers[:1] or dump_waits[:1] + locks[:3]
+        chosen = pick_flex_entries(opps, working_plays=working_plays)
         for item in chosen:
             taken.append(_execute(Opportunity(**item), client, settings, store))
             if store.open_trades():
