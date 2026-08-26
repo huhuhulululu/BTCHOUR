@@ -548,3 +548,23 @@ ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object 
 By 17:02 ET impulse faded to −$3 / −$10. Journal kept printing wait `T78399` NO 0.39 then `T78299` NO 0.33 — in-band, near ATM. Scan `opps=0`. `pick_dump_wait` / `_execute` already allow 3 unique tickers, but `allow_swing` treated a live (not dead) coupon like a one-ticker T: `ticker==memory.ticker and side!=memory.side`. Second and third rungs never reached the book. Human `AUG2520` hung three. Patch: a working `impulse_wait` still allows nearby coupon rungs; clip-after-dead still blocks hop. Diagnose forming now uses the tape side, so a +$100 rally journals YES wait instead of falling through the old NO-only `dump_wait_rest_ready`.
 
 Do not cancel the working YES on a −$10 fade. Fill still needs same-way |impulse| ≥$100 and ask==rest. Do not eat taker. Replay green is not 达成.
+
+## AUG2618 17:10 ET — live YES coupon clipped, then hopped
+
+`T78699` YES rest 0.25 filled 17:10:32 (impulse **+$90**, ask had been 0.30). Same position `t_clip` at bid 0.41, **+57% / +1.4306**. Paper now **11 / 5 / −3.0341**. That is the first live tape-follow YES clip this hour. It is not a taker.
+
+Two bugs on that print:
+
+1. YES fill did not require |impulse| ≥$100 (NO already did). +$90 should not promote. Fixed: both sides need the same-way $100.
+2. Clip 之后 hop。17:11:06 又挂回同一张 `T78699`（id 67）。扫描在 clip 之前，`allow_swing` 还当 working。已撤 67（`coupon_hop`）。`run_cycle` 在 exit 之后重新套 swing memory。
+
+`T78499` YES 0.25 仍 working。淡了不撤。这小时已 clip，不再 hop 新档。
+
+17:16 ET sweep（YES 成交也要 |impulse| ≥$100 之后）。Coupon 仍打赢 nowait。回放变绿不是达成。`AUG2608` dump clip 仍算对。不吃 taker。
+
+| Run | 16h | 24h |
+| --- | ---: | ---: |
+| dump coupon (default) | 6 / 6 / **+8.32** | 10 / 9 / **+7.83** |
+| flex_nowait | 5 / 3 / −0.22 | 6 / 3 / −1.26 |
+| flex_wait_loose | 7 / 6 / +7.17 | 11 / 10 / +14.38 |
+| flex cheap p30/ask35 | 9 / 6 / +5.12 | 13 / 9 / +4.63 |

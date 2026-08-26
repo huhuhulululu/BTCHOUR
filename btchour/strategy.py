@@ -72,13 +72,14 @@ def wait_book_crossed(
     A dump NO rest must not fill on the bounce rip (AUG2520 25¢ → marked 13¢)
     or on a faded ask==rest print (AUG2604 07:41, spot already +$42, then scratch).
     Keep the rest through fade; fill only while impulse is still a dump.
+    YES needs the same-way |impulse| ≥ min_impulse; a +$90 print is not a fill.
     """
     if impulse is not None:
         if side == "no" and impulse >= 0:
             return False
-        if side == "no" and min_impulse is not None and impulse > -abs(min_impulse) + 1e-9:
-            return False
         if side == "yes" and impulse <= 0:
+            return False
+        if min_impulse is not None and abs(impulse) + 1e-9 < abs(min_impulse):
             return False
     if close_ask is not None and close_ask <= rest + 1e-12:
         return True

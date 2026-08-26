@@ -252,3 +252,35 @@ class ExecuteWaitTests(unittest.TestCase):
                 fourth_fill = engine_mod._execute(fourth, object(), Settings(playbook="flex"), db)
                 self.assertTrue(fourth_fill.get("skipped"))
                 self.assertEqual(fourth_fill.get("reason"), "enough working coupons")
+
+    def test_entries_after_a_coupon_clip_do_not_hop(self):
+        leftover = self._coupon()
+        hop = Opportunity(**{**leftover.__dict__, "ticker": "KXBTCD-26AUG2617-T78699.99"})
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                engine_mod._execute(leftover, object(), Settings(playbook="flex"), db)
+                db.record_trade(
+                    {
+                        "ticker": hop.ticker,
+                        "event_ticker": hop.event_ticker,
+                        "side": "yes",
+                        "price": 0.25,
+                        "count": 10,
+                        "fee": 0.0,
+                        "cost": 2.5,
+                        "mode": "paper",
+                        "taker": False,
+                        "model_p": 0.40,
+                        "if_win_roi": 3.0,
+                        "expected_roi": 0.6,
+                        "status": "closed",
+                        "result": "t_clip",
+                        "pnl": 1.43,
+                        "raw": {"play": "impulse_wait"},
+                    }
+                )
+                chosen = engine_mod._entries_after_exits(
+                    db, [hop.as_dict()], hop.event_ticker
+                )
+                self.assertEqual(chosen, [])

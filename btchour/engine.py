@@ -391,6 +391,17 @@ def settle_open(client: KalshiClient, store: Store) -> list[dict]:
     return updates
 
 
+def _entries_after_exits(store: Store, opps: list, event_ticker: str | None) -> list:
+    """Re-filter scan rows after manage_open so a coupon clip cannot hop."""
+    session = refresh_session(store.session_memory(), event_ticker)
+    rows = []
+    for item in opps:
+        rows.append(item if isinstance(item, Opportunity) else Opportunity(**item))
+    filtered = apply_swing_memory(rows, store.swing_memories(), session)
+    working_plays = {_row_play(row) for row in store.working_trades()}
+    return pick_flex_entries(filtered, working_plays=working_plays)
+
+
 def run_cycle(client: KalshiClient | None = None, settings: Settings | None = None) -> dict:
     settings = settings or load_settings()
     client = client or make_client(settings)
@@ -410,12 +421,13 @@ def run_cycle(client: KalshiClient | None = None, settings: Settings | None = No
     waits = refresh_working(store, settings, markets, spot)
     exits = manage_open(client, store, settings, markets, spot)
     taken = []
+    event_ticker = (scan.get("event") or {}).get("event_ticker")
     if not store.open_trades():
-        opps = scan["opportunities"]
-        working_plays = {_row_play(row) for row in store.working_trades()}
-        chosen = pick_flex_entries(opps, working_plays=working_plays)
+        # Scan ran before fills/exits. A same-cycle coupon clip must stay
+        # dead — AUG2618 T78699 t_clip then hopped the same ticker 34s later.
+        chosen = _entries_after_exits(store, scan.get("opportunities") or [], event_ticker)
         for item in chosen:
-            taken.append(_execute(Opportunity(**item), client, settings, store))
+            taken.append(_execute(item if isinstance(item, Opportunity) else Opportunity(**item), client, settings, store))
             if store.open_trades():
                 break
     scan.pop("snapshot", None)

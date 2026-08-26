@@ -872,7 +872,12 @@ class ImpulseWaitTests(unittest.TestCase):
             wait_book_crossed("no", 0.25, 0.32, yes_bid_high=0.76, impulse=-160, min_impulse=100)
         )
         self.assertTrue(wait_book_crossed("no", 0.25, 0.24, impulse=-160, min_impulse=100))
-        self.assertTrue(wait_book_crossed("yes", 0.25, 0.32, yes_ask_low=0.24, impulse=80))
+        self.assertTrue(
+            wait_book_crossed("yes", 0.25, 0.32, yes_ask_low=0.24, impulse=160, min_impulse=100)
+        )
+        self.assertFalse(
+            wait_book_crossed("yes", 0.25, 0.25, impulse=90, min_impulse=100)
+        )
 
     def test_bounce_does_not_fill_a_dump_rest(self):
         self.assertFalse(wait_book_crossed("no", 0.25, 0.14, yes_bid_high=0.86, impulse=95))
