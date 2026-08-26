@@ -495,6 +495,23 @@ Skip-wait held: journal saw `T78199` / `T78099` ask **0.42** coupon books and di
 
 The win cleared session (`skip_next=False`). This is a skip-hour taker clip, not a dump-coupon clip. Do not switch. Leftover working tickets are far-OTM `lock_wait` 0.83, not dump coupon. Paper completed **7 / 2 / −5.0279**.
 
+After the clip the hour is `swing.dead`: 13:06–13:11 journal saw `T78099` ask **0.42** and `T77999` ask **0.41** and did not rest. One T per hour, not a miss.
+
+## AUG2609 tape complete (2026-08-26 ~13:16 UTC)
+
+Band is **78299.99–78399.99**. `T78299` settled YES — holding the paper 0.51 NO to expiry would have been −100%. The `t_stop` −12.3% beat settlement. The human `T78099` coupon would also have settled YES; it never filled.
+
+Minute replay does not match paper. Replay 12:39 took the same `T78299` NO @ **0.51** and this time `t_clip` +10.6% / +0.557 (live peak 0.59 missed fee-on 0.60 and stopped at 0.48). The live 0.36 coupon is not on the 1-minute close, so coupon-first cannot block that replay taker. Loose wait replayed a 25¢ rest and `t_clip` +61% / +1.53 — do not widen the default.
+
+| Run | 16h | 24h |
+| --- | ---: | ---: |
+| dump coupon (default) | 8 / 5 / **+0.71** | 13 / 9 / **+3.28** |
+| flex_nowait | 5 / 1 / −2.93 | 9 / 4 / −1.88 |
+| flex_wait_loose | 9 / 7 / +8.66 | 13 / 9 / +8.77 |
+| flex cheap p30/ask35 | 16 / 4 / −7.88 | 22 / 9 / −5.40 |
+
+The window greened because this hour’s replay taker clipped +0.56, not because paper coupon earned. Coupon still beats nowait. Cheap still red. Do not switch on the 29¢ knife. Do not chase YES. Replay green is not 达成. `AUG2610` is still open — sweep again at 14:00.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.

@@ -375,3 +375,20 @@ skip-wait 守住了：579 次扫描，36 条 coupon journal（`T78599` / `T78499
 skip-wait 守住了：journal 看见 `T78199` / `T78099` ask **0.42** coupon 盘，引擎没挂 wait。13:05:07 同向 `impulse_t` NO `T78299` @ **0.48**，p 52.2%，动量 −$114。规矩允许（AUG2518 / AUG2605 / AUG2606）。随后 `t_clip` 在 bid **0.58**，**+13.2%**，pnl **+0.6546**。peak_bid 0.56 是标记，出场 0.58 是准的。没挂 YES。没挂 coupon。
 
 赢了 session 清掉（`skip_next=False`）。这不是 coupon clip，是 skip 小时同向 taker。不换策略。剩下的 working 是远 OTM `lock_wait` 0.83，不是 dump coupon。完成成交 **7 / 2 / −5.0279**。
+
+赢了之后这小时 `swing.dead`：13:06–13:11 journal 又看见 `T78099` ask **0.42**、`T77999` ask **0.41**，引擎没挂——一小时只做一笔 T，不是漏单。
+
+## 13:16 `AUG2609` 带子齐了
+
+结算带 **78299.99–78399.99**。`T78299` 结算 YES——纸盘那张 0.51 NO 若拿到结算是 −100%；`t_stop` −12.3% 比拿结算好。人手 coupon `T78099` 也会结算 YES，没成交所以无所谓。
+
+分钟回放和纸盘对不上。回放 12:39 吃了同一张 `T78299` NO @ **0.51**，这次 `t_clip` +10.6% / +0.557（纸盘 peak 0.59 没到费后 0.60，停在 0.48）。纸盘那张 0.36 coupon 不在 1 分钟收盘上，coupon-first 挡不住这口回放 taker。loose wait 回放挂 25¢，`t_clip` +61% / +1.53——不改默认。
+
+| Run | 16h | 24h |
+| --- | ---: | ---: |
+| dump coupon（默认） | 8 / 5 / **+0.71** | 13 / 9 / **+3.28** |
+| flex_nowait | 5 / 1 / −2.93 | 9 / 4 / −1.88 |
+| flex_wait_loose | 9 / 7 / +8.66 | 13 / 9 / +8.77 |
+| flex cheap p30/ask35 | 16 / 4 / −7.88 | 22 / 9 / −5.40 |
+
+16h/24h 变绿是滚进这小时回放 taker clip +0.56，不是纸盘 coupon 赚了。coupon 仍赢 nowait。便宜仍红。不换 29¢ 刀，不追 YES。回放绿不是达成。`AUG2610` 还开着，14:00 再 sweep。
