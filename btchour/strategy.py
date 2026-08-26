@@ -531,7 +531,8 @@ def evaluate_impulse_wait_market(
     move = spot.impulse
     if move >= 0 or abs(move) + 1e-9 < settings.impulse_min:
         return []
-    if abs((market.strike or 0.0) - spot.price) > settings.swing_max_distance + 1e-9:
+    reach = settings.impulse_wait_max_distance or settings.swing_max_distance
+    if abs((market.strike or 0.0) - spot.price) > reach + 1e-9:
         return []
     vol = effective_vol(spot.annual_vol, settings.annual_vol)
     p_yes = digital_prob(spot.price, market.strike, seconds, vol)
@@ -544,6 +545,8 @@ def evaluate_impulse_wait_market(
     if ask is None or ask <= 0 or ask >= 1.0:
         return []
     if ask <= rest + 1e-12:
+        return []
+    if ask + 1e-12 < settings.impulse_wait_min_ask:
         return []
     if ask > settings.impulse_wait_max_ask + 1e-12:
         return []
@@ -569,7 +572,7 @@ def evaluate_impulse_wait_market(
         cost=cost,
         play="impulse_wait",
         reason=(
-            f"impulse_wait {side.upper()} 动量 {move:+.0f} rest {rest:.2f} under {ask:.2f} "
+            f"dump_gap {side.upper()} 动量 {move:+.0f} rest {rest:.2f} under {ask:.2f} "
             f"p={model_p:.1%} clip>={clip:.2f}; strike {market.strike:.2f} / spot {spot.price:.2f}"
         ),
     )
@@ -611,6 +614,7 @@ def remember_session_exit(
     lost = (pnl is not None and pnl < 0) or reason in {
         "t_stop",
         "t_wait_stop",
+        "t_scratch",
         "t_fade",
         "invalidate",
         "flatten_time",

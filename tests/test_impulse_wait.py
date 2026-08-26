@@ -122,6 +122,23 @@ class ImpulseWaitTests(unittest.TestCase):
         self.assertAlmostEqual(opps[0].limit_price, 0.25)
         self.assertGreater(opps[0].ask, 0.25)
 
+    def test_already_dumped_twenty_nine_cent_ask_is_not_a_gap(self):
+        # Paper AUG2602 T78499: rest 0.25 under ask 0.29 filled immediately, then 0.03.
+        market = _market(
+            ticker="KXBTCD-26AUG2602-T78599.99",
+            event_ticker="KXBTCD-26AUG2602",
+            floor_strike=78599.99,
+            yes_bid_dollars="0.70",
+            yes_ask_dollars="0.71",
+            no_bid_dollars="0.28",
+            no_ask_dollars="0.29",
+            open_time="2026-08-26T05:00:00Z",
+            close_time="2026-08-26T06:00:00Z",
+        )
+        spot = SpotQuote(78689.70, "test", annual_vol=0.55, impulse=-104)
+        now = datetime(2026, 8, 26, 5, 6, tzinfo=timezone.utc)
+        self.assertEqual(evaluate_impulse_wait_market(market, spot, self.settings, now), [])
+
     def test_already_cheap_ask_is_not_a_wait_or_a_taker(self):
         market = _market(
             yes_bid_dollars="0.77",
@@ -317,8 +334,8 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
         strike = 78699.99
         bars = [
-            ReplayBar(int(maturity - 1800), 78800, 0.55, {strike: {"yes_ask": 0.74, "yes_bid": 0.73}}, impulse=-112),
-            ReplayBar(int(maturity - 1740), 78800, 0.55, {strike: {"yes_ask": 0.73, "yes_bid": 0.71}}, impulse=-87),
+            ReplayBar(int(maturity - 1800), 78800, 0.55, {strike: {"yes_ask": 0.65, "yes_bid": 0.64}}, impulse=-112),
+            ReplayBar(int(maturity - 1740), 78800, 0.55, {strike: {"yes_ask": 0.64, "yes_bid": 0.63}}, impulse=-87),
             ReplayBar(
                 int(maturity - 1680),
                 78800,
@@ -340,7 +357,7 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
         strike = 78699.99
         bars = [
-            ReplayBar(int(maturity - 1800), 78800, 0.55, {strike: {"yes_ask": 0.74, "yes_bid": 0.73}}, impulse=-112),
+            ReplayBar(int(maturity - 1800), 78800, 0.55, {strike: {"yes_ask": 0.65, "yes_bid": 0.64}}, impulse=-112),
             ReplayBar(
                 int(maturity - 1740),
                 78910,

@@ -15,6 +15,16 @@ DEFAULT_VARIANTS = [
         "skip_after_loss": True,
         "impulse_wait": False,
     },
+    {
+        "name": "flex_wait_loose",
+        "playbook": "flex",
+        "skip_after_loss": True,
+        "impulse_wait": True,
+        "impulse_wait_min_ask": 0.0,
+        "impulse_wait_max_ask": 0.48,
+        "impulse_wait_max_distance": 600.0,
+        "impulse_wait_scratch_seconds": 0.0,
+    },
     {"name": "flex_noskip", "playbook": "flex", "skip_after_loss": False},
     {
         "name": "flex_cheap",

@@ -17,6 +17,7 @@ class OpenPosition:
     peak_bid: float | None = None
     play: str = ""
     entry_p: float | None = None
+    held_seconds: float | None = None
 
 
 @dataclass(frozen=True)
@@ -89,6 +90,29 @@ def evaluate_exit(
                     ),
                     peak,
                 )
+            scratch_s = settings.impulse_wait_scratch_seconds
+            if (
+                scratch_s > 0
+                and position.held_seconds is not None
+                and position.held_seconds + 1e-12 >= scratch_s
+            ):
+                peak_roi = (
+                    round_trip_roi(position.cost, peak, position.count)
+                    if peak is not None
+                    else roi_now
+                )
+                if peak_roi + 1e-12 < settings.swing_target:
+                    return ExitDecision(
+                        ExitAction(
+                            reason="t_scratch",
+                            price=bid,
+                            note=(
+                                f"dump_gap scratch {roi_now:.1%} after {position.held_seconds:.0f}s "
+                                f"peak {peak_roi:.1%} < {settings.swing_target:.0%} at bid {bid:.2f}"
+                            ),
+                        ),
+                        peak,
+                    )
         elif roi_now + 1e-12 <= -settings.swing_stop:
             return ExitDecision(
                 ExitAction(

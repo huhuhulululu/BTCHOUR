@@ -38,6 +38,21 @@ class ApplyPlaybookTests(unittest.TestCase):
         settings = apply_playbook(Settings(), "flex", extras={"impulse_wait": False})
         self.assertFalse(settings.impulse_wait)
 
+    def test_extras_can_restore_loose_wait(self):
+        settings = apply_playbook(
+            Settings(),
+            "flex",
+            extras={
+                "impulse_wait_min_ask": 0.0,
+                "impulse_wait_max_ask": 0.48,
+                "impulse_wait_max_distance": 600.0,
+                "impulse_wait_scratch_seconds": 0.0,
+            },
+        )
+        self.assertEqual(settings.impulse_wait_min_ask, 0.0)
+        self.assertEqual(settings.impulse_wait_max_ask, 0.48)
+        self.assertEqual(settings.impulse_wait_scratch_seconds, 0.0)
+
 
 class JournalLineTests(unittest.TestCase):
     def test_empty_candidates_are_not_none_ask_none(self):

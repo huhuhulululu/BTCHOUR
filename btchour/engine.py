@@ -268,6 +268,13 @@ def refresh_working(
                 store.promote_working(
                     row["id"], rest, filled.fee, filled.cost, filled.if_win_roi, taker=False
                 )
+                raw = {}
+                try:
+                    raw = json.loads(row["raw"] or "{}")
+                except Exception:
+                    raw = {}
+                raw["filled_at"] = now.isoformat()
+                store.update_raw(row["id"], raw)
                 updates.append(
                     {
                         "id": row["id"],
@@ -326,6 +333,11 @@ def manage_open(
             raw = json.loads(row["raw"] or "{}")
         except Exception:
             raw = {}
+        filled_raw = raw.get("filled_at") or row["created_at"]
+        held = None
+        if filled_raw:
+            filled_at = datetime.fromisoformat(str(filled_raw).replace("Z", "+00:00"))
+            held = (now - filled_at).total_seconds()
         decision = evaluate_exit(
             OpenPosition(
                 ticker=row["ticker"],
@@ -336,6 +348,7 @@ def manage_open(
                 peak_bid=raw.get("peak_bid"),
                 play=raw.get("play") or "",
                 entry_p=float(row["model_p"]),
+                held_seconds=held,
             ),
             market,
             model_p,

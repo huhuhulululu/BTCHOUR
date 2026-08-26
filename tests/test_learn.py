@@ -80,28 +80,28 @@ class LearnTests(unittest.TestCase):
         now = datetime(2026, 8, 26, 5, 6, tzinfo=timezone.utc)
         far = market_from_api(
             {
-                "ticker": "KXBTCD-26AUG2602-T78499.99",
+                "ticker": "KXBTCD-26AUG2602-T78599.99",
                 "event_ticker": "KXBTCD-26AUG2602",
-                "floor_strike": 78499.99,
+                "floor_strike": 78599.99,
                 "strike_type": "greater",
-                "yes_bid_dollars": "0.70",
-                "yes_ask_dollars": "0.71",
-                "no_bid_dollars": "0.28",
-                "no_ask_dollars": "0.29",
+                "yes_bid_dollars": "0.61",
+                "yes_ask_dollars": "0.62",
+                "no_bid_dollars": "0.37",
+                "no_ask_dollars": "0.38",
                 "open_time": "2026-08-26T05:00:00Z",
                 "close_time": "2026-08-26T06:00:00Z",
             }
         )
         near = market_from_api(
             {
-                "ticker": "KXBTCD-26AUG2602-T78599.99",
+                "ticker": "KXBTCD-26AUG2602-T78699.99",
                 "event_ticker": "KXBTCD-26AUG2602",
-                "floor_strike": 78599.99,
+                "floor_strike": 78699.99,
                 "strike_type": "greater",
-                "yes_bid_dollars": "0.57",
-                "yes_ask_dollars": "0.58",
-                "no_bid_dollars": "0.41",
-                "no_ask_dollars": "0.42",
+                "yes_bid_dollars": "0.59",
+                "yes_ask_dollars": "0.60",
+                "no_bid_dollars": "0.39",
+                "no_ask_dollars": "0.40",
                 "open_time": "2026-08-26T05:00:00Z",
                 "close_time": "2026-08-26T06:00:00Z",
             }
@@ -109,7 +109,7 @@ class LearnTests(unittest.TestCase):
         spot = SpotQuote(78689.70, "test", annual_vol=0.55, impulse=-104)
         report = diagnose_impulse([far, near], spot, Settings(playbook="flex"), now)
         self.assertEqual(report["status"], "wait")
-        self.assertEqual(report["wait"], "KXBTCD-26AUG2602-T78599.99")
+        self.assertEqual(report["wait"], "KXBTCD-26AUG2602-T78699.99")
         self.assertEqual(report["wait_count"], 2)
 
     def test_store_journal_and_tape(self):

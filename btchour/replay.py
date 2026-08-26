@@ -144,6 +144,14 @@ def _promote_wait(working: dict) -> dict:
     return promoted
 
 
+def _held_seconds(position: dict, now: datetime) -> float | None:
+    raw = (position.get("entry") or {}).get("filled_ts") or (position.get("entry") or {}).get("ts")
+    if not raw:
+        return None
+    filled = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    return (now - filled).total_seconds()
+
+
 def replay_bars(
     event_ticker: str,
     bars: list[ReplayBar],
@@ -214,6 +222,7 @@ def replay_bars(
                         peak_bid=position.get("peak_bid"),
                         play=(position.get("entry") or {}).get("play") or "",
                         entry_p=position.get("model_p") or (position.get("entry") or {}).get("model_p"),
+                        held_seconds=_held_seconds(position, now),
                     ),
                     market,
                     model_p,
@@ -269,6 +278,9 @@ def replay_bars(
                 impulse=bar.impulse if play == "impulse_wait" else None,
             ):
                 position = _promote_wait(working)
+                entry = dict(position.get("entry") or {})
+                entry["filled_ts"] = now.isoformat()
+                position["entry"] = entry
                 working = None
                 continue
             if play == "impulse_wait" and (
@@ -310,6 +322,9 @@ def replay_bars(
                         impulse=bar.impulse,
                     ):
                         position = _promote_wait(working)
+                        entry = dict(position.get("entry") or {})
+                        entry["filled_ts"] = now.isoformat()
+                        position["entry"] = entry
                         working = None
 
     if position is not None:
@@ -636,8 +651,11 @@ def summarize_replays(
             "impulse_max_ask": settings.impulse_max_ask,
             "impulse_wait": settings.impulse_wait,
             "impulse_rest": settings.impulse_rest,
+            "impulse_wait_min_ask": settings.impulse_wait_min_ask,
             "impulse_wait_max_ask": settings.impulse_wait_max_ask,
+            "impulse_wait_max_distance": settings.impulse_wait_max_distance,
             "impulse_wait_stop": settings.impulse_wait_stop,
+            "impulse_wait_scratch_seconds": settings.impulse_wait_scratch_seconds,
             "lock_min_p": settings.lock_min_p,
             "min_sigma": settings.min_sigma,
             "invalidate_p": settings.invalidate_p,

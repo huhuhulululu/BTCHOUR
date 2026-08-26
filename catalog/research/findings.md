@@ -259,9 +259,18 @@ Paper finally filled a dump wait. It was not a 10–50% clip.
 
 Same scan also wanted `T78599` rest 0.25 under ask **0.42** (p 42.0%, ~$90 from spot). Sort was `(ask − rest)`, so the **cheapest ask just above 25¢** won. Human rests the dump ATM. `T78499` is ~$190 below spot — further OTM NO / deeper ITM YES. The 05:20 dump that could have saved the nearer strike could not revive T78499.
 
-Fix: one wait, **nearest strike to spot**, then ask−rest. Do not loosen taker p=0.30. Do not rest YES on the later rally (p still <52%). After this loss, skip wait on `AUG2603`; same-direction taker still allowed.
+Nearest-strike alone is not enough. `AUG2520` 23:09 nearest is `T78799` ask 0.44 — rest 0.25 never fills. Human / gold replay is `T78699` when ask is still **0.32–0.35**. Paper `T78499` ask **0.29** is the already-dumped knife.
 
-Paper completed: **1 / 0 / −2.2204**. Replay +7.98 is not 达成.
+**Strategy switch (default):** dump coupon, not “rest 25¢ under any 26–48¢ dump ask.”
+
+- Rest only if NO ask is **$0.32–$0.42** and strike is within **$150**
+- Then nearest strike
+- **Scratch** if the bid never makes +10% in 8 minutes. Do not hold a dead coupon to −80%
+- Old wide wait stays as sweep `flex_wait_loose`
+
+Do not loosen taker p=0.30. Do not rest YES on rallies. After this loss, skip wait on `AUG2603`.
+
+Paper completed: **1 / 0 / −2.2204**. Replay green is not 达成.
 
 ## Order book
 

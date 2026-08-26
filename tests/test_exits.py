@@ -121,6 +121,51 @@ class ExitTests(unittest.TestCase):
         action = self._act(waiting, _market(yes_bid="0.88", yes_ask="0.89", no_bid="0.11", no_ask="0.12"), 0.20, 1200, self.settings)
         self.assertIsNone(action)
 
+    def test_impulse_wait_scratches_if_eight_minutes_never_made_ten(self):
+        cost = fill_cost(0.25, taker=False)
+        waiting = OpenPosition(
+            ticker=self.position.ticker,
+            event_ticker=self.position.event_ticker,
+            side="no",
+            cost=cost.cost,
+            count=1.0,
+            play="impulse_wait",
+            entry_p=0.36,
+            peak_bid=0.23,
+            held_seconds=500,
+        )
+        action = self._act(
+            waiting,
+            _market(yes_bid="0.80", yes_ask="0.81", no_bid="0.19", no_ask="0.20"),
+            0.30,
+            1200,
+            self.settings,
+        )
+        self.assertIsNotNone(action)
+        self.assertEqual(action.reason, "t_scratch")
+
+    def test_impulse_wait_does_not_scratch_a_working_ten_percent_peak(self):
+        cost = fill_cost(0.25, taker=False)
+        waiting = OpenPosition(
+            ticker=self.position.ticker,
+            event_ticker=self.position.event_ticker,
+            side="no",
+            cost=cost.cost,
+            count=1.0,
+            play="impulse_wait",
+            entry_p=0.36,
+            peak_bid=0.32,
+            held_seconds=500,
+        )
+        action = self._act(
+            waiting,
+            _market(yes_bid="0.70", yes_ask="0.71", no_bid="0.29", no_ask="0.30"),
+            0.50,
+            1200,
+            self.settings,
+        )
+        self.assertIsNone(action)
+
     def test_impulse_wait_stops_an_eighty_percent_hole(self):
         cost = fill_cost(0.25, taker=False)
         waiting = OpenPosition(
