@@ -585,11 +585,18 @@ def evaluate_impulse_wait_market(
 
 @dataclass
 class SwingMemory:
-    """Per-event 做T state: one ticker, one clip, then hands off. No flip."""
+    """Per-event 做T state: one ticker, one clip, then hands off. No flip.
+
+    After an impulse_t / swing_t clip the hour is dead for another taker, but a
+    later dump coupon may still rest. Paper AUG2611 14:00 YES taker then 14:14
+    T78399 ask 0.41 was journaled and blocked. After an impulse_wait clip,
+    do not hop to a second rest.
+    """
 
     ticker: str | None = None
     side: str | None = None
     dead: bool = False
+    play: str = ""
 
 
 @dataclass
@@ -610,7 +617,7 @@ class SessionMemory:
 def remember_swing_exit(
     memory: SwingMemory, ticker: str, side: str, reason: str, play: str = ""
 ) -> SwingMemory:
-    return SwingMemory(ticker=ticker, side=side, dead=True)
+    return SwingMemory(ticker=ticker, side=side, dead=True, play=play)
 
 
 def remember_session_exit(
@@ -689,6 +696,8 @@ def allow_swing(opportunity: Opportunity, memory: SwingMemory | None) -> bool:
     if memory is None or (memory.ticker is None and not memory.dead):
         return True
     if memory.dead:
+        if opportunity.play == "impulse_wait" and memory.play in {"impulse_t", "swing_t"}:
+            return True
         return False
     return opportunity.ticker == memory.ticker and opportunity.side != memory.side
 

@@ -250,7 +250,12 @@ class Store:
                     current, row["ticker"], row["side"], row["result"] or "", play
                 )
             elif row["status"] in {"open", "working"}:
-                memories[event] = SwingMemory(ticker=row["ticker"], side=row["side"], dead=current.dead)
+                memories[event] = SwingMemory(
+                    ticker=row["ticker"],
+                    side=row["side"],
+                    dead=current.dead,
+                    play=current.play or play,
+                )
         return memories
 
     def session_memory(self):
