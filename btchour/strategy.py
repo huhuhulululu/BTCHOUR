@@ -456,6 +456,8 @@ def evaluate_impulse_market(
     now: datetime | None = None,
 ) -> list[Opportunity]:
     now = now or datetime.now(timezone.utc)
+    if settings.playbook == "flex" and not settings.impulse_taker:
+        return []
     if not is_fast_window(market.open_time, market.close_time):
         return []
     seconds = _eligible_market(market, settings, now)
@@ -603,13 +605,15 @@ class SwingMemory:
 class SessionMemory:
     """After a losing T, skip wait on the next hour ticker. Same-direction taker is allowed.
 
-    Consecutive losing hours do not stack another sit-out. Paper `AUG2605`
-    then `AUG2606` same-dir taker stops kept pushing the live dump coupon
-    one more hour each time.
+    Consecutive losing hours do not stack another sit-out.
+
+    Live flex sits out the whole skip hour — wait and taker. Paper skip-hour
+    same-dir takers AUG2605/AUG2606 stopped −1.89; AUG2610 clipped, but that
+    sidecar is not the dump-coupon goal.
 
     After an isolated impulse_t / swing_t stop, a dump coupon may still rest
-    on that same hour. Skip-wait is the next ticker. Paper AUG2614: 17:32
-    YES taker t_stop, 17:47 T78399 ask 0.40 journaled wait and the same-hour
+    on that same hour. Skip is the next ticker. Paper AUG2614: 17:32 YES
+    taker t_stop, 17:47 T78399 ask 0.40 journaled wait and the same-hour
     last_loss_event gate ate the rest.
     """
 
@@ -736,7 +740,7 @@ def _entry_taker(item) -> bool:
 
 
 def pick_flex_entries(opps: list, *, working_plays: set[str] | None = None) -> list:
-    """lock_hold first; dump coupon before impulse_t; do not hop off a live coupon.
+    """lock_hold first; dump coupon; impulse_t only if the taker flag is on.
 
     Paper AUG2609 12:39: T78099 ask 0.36 was the human rest, but takers[:1]
     ate T78299 @ 0.51 and t_stop. Same miss on the AUG2608 minute tape.
@@ -786,10 +790,9 @@ def allow_session(opportunity: Opportunity, session: SessionMemory | None) -> bo
     if not session.skip_next:
         return True
     if session.skipped_event is None or opportunity.event_ticker == session.skipped_event:
-        if opportunity.play == "impulse_wait":
-            return False
-        if session.last_side and opportunity.side == session.last_side:
-            return True
+        # Sit out every T play on the skip hour. Same-dir taker was the
+        # live leak: AUG2605/2606 t_stop, AUG2610 t_clip. Coupon goal
+        # does not need that sidecar.
         return False
     return True
 

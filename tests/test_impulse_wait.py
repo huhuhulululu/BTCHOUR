@@ -179,7 +179,7 @@ class ImpulseWaitTests(unittest.TestCase):
         self.assertEqual(chosen[0].ticker, coupon.ticker)
         self.assertAlmostEqual(chosen[0].ask, 0.36)
 
-    def test_impulse_t_still_takes_when_no_coupon_book(self):
+    def test_flex_default_does_not_take_when_no_coupon_book(self):
         atm = _market(
             ticker="KXBTCD-26AUG2520-T78799.99",
             floor_strike=78799.99,
@@ -190,6 +190,21 @@ class ImpulseWaitTests(unittest.TestCase):
         )
         dump = SpotQuote(78680, "test", annual_vol=0.55, impulse=-160)
         opps = scan_markets([atm], dump, self.settings, self.now)
+        self.assertEqual([row.play for row in opps if row.play == "impulse_t"], [])
+        self.assertEqual(pick_flex_entries(opps), [])
+
+    def test_impulse_taker_flag_still_takes_when_no_coupon_book(self):
+        atm = _market(
+            ticker="KXBTCD-26AUG2520-T78799.99",
+            floor_strike=78799.99,
+            yes_bid_dollars="0.50",
+            yes_ask_dollars="0.51",
+            no_bid_dollars="0.49",
+            no_ask_dollars="0.50",
+        )
+        dump = SpotQuote(78680, "test", annual_vol=0.55, impulse=-160)
+        settings = Settings(playbook="flex", max_contracts=1, allow_maker=True, impulse_taker=True)
+        opps = scan_markets([atm], dump, settings, self.now)
         chosen = pick_flex_entries(opps)
         self.assertTrue(chosen)
         self.assertEqual(chosen[0].play, "impulse_t")
@@ -487,7 +502,8 @@ class ImpulseWaitTests(unittest.TestCase):
         settings = Settings(playbook="flex", max_contracts=1, allow_maker=True, impulse_wait=False)
         self.assertEqual(evaluate_impulse_wait_market(_market(), self.spot, settings, self.now), [])
 
-    def test_after_a_loss_same_direction_taker_is_ok_but_wait_is_not(self):
+    def test_after_a_loss_skip_hour_sits_out_wait_and_taker(self):
+        # Paper AUG2605/2606 same-dir taker stops were the live leak.
         session = remember_session_exit(SessionMemory(), "KXBTCD-26AUG2518", "t_stop", -1.0, "no")
         session = refresh_session(session, "KXBTCD-26AUG2519")
         wait_mkt = _market(
@@ -509,6 +525,7 @@ class ImpulseWaitTests(unittest.TestCase):
         )
         dump = SpotQuote(78680, "test", annual_vol=0.55, impulse=-160)
         now = datetime(2026, 8, 25, 22, 30, tzinfo=timezone.utc)
+        taker_settings = Settings(playbook="flex", max_contracts=1, allow_maker=True, impulse_taker=True)
         wait_only = apply_swing_memory(
             scan_markets([wait_mkt], self.spot, self.settings, now),
             None,
@@ -516,13 +533,11 @@ class ImpulseWaitTests(unittest.TestCase):
         )
         self.assertEqual(wait_only, [])
         taker = apply_swing_memory(
-            scan_markets([atm], dump, self.settings, now),
+            scan_markets([atm], dump, taker_settings, now),
             None,
             session,
         )
-        self.assertTrue(taker)
-        self.assertEqual(taker[0].play, "impulse_t")
-        self.assertEqual(taker[0].side, "no")
+        self.assertEqual(taker, [])
 
     def test_store_rebuild_allows_dump_wait_two_hours_after_the_loss(self):
         wait_mkt = _market(
@@ -954,7 +969,13 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         self.assertEqual(report["takes"][0]["exit_reason"], "t_clip")
 
     def test_dump_coupon_still_rests_after_a_taker_clip_on_replay(self):
-        settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
+        settings = Settings(
+            playbook="flex",
+            max_contracts=1,
+            max_notional=10,
+            allow_early_exit=True,
+            impulse_taker=True,
+        )
         maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
         taker = 78799.99
         coupon = 78599.99
@@ -1002,7 +1023,13 @@ class ImpulseWaitReplayTests(unittest.TestCase):
     def test_dump_coupon_still_rests_after_a_taker_stop_on_replay(self):
         # Same as the clip replay, but the YES taker stops. Session last_loss
         # used to eat the later dump coupon on that hour.
-        settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
+        settings = Settings(
+            playbook="flex",
+            max_contracts=1,
+            max_notional=10,
+            allow_early_exit=True,
+            impulse_taker=True,
+        )
         maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
         taker = 78799.99
         coupon = 78599.99

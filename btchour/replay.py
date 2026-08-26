@@ -661,6 +661,7 @@ def summarize_replays(
             "skip_after_loss": settings.skip_after_loss,
             "impulse_min_p": settings.impulse_min_p,
             "impulse_max_ask": settings.impulse_max_ask,
+            "impulse_taker": getattr(settings, "impulse_taker", False),
             "impulse_wait": settings.impulse_wait,
             "impulse_rest": settings.impulse_rest,
             "impulse_wait_min_ask": settings.impulse_wait_min_ask,

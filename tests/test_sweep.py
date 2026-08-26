@@ -38,6 +38,11 @@ class ApplyPlaybookTests(unittest.TestCase):
         settings = apply_playbook(Settings(), "flex", extras={"impulse_wait": False})
         self.assertFalse(settings.impulse_wait)
 
+    def test_extras_can_enable_impulse_taker(self):
+        self.assertFalse(Settings().impulse_taker)
+        settings = apply_playbook(Settings(), "flex", extras={"impulse_taker": True})
+        self.assertTrue(settings.impulse_taker)
+
     def test_extras_can_restore_loose_wait(self):
         settings = apply_playbook(
             Settings(),
@@ -170,7 +175,13 @@ class SweepTests(unittest.TestCase):
         self.assertEqual(compact["takes"][0]["exit"], "t_clip")
 
     def test_skip_off_takes_the_hour_after_a_stop(self):
-        settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
+        settings = Settings(
+            playbook="flex",
+            max_contracts=1,
+            max_notional=10,
+            allow_early_exit=True,
+            impulse_taker=True,
+        )
         maturity_a = datetime(2026, 8, 25, 13, 0, tzinfo=timezone.utc).timestamp()
         maturity_b = datetime(2026, 8, 25, 14, 0, tzinfo=timezone.utc).timestamp()
         strike = 78799.99
@@ -196,8 +207,8 @@ class SweepTests(unittest.TestCase):
             tapes,
             settings,
             variants=[
-                {"name": "flex_skip", "playbook": "flex", "skip_after_loss": True},
-                {"name": "flex_noskip", "playbook": "flex", "skip_after_loss": False},
+                {"name": "flex_skip", "playbook": "flex", "skip_after_loss": True, "impulse_taker": True},
+                {"name": "flex_noskip", "playbook": "flex", "skip_after_loss": False, "impulse_taker": True},
                 {"name": "lock", "playbook": "lock", "skip_after_loss": False},
             ],
             write=False,

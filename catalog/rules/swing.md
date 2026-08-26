@@ -22,9 +22,9 @@ EV = p · b − (1 − p)
 | 缺口 | **p − ask ≥ 8%** | 盘口相对模型便宜才做 |
 | 时间 | 至少还剩 **3 分钟** | 最后一分钟是 BRTI 60s TWAP，不新开 T |
 
-`flex` 扫描顺序：**`lock_hold` → `impulse_t` → `impulse_wait` → `lock_wait`**。已经决定、还能吃到 $0.82 的票，先锁，不做 T。`--playbook swing` 才加 `swing_t`。
+`flex` 扫描顺序：**`lock_hold` → `impulse_wait`（dump coupon）→ `lock_wait`**。默认 **不跑 `impulse_t`**。已经决定、还能吃到 $0.82 的票，先锁，不做 T。`--playbook swing` 才加 `swing_t`。
 
-**`impulse_t`** 跟着 3 分钟 BRTI 动量走。涨了至少 **$100** 只做 YES，跌了只做 NO。ask **$0.18–$0.52**，p≥52%。做完这一笔（赚或亏）这小时不再开新 T，**不翻对面**。锁仓单走完，这小时也不再开 T。亏了，**只空紧接着的下一小时 wait**（累了追反手）；同向 **taker** 还可以做，但那一小时 **不再挂 `impulse_wait`**（`AUG2518` NO 止损后挂同向 wait，把本来 +17% 的 YES 换成了 −70%）。skip 小时是亏损事件的下一张 ticker，不是「之后每一小时」。纸盘从成交重建 session 时也曾把 `AUG2604` 误判成 skip。
+**`impulse_t`** 默认关。对照用：3 分钟 BRTI 至少动 **$100**，涨只做 YES，跌只做 NO，ask **$0.18–$0.52**，p≥52%。纸盘 skip 小时同向 taker（`AUG2605`/`AUG2606`）和涨势 YES（`AUG2614`）把完成账打穿，不是目标单。亏了，**下一小时整小时不做 T**（挂单和 taker 都停）。连续亏不叠坐下一小时。skip 小时是亏损事件的下一张 ticker，不是「之后每一小时」。
 
 **`impulse_wait`（默认已换成 dump coupon / `dump_gap`）**：**只挂 NO**。旧策略是「卖一 26–48¢ 就挂 25¢」，纸盘第一笔把已经砸到 29¢ 的 `T78499` 吃进去，反弹标到 3¢，`t_wait_stop` −89%。人手好单不是接飞刀，是挂在 **卖一还在 32–42¢** 的近 ATM coupon 上（`AUG2520` 23:20 `T78699` ask 0.35 才是带子；23:09 ask 0.27 已经砸穿）。
 

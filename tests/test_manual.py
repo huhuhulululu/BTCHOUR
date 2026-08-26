@@ -42,7 +42,7 @@ def _market(**overrides):
 class ManualDisciplineTests(unittest.TestCase):
     def setUp(self):
         self.now = datetime(2026, 8, 25, 23, 30, tzinfo=timezone.utc)
-        self.settings = Settings(playbook="flex", max_contracts=1)
+        self.settings = Settings(playbook="flex", max_contracts=1, impulse_taker=True)
 
     def test_dump_can_buy_cheap_maker_style_no(self):
         spot = SpotQuote(78480, "test", annual_vol=0.55, impulse=-160)
@@ -96,8 +96,7 @@ class ManualDisciplineTests(unittest.TestCase):
             None,
             session,
         )
-        self.assertTrue(dump_opps)
-        self.assertEqual(dump_opps[0].side, "no")
+        self.assertEqual(dump_opps, [])
         self.assertEqual(chase_opps, [])
         cleared = refresh_session(session, "KXBTCD-26AUG2522")
         self.assertFalse(cleared.skip_next)
@@ -115,7 +114,13 @@ class ManualDisciplineTests(unittest.TestCase):
         self.assertFalse(live_hour.skip_next)
 
     def test_replay_clips_ten_percent_and_does_not_flip(self):
-        settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
+        settings = Settings(
+            playbook="flex",
+            max_contracts=1,
+            max_notional=10,
+            allow_early_exit=True,
+            impulse_taker=True,
+        )
         maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
         bars = [
             ReplayBar(int(maturity - 1800), 78480, 0.55, {78599.99: {"yes_ask": 0.75, "yes_bid": 0.74}}, impulse=-180),

@@ -85,13 +85,11 @@ class SwingStrategyTests(unittest.TestCase):
         self.assertTrue(opps)
         self.assertEqual(opps[0].play, "lock_hold")
 
-    def test_flex_takes_t_when_lock_is_absent(self):
+    def test_flex_default_does_not_take_impulse_t(self):
         spot = SpotQuote(79600, "test", annual_vol=0.55, impulse=140)
         t_mkt = _market(yes_bid_dollars="0.49", yes_ask_dollars="0.50")
         opps = scan_markets([t_mkt], spot, Settings(playbook="flex", max_contracts=1), self.now)
-        self.assertTrue(opps)
-        self.assertEqual(opps[0].play, "impulse_t")
-        self.assertEqual(opps[0].side, "yes")
+        self.assertEqual([row.play for row in opps if row.play == "impulse_t"], [])
 
 
 class SwingReplayTests(unittest.TestCase):
