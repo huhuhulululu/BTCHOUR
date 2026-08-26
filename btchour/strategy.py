@@ -596,9 +596,9 @@ class SwingMemory:
 class SessionMemory:
     """After a losing T, skip wait on the next hour ticker. Same-direction taker is allowed.
 
-    A loss on that already-skipped hour does not chain another skip. Paper
-    `AUG2605` then `AUG2606` same-dir taker stops kept pushing the live dump
-    coupon one more hour each time.
+    Consecutive losing hours do not stack another sit-out. Paper `AUG2605`
+    then `AUG2606` same-dir taker stops kept pushing the live dump coupon
+    one more hour each time.
     """
 
     last_loss_event: str | None = None
@@ -629,15 +629,18 @@ def remember_session_exit(
         "flatten_time",
     }
     if lost:
-        skip_hour = _skip_hour(session) if session and session.skip_next else None
-        if session and session.skip_next and skip_hour and event_ticker == skip_hour:
-            # Already sitting this hour out. Do not skip the hour after that.
-            return SessionMemory(
-                last_loss_event=session.last_loss_event,
-                last_side=session.last_side,
-                skip_next=True,
-                skipped_event=skip_hour,
-            )
+        if session and session.last_loss_event:
+            try:
+                if event_ticker == next_event_ticker(session.last_loss_event):
+                    # Second hour in a losing streak. Sit-out was the first
+                    # hour after the first loss; do not skip a third.
+                    return SessionMemory(
+                        last_loss_event=event_ticker,
+                        last_side=side,
+                        skip_next=False,
+                    )
+            except ValueError:
+                pass
         return SessionMemory(last_loss_event=event_ticker, last_side=side, skip_next=True)
     return SessionMemory()
 
@@ -706,10 +709,12 @@ def pick_dump_wait(waits: list[Opportunity], spot: SpotQuote) -> list[Opportunit
 def allow_session(opportunity: Opportunity, session: SessionMemory | None) -> bool:
     if opportunity.play not in T_PLAYS:
         return True
-    if session is None or not session.skip_next:
+    if session is None:
         return True
-    if opportunity.event_ticker == session.last_loss_event:
+    if session.last_loss_event and opportunity.event_ticker == session.last_loss_event:
         return False
+    if not session.skip_next:
+        return True
     if session.skipped_event is None or opportunity.event_ticker == session.skipped_event:
         if opportunity.play == "impulse_wait":
             return False

@@ -254,11 +254,27 @@ class ImpulseWaitTests(unittest.TestCase):
         self.assertTrue(skip.skip_next)
         self.assertEqual(skip.skipped_event, "KXBTCD-26AUG2606")
         chained = remember_session_exit(skip, "KXBTCD-26AUG2606", "t_stop", -0.65, "no")
-        still_skip = refresh_session(chained, "KXBTCD-26AUG2606")
-        self.assertTrue(still_skip.skip_next)
-        self.assertEqual(still_skip.skipped_event, "KXBTCD-26AUG2606")
+        self.assertEqual(chained.last_loss_event, "KXBTCD-26AUG2606")
+        self.assertFalse(chained.skip_next)
+        still_this_hour = refresh_session(chained, "KXBTCD-26AUG2606")
         live = refresh_session(chained, "KXBTCD-26AUG2607")
         self.assertFalse(live.skip_next)
+        this_hour_waits = apply_swing_memory(
+            scan_markets(
+                [_market(
+                    ticker="KXBTCD-26AUG2606-T78699.99",
+                    event_ticker="KXBTCD-26AUG2606",
+                    open_time="2026-08-26T09:00:00Z",
+                    close_time="2026-08-26T10:00:00Z",
+                )],
+                self.spot,
+                self.settings,
+                datetime(2026, 8, 26, 9, 40, tzinfo=timezone.utc),
+            ),
+            None,
+            still_this_hour,
+        )
+        self.assertEqual(this_hour_waits, [])
         wait_mkt = _market(
             ticker="KXBTCD-26AUG2607-T78699.99",
             event_ticker="KXBTCD-26AUG2607",
@@ -321,7 +337,8 @@ class ImpulseWaitTests(unittest.TestCase):
             mem = db.session_memory()
         skip = refresh_session(mem, "KXBTCD-26AUG2606")
         live = refresh_session(mem, "KXBTCD-26AUG2607")
-        self.assertTrue(skip.skip_next)
+        self.assertEqual(skip.last_loss_event, "KXBTCD-26AUG2606")
+        self.assertFalse(skip.skip_next)
         self.assertFalse(live.skip_next)
         self.assertEqual(
             apply_swing_memory(

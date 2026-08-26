@@ -350,7 +350,7 @@ New window (AUG2605–AUG2514 / AUG2605–AUG2506) after dump-only fill:
 
 Skip-wait held: 36 coupon journals, 0 rests. First dump at 09:16 `T78599` ask **0.36**, impulse −$102 — the human 32–42¢ book. Same-dir `impulse_t` NO `T78499` @ **0.46** at 09:20 (p 55%, impulse −$170) peaked 0.49 and `t_stop` **−0.6455**.
 
-Second skip-hour taker stop in a row (`AUG2605` then `AUG2606`). Chaining skip would sit `AUG2607` too and the dump coupon never goes live. Sit-out stays one hour. Same-dir taker on the skip hour is still allowed (AUG2518). A loss on that skip hour does not arm another skip. Remainder of `AUG2606` still skips wait. `AUG2607` is the next live coupon rest.
+Second consecutive losing hour (`AUG2605` then `AUG2606`). Chaining skip would sit `AUG2607` too and the dump coupon never goes live. Sit-out stays one hour after an isolated loss. Consecutive losing hours do not stack another skip. No more T on the hour just lost. `AUG2607` is the next live coupon rest.
 
 Paper completed **4 / 0 / −5.4829**. Hour still open; no sweep. Replay green is not 达成.
 

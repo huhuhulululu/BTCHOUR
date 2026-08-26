@@ -229,6 +229,6 @@ skip 守住了：0 笔 `impulse_wait` 成交。同向 taker 亏完把 `last_loss
 
 `AUG2606` 还没收盘。skip-wait 守住了：journal 36 条 coupon 盘，引擎没挂。09:16 第一下砸盘 `T78599` ask **0.36**、动量 −$102——正是人手那种 32–42¢ coupon。空掉之后 09:20 同向 `impulse_t` NO `T78499` @ **0.46**（p 55%，动量 −$170），peak 0.49，`t_stop` **−0.6455**。
 
-这是第二小时 skip 里的同向 taker 亏。若再按「任何一笔亏都空下一小时 wait」，`AUG2607` 又是 skip，coupon 永远挂不上。AUG2518 只要空 **一小时** wait、skip 小时里同向 taker 仍可做。改成：**已经在 skip 小时里再亏，不再连空**。这小时剩下的时间仍空 wait；`AUG2607` 真挂 coupon。
+这是连续第二小时亏。若再按「任何一笔亏都空下一小时 wait」，`AUG2607` 又是 skip，coupon 永远挂不上。AUG2518 只要空 **一小时** wait。改成：**连续亏的小时不叠坐下一小时**。这小时刚亏过，不再开 T；`AUG2607` 真挂 coupon。
 
 完成成交 **4 / 0 / −5.4829**。小时没收盘，不 sweep。回放绿不是达成。
