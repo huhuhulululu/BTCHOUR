@@ -9,7 +9,7 @@ from unittest.mock import patch
 from btchour import store as store_mod
 from btchour.config import Settings
 from btchour.kalshi import market_from_api
-from btchour.learn import diagnose_impulse, merge_impulse, series_impulse, tape_impulse
+from btchour.learn import diagnose_impulse, journal_line, merge_impulse, series_impulse, tape_impulse
 from btchour.model import SpotQuote
 
 
@@ -70,3 +70,7 @@ class LearnTests(unittest.TestCase):
                 self.assertEqual(len(points), 1)
                 self.assertEqual(len(db.recent_journal(5)), 1)
                 self.assertAlmostEqual(tape_impulse(points, now, 78400.0), -300.0, delta=1.0)
+
+    def test_journal_line_skips_empty_placeholder(self):
+        self.assertEqual(journal_line({"status": "no_impulse"}), "")
+        self.assertNotIn("None", journal_line({"status": "blocked", "candidates": []}))

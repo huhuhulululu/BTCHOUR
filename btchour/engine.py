@@ -14,7 +14,7 @@ from btchour.model import SpotQuote, digital_prob, effective_vol, sigma_cushion
 from btchour.paper import paper_close, paper_fill, paper_settle
 from btchour.score import score_market
 from btchour.store import Store
-from btchour.learn import diagnose_impulse, merge_impulse, tape_impulse
+from btchour.learn import diagnose_impulse, journal_line, merge_impulse, tape_impulse
 from btchour.strategy import (
     Opportunity,
     _seconds_left,
@@ -137,15 +137,14 @@ def scan_once(client: KalshiClient, settings: Settings | None = None, persist: b
         event_ticker = (payload["event"] or {}).get("event_ticker")
         store.record_scan(event_ticker, spot.price, payload["opportunities"])
         if abs(merged) >= 40 or diagnosis.get("status") != "no_impulse":
-            top = (diagnosis.get("candidates") or [{}])[:1]
-            reject = ""
-            if top:
-                row = top[0]
-                reject = (
-                    f"{row.get('ticker')} ask={row.get('ask')} p={row.get('p')} "
-                    f"{','.join(row.get('reasons') or [])}"
-                )
-            store.record_journal(event_ticker, spot.price, merged, tape, str(diagnosis.get("status")), reject)
+            store.record_journal(
+                event_ticker,
+                spot.price,
+                merged,
+                tape,
+                str(diagnosis.get("status")),
+                journal_line(diagnosis),
+            )
     return payload
 
 

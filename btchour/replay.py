@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from btchour.config import CATALOG_DIR, Settings, load_settings
+from btchour.config import CATALOG_DIR, DATA_DIR, Settings, load_settings
 from btchour.engine import make_client
 from btchour.exits import OpenPosition, evaluate_exit
 from btchour.fees import fill_cost
@@ -258,12 +258,71 @@ def replay_bars(
     }
 
 
-def replay_event(
-    client: KalshiClient,
-    event_ticker: str,
-    settings: Settings,
-    session: SessionMemory | None = None,
-) -> dict:
+@dataclass
+class EventTape:
+    """One hourly event's spot path + candlesticks. Replay many playbooks without refetching."""
+
+    event_ticker: str
+    spots: dict[int, float]
+    candles: dict[float, dict]
+    results: dict[float, str]
+    maturity_ms: int
+    band: tuple[float, float] | None
+    error: str | None = None
+
+    def to_dict(self) -> dict:
+        candles = {}
+        for strike, sticks in self.candles.items():
+            if isinstance(sticks, dict) and set(sticks) == {"_error"}:
+                candles[str(strike)] = sticks
+            else:
+                candles[str(strike)] = {str(ts): stick for ts, stick in sticks.items()}
+        return {
+            "event_ticker": self.event_ticker,
+            "spots": {str(k): v for k, v in self.spots.items()},
+            "candles": candles,
+            "results": {str(k): v for k, v in self.results.items()},
+            "maturity_ms": self.maturity_ms,
+            "band": list(self.band) if self.band else None,
+            "error": self.error,
+        }
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "EventTape":
+        candles: dict[float, dict] = {}
+        for strike_s, sticks in (raw.get("candles") or {}).items():
+            if isinstance(sticks, dict) and set(sticks) == {"_error"}:
+                candles[float(strike_s)] = sticks
+                continue
+            loaded: dict = {}
+            for key, stick in (sticks or {}).items():
+                if key == "_error":
+                    loaded["_error"] = stick
+                else:
+                    loaded[int(key)] = stick
+            candles[float(strike_s)] = loaded
+        band = raw.get("band")
+        return cls(
+            event_ticker=str(raw.get("event_ticker") or ""),
+            spots={int(k): float(v) for k, v in (raw.get("spots") or {}).items()},
+            candles=candles,
+            results={float(k): str(v) for k, v in (raw.get("results") or {}).items()},
+            maturity_ms=int(raw.get("maturity_ms") or 0),
+            band=(float(band[0]), float(band[1])) if band else None,
+            error=raw.get("error"),
+        )
+
+
+def tape_cache_path(event_ticker: str):
+    return DATA_DIR / "replay-cache" / f"{event_ticker}.json"
+
+
+def recent_event_tickers(hours: int, now: datetime | None = None) -> list[str]:
+    now_et = (now or datetime.now(ET)).astimezone(ET).replace(minute=0, second=0, microsecond=0)
+    return [format_event_ticker(now_et - timedelta(hours=i)) for i in range(hours)]
+
+
+def fetch_event_tape(client: KalshiClient, event_ticker: str, settings: Settings) -> EventTape:
     payload = client.get(f"/events/{event_ticker}")
     markets = [market_from_api(item) for item in payload.get("markets") or []]
     band = _settlement_band(markets)
@@ -273,10 +332,9 @@ def replay_event(
     maturity_ms = int(details.get("maturity_ts_ms") or 0)
     spots = _minute_spot(series)
     if not band or not spots or not maturity_ms:
-        return {"event_ticker": event_ticker, "error": "incomplete data", "takes": []}
+        return EventTape(event_ticker, {}, {}, {}, 0, None, error="incomplete data")
 
     lo, hi = band
-    settle_price = (lo + hi) / 2
     spot_lo = min(spots.values())
     spot_hi = max(spots.values())
     path_lo = min(spot_lo, lo) - 700
@@ -294,7 +352,7 @@ def replay_event(
 
     start = int(maturity_ms / 1000) - 3600
     end = int(maturity_ms / 1000)
-    candles: dict[float, dict[int, dict]] = {}
+    candles: dict[float, dict] = {}
     results = {m.strike: m.result for m in markets if m.strike is not None}
     for strike in strikes:
         ticker = f"{event_ticker}-T{strike}"
@@ -307,40 +365,121 @@ def replay_event(
             candles[strike] = {"_error": str(exc)}
             continue
         candles[strike] = {int(row["end_period_ts"]): row for row in data.get("candlesticks") or []}
+    return EventTape(event_ticker, spots, candles, results, maturity_ms, band)
 
-    minutes = sorted(spots)
+
+def load_event_tape(
+    client: KalshiClient,
+    event_ticker: str,
+    settings: Settings,
+    *,
+    refresh: bool = False,
+) -> EventTape:
+    path = tape_cache_path(event_ticker)
+    if not refresh and path.is_file():
+        try:
+            tape = EventTape.from_dict(json.loads(path.read_text()))
+            if tape.error is None and tape.spots and tape.maturity_ms:
+                return tape
+        except Exception:
+            pass
+    tape = fetch_event_tape(client, event_ticker, settings)
+    if tape.error is None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(tape.to_dict()) + "\n")
+    return tape
+
+
+def load_recent_tapes(hours: int, settings: Settings, client: KalshiClient | None = None) -> list[EventTape]:
+    client = client or make_client(settings)
+    tapes = []
+    for index, event_ticker in enumerate(recent_event_tickers(hours)):
+        tapes.append(load_event_tape(client, event_ticker, settings, refresh=index == 0))
+    return tapes
+
+
+def bars_from_tape(tape: EventTape, settings: Settings) -> list[ReplayBar]:
+    if tape.error or not tape.band or not tape.spots or not tape.maturity_ms:
+        return []
+    minutes = sorted(tape.spots)
     bars: list[ReplayBar] = []
+    ask_field = "low_dollars" if settings.playbook == "lock" else "close_dollars"
     for idx, minute_ms in enumerate(minutes):
         end_ts = minute_ms // 1000 + 60
-        left = maturity_ms / 1000 - end_ts
+        left = tape.maturity_ms / 1000 - end_ts
         if left < 8:
             continue
-        window = [spots[k] for k in minutes[max(0, idx - 30) : idx + 1]]
+        window = [tape.spots[k] for k in minutes[max(0, idx - 30) : idx + 1]]
         vol = effective_vol(realized_annual_vol(window, 60.0), settings.annual_vol)
-        lookback = spots[minutes[max(0, idx - 3)]]
-        impulse = spots[minute_ms] - lookback
+        lookback = tape.spots[minutes[max(0, idx - 3)]]
+        impulse = tape.spots[minute_ms] - lookback
         quotes: dict[float, dict] = {}
-        for strike in strikes:
-            stick = candles.get(strike, {}).get(end_ts)
+        for strike, sticks in tape.candles.items():
+            if not isinstance(sticks, dict):
+                continue
+            stick = sticks.get(end_ts)
             if not stick:
                 continue
-            ask_field = "low_dollars" if settings.playbook == "lock" else "close_dollars"
-            quotes[strike] = {
+            quotes[float(strike)] = {
                 "yes_ask": _money(stick, "yes_ask", ask_field),
                 "yes_bid": _money(stick, "yes_bid"),
             }
         if not quotes:
             continue
         bars.append(
-            ReplayBar(end_ts=end_ts, spot=spots[minute_ms], vol=vol, quotes=quotes, impulse=impulse)
+            ReplayBar(
+                end_ts=end_ts,
+                spot=tape.spots[minute_ms],
+                vol=vol,
+                quotes=quotes,
+                impulse=impulse,
+            )
         )
+    return bars
 
-    played = replay_bars(event_ticker, bars, results, maturity_ms / 1000, settings, session)
+
+def tape_from_bars(
+    event_ticker: str,
+    bars: list[ReplayBar],
+    results: dict[float, str],
+    maturity_s: float,
+    band: tuple[float, float] | None = None,
+) -> EventTape:
+    spots: dict[int, float] = {}
+    candles: dict[float, dict] = {}
+    for bar in bars:
+        minute_ms = (bar.end_ts - 60) * 1000
+        spots[minute_ms] = bar.spot
+        for strike, quotes in bar.quotes.items():
+            ask = quotes.get("yes_ask")
+            candles.setdefault(strike, {})[bar.end_ts] = {
+                "yes_ask": {"close_dollars": ask, "low_dollars": ask},
+                "yes_bid": {"close_dollars": quotes.get("yes_bid")},
+            }
+    if band is None and results:
+        yes = [strike for strike, result in results.items() if result == "yes"]
+        no = [strike for strike, result in results.items() if result == "no"]
+        if yes and no:
+            band = (max(yes), min(no))
+        else:
+            strikes = list(results)
+            band = (min(strikes), max(strikes))
+    return EventTape(event_ticker, spots, candles, results, int(maturity_s * 1000), band)
+
+
+def replay_tape(tape: EventTape, settings: Settings, session: SessionMemory | None = None) -> dict:
+    if tape.error:
+        return {"event_ticker": tape.event_ticker, "error": tape.error, "takes": []}
+    bars = bars_from_tape(tape, settings)
+    if not bars or not tape.band:
+        return {"event_ticker": tape.event_ticker, "error": tape.error or "incomplete data", "takes": []}
+    lo, hi = tape.band
+    played = replay_bars(tape.event_ticker, bars, tape.results, tape.maturity_ms / 1000, settings, session)
     return {
-        "event_ticker": event_ticker,
+        "event_ticker": tape.event_ticker,
         "settlement_band": [lo, hi],
-        "settle_mid": settle_price,
-        "candles": {str(k): len(v) if isinstance(v, dict) else 0 for k, v in candles.items()},
+        "settle_mid": (lo + hi) / 2,
+        "candles": {str(k): len(v) if isinstance(v, dict) else 0 for k, v in tape.candles.items()},
         "playbook": settings.playbook,
         "takes": played["takes"],
         "best": played["best"],
@@ -349,35 +488,35 @@ def replay_event(
     }
 
 
-def replay_recent_hours(hours: int = 8, settings: Settings | None = None) -> dict:
-    settings = settings or load_settings()
-    client = make_client(settings)
-    now_et = datetime.now(ET).replace(minute=0, second=0, microsecond=0)
-    events = []
-    for i in range(hours):
-        close = now_et - timedelta(hours=i)
-        events.append(format_event_ticker(close))
+def _session_public(mem) -> dict | None:
+    if mem is None:
+        return None
+    if hasattr(mem, "last_loss_event"):
+        return {
+            "last_loss_event": mem.last_loss_event,
+            "skip_next": mem.skip_next,
+            "skipped_event": mem.skipped_event,
+        }
+    if isinstance(mem, dict):
+        return mem
+    return None
 
-    reports = []
-    session = SessionMemory()
-    for event_ticker in reversed(events):
-        try:
-            report = replay_event(client, event_ticker, settings, session)
-            session = report.get("session") or session
-            reports.append(report)
-        except Exception as exc:
-            reports.append({"event_ticker": event_ticker, "error": str(exc), "takes": []})
-    reports.reverse()
+
+def summarize_replays(
+    reports: list[dict],
+    settings: Settings,
+    hours: int,
+    *,
+    write: bool = True,
+) -> dict:
+    cleaned = []
     for report in reports:
-        mem = report.pop("session", None)
-        if mem is not None and hasattr(mem, "last_loss_event"):
-            report["session"] = {
-                "last_loss_event": mem.last_loss_event,
-                "skip_next": mem.skip_next,
-                "skipped_event": mem.skipped_event,
-            }
-
-    taken = [take for report in reports for take in report.get("takes") or []]
+        row = dict(report)
+        public = _session_public(row.pop("session", None))
+        if public is not None:
+            row["session"] = public
+        cleaned.append(row)
+    taken = [take for report in cleaned for take in report.get("takes") or []]
     wins = [take for take in taken if (take.get("pnl") or 0) > 0]
     reasons: dict[str, int] = {}
     for take in taken:
@@ -412,13 +551,42 @@ def replay_recent_hours(hours: int = 8, settings: Settings | None = None) -> dic
             "flatten_seconds": settings.flatten_seconds,
             "allow_early_exit": settings.allow_early_exit,
         },
-        "events": reports,
+        "events": cleaned,
         "take_count": len(taken),
         "wins": len(wins),
         "exit_reasons": reasons,
         "realized_pnl": sum((take.get("pnl") or 0) for take in taken),
     }
-    path = CATALOG_DIR / "snapshot" / "replay.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(summary, indent=2) + "\n")
+    if write:
+        path = CATALOG_DIR / "snapshot" / "replay.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(summary, indent=2) + "\n")
     return summary
+
+
+def replay_tapes(tapes: list[EventTape], settings: Settings, *, write: bool = False) -> dict:
+    reports = []
+    session = SessionMemory()
+    for tape in reversed(tapes):
+        try:
+            report = replay_tape(tape, settings, session)
+            session = report.get("session") or session
+            reports.append(report)
+        except Exception as exc:
+            reports.append({"event_ticker": tape.event_ticker, "error": str(exc), "takes": []})
+    reports.reverse()
+    return summarize_replays(reports, settings, len(tapes), write=write)
+
+
+def replay_event(
+    client: KalshiClient,
+    event_ticker: str,
+    settings: Settings,
+    session: SessionMemory | None = None,
+) -> dict:
+    return replay_tape(fetch_event_tape(client, event_ticker, settings), settings, session)
+
+
+def replay_recent_hours(hours: int = 8, settings: Settings | None = None) -> dict:
+    settings = settings or load_settings()
+    return replay_tapes(load_recent_tapes(hours, settings), settings, write=True)

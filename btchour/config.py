@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 
@@ -178,3 +178,35 @@ def load_settings() -> Settings:
         private_key_pem=pem,
         user_agent=os.environ.get("BTCHOUR_USER_AGENT", "BTCHOUR/0.1"),
     )
+
+
+def apply_playbook(
+    settings: Settings,
+    playbook: str | None = None,
+    *,
+    no_early_exit: bool = False,
+    skip_after_loss: bool | None = None,
+) -> Settings:
+    """Copy settings into a playbook (lock / flex / swing / hold / scalp) without env mutation."""
+    updates: dict = {}
+    if playbook:
+        updates["playbook"] = playbook
+        if playbook == "lock":
+            updates["allow_early_exit"] = False
+            updates["allow_maker"] = True
+            updates["min_win_prob"] = settings.lock_min_p
+            updates["poll_seconds"] = max(settings.poll_seconds, 5)
+        elif playbook in {"flex", "swing"}:
+            updates["allow_early_exit"] = True
+            updates["allow_maker"] = playbook == "flex"
+            updates["poll_seconds"] = min(settings.poll_seconds, 3)
+        elif playbook == "scalp":
+            updates["allow_early_exit"] = True
+            updates["allow_maker"] = False
+        elif playbook == "hold":
+            updates["allow_early_exit"] = False
+    if no_early_exit:
+        updates["allow_early_exit"] = False
+    if skip_after_loss is not None:
+        updates["skip_after_loss"] = skip_after_loss
+    return replace(settings, **updates) if updates else settings

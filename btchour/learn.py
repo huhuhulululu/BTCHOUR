@@ -112,3 +112,19 @@ def diagnose_impulse(
         for row in rejects[:8]
     ]
     return report
+
+
+def journal_line(diagnosis: dict) -> str:
+    """One-line reject for the paper journal. Empty candidate lists stay empty."""
+    status = str(diagnosis.get("status") or "")
+    candidates = diagnosis.get("candidates") or []
+    if not candidates:
+        return "blocked_no_hourly_candidates" if status == "blocked" else ""
+    row = candidates[0]
+    ticker = row.get("ticker") or ""
+    ask = row.get("ask")
+    p = row.get("p")
+    reasons = ",".join(row.get("reasons") or [])
+    if not ticker and ask is None and p is None:
+        return "blocked_no_hourly_candidates" if status == "blocked" else ""
+    return f"{ticker} ask={ask} p={p} {reasons}".strip()

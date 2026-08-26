@@ -2,40 +2,16 @@ from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import replace
 from datetime import datetime, timezone
 
 from btchour.catalog import sync_catalog
-from btchour.config import load_settings
+from btchour.config import apply_playbook, load_settings
 from btchour.engine import make_client, run_cycle, run_loop, scan_once
 from btchour.store import Store
 
 
 def _print_json(payload: object) -> None:
     print(json.dumps(payload, indent=2, default=str))
-
-
-def _with_playbook(settings, playbook: str | None, no_early_exit: bool = False):
-    updates = {}
-    if playbook:
-        updates["playbook"] = playbook
-        if playbook == "lock":
-            updates["allow_early_exit"] = False
-            updates["allow_maker"] = True
-            updates["min_win_prob"] = settings.lock_min_p
-            updates["poll_seconds"] = max(settings.poll_seconds, 5)
-        elif playbook in {"flex", "swing"}:
-            updates["allow_early_exit"] = True
-            updates["allow_maker"] = playbook == "flex"
-            updates["poll_seconds"] = min(settings.poll_seconds, 3)
-        elif playbook == "scalp":
-            updates["allow_early_exit"] = True
-            updates["allow_maker"] = False
-        elif playbook == "hold":
-            updates["allow_early_exit"] = False
-    if no_early_exit:
-        updates["allow_early_exit"] = False
-    return replace(settings, **updates) if updates else settings
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -57,6 +33,9 @@ def main(argv: list[str] | None = None) -> int:
     replay.add_argument("--hours", type=int, default=8)
     replay.add_argument("--playbook", choices=["flex", "swing", "lock", "hold", "scalp"])
     replay.add_argument("--no-early-exit", action="store_true", help="Force hold-to-settle (no lock/invalidate/flatten)")
+    replay.add_argument("--no-skip-after-loss", action="store_true", help="Do not skip the next hour after a losing T")
+    sweep = sub.add_parser("sweep", help="Cache hour tapes once, then replay flex/swing/lock (skip on/off)")
+    sweep.add_argument("--hours", type=int, default=16, help="If >=16, also fetch 24h and report both windows")
     run = sub.add_parser("run", help="Loop: manage exits, scan, paper/live fill, settle")
     run.add_argument("--once", action="store_true")
     run.add_argument("--playbook", choices=["flex", "swing", "lock", "hold", "scalp"])
@@ -74,10 +53,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     settings = load_settings()
-    settings = _with_playbook(
+    settings = apply_playbook(
         settings,
         getattr(args, "playbook", None),
-        getattr(args, "no_early_exit", False),
+        no_early_exit=getattr(args, "no_early_exit", False),
+        skip_after_loss=False if getattr(args, "no_skip_after_loss", False) else None,
     )
     client = make_client(settings)
 
@@ -141,6 +121,22 @@ def main(argv: list[str] | None = None) -> int:
                     }
                     for item in summary["events"]
                 ],
+            }
+        )
+        return 0
+
+    if args.cmd == "sweep":
+        from btchour.sweep import sweep_recent_hours
+
+        report = sweep_recent_hours(args.hours, settings)
+        _print_json(
+            {
+                "swept_at": report["swept_at"],
+                "hours": report["hours"],
+                "windows": report.get("windows"),
+                "events": report.get("events"),
+                "formula": report.get("formula"),
+                "runs": report["runs"],
             }
         )
         return 0
