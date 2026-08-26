@@ -438,4 +438,6 @@ session 已清。**`AUG2611` 真挂 coupon**。
 1. **挂单不再要砸盘动量。** `impulse_wait_rest_min` 默认 0。已经翻到 ≥+$100 才不挂。成交、淡化、反手撤不变。
 2. **`_taker_impulse_qualifies` 不再跳过 coupon。** 默认 taker 关着时，p≥52% 的 32–42¢ 会变成「wait 跳过 + taker 也不吃」。那是最好的 coupon。
 
+第三道是执行层，不是策略：`AUG2617` 16:04 ET 扫描已经看见 `dump_gap NO 0.40`，`taken=1`，但 `_execute` 用「最多 3 张 working wait」把 leftover `lock_wait`（T75999 / T76499 / T76749 的 0.83）和 coupon 算在一起，coupon 没写进账本。剩锁仓单不再挡住 dump coupon。
+
 不放宽到 0.45。不挂 YES。不默认便宜 taker。回放绿不是达成。`AUG2608` 已经 clip 过。

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import time
 import unittest
@@ -161,3 +162,83 @@ class LoopGuardTests(unittest.TestCase):
         items = client.paginate("/markets", "markets")
         self.assertEqual(client.calls, 10)
         self.assertEqual(len(items), 10)
+
+
+class ExecuteWaitTests(unittest.TestCase):
+    def _coupon(self) -> Opportunity:
+        return Opportunity(
+            ticker="KXBTCD-26AUG2617-T78499.99",
+            event_ticker="KXBTCD-26AUG2617",
+            subtitle="$78,499.99 or above",
+            side="no",
+            book_side="ask",
+            strike=78499.99,
+            spot=78492.97,
+            seconds_left=3300,
+            model_p=0.423,
+            ask=0.40,
+            max_price=0.42,
+            limit_price=0.25,
+            taker=False,
+            b=3.0,
+            if_win_roi=3.0,
+            expected_roi=0.27,
+            ev=0.27,
+            fee=0.0,
+            count=10,
+            play="impulse_wait",
+            reason="dump_gap NO 看见 0.40 rest 0.25",
+        )
+
+    def _lock_wait(self, ticker: str) -> dict:
+        return {
+            "ticker": ticker,
+            "event_ticker": "KXBTCD-26AUG2617",
+            "side": "yes",
+            "price": 0.83,
+            "count": 1,
+            "fee": 0.0,
+            "cost": 0.83,
+            "mode": "paper",
+            "taker": False,
+            "model_p": 0.999,
+            "if_win_roi": 0.205,
+            "expected_roi": 0.204,
+            "status": "working",
+            "raw": {"play": "lock_wait", "rest": 0.83},
+        }
+
+    def test_leftover_lock_waits_do_not_block_the_dump_coupon(self):
+        # Paper AUG2617 16:04 ET: scan chose dump_gap NO 0.40, taken=1, then
+        # _execute skipped because three leftover 0.83 lock_waits filled the cap.
+        coupon = self._coupon()
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                for ticker in (
+                    "KXBTCD-26AUG2617-T75999.99",
+                    "KXBTCD-26AUG2617-T76499.99",
+                    "KXBTCD-26AUG2617-T76749.99",
+                ):
+                    db.record_trade(self._lock_wait(ticker))
+                self.assertEqual(len(db.working_trades()), 3)
+                filled = engine_mod._execute(coupon, object(), Settings(playbook="flex"), db)
+                self.assertFalse(filled.get("skipped"))
+                self.assertEqual(filled["ticker"], coupon.ticker)
+                self.assertEqual(filled["status"], "working")
+                self.assertAlmostEqual(filled["price"], 0.25)
+                plays = [json.loads(row["raw"] or "{}").get("play") for row in db.working_trades()]
+                self.assertEqual(plays.count("lock_wait"), 3)
+                self.assertEqual(plays.count("impulse_wait"), 1)
+
+    def test_second_dump_coupon_still_blocked_while_one_is_working(self):
+        coupon = self._coupon()
+        later = Opportunity(**{**coupon.__dict__, "ticker": "KXBTCD-26AUG2617-T78399.99"})
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                first = engine_mod._execute(coupon, object(), Settings(playbook="flex"), db)
+                self.assertFalse(first.get("skipped"))
+                second = engine_mod._execute(later, object(), Settings(playbook="flex"), db)
+                self.assertTrue(second.get("skipped"))
+                self.assertEqual(second.get("reason"), "coupon already working")
