@@ -10,7 +10,7 @@ from btchour import store as store_mod
 from btchour.config import Settings
 from btchour.engine import refresh_working
 from btchour.kalshi import market_from_api
-from btchour.model import SpotQuote
+from btchour.model import SpotQuote, digital_prob
 from btchour.paper import paper_fill
 from btchour.replay import ReplayBar, replay_bars
 from btchour.strategy import (
@@ -27,6 +27,7 @@ from btchour.strategy import (
     refresh_session,
     scan_markets,
     wait_book_crossed,
+    _taker_impulse_qualifies,
 )
 
 
@@ -126,11 +127,10 @@ class ImpulseWaitTests(unittest.TestCase):
         self.assertAlmostEqual(opps[0].limit_price, 0.25)
         self.assertGreater(opps[0].ask, 0.25)
 
-    def test_forming_dump_rests_before_impulse_hits_one_hundred(self):
-        # Paper AUG2616 15:21 ET: T78299 NO ≈0.36, impulse −$40 to −$95.
-        # Waiting for −$100 left the live ask at 0.51. Hang while the smash starts.
+    def test_sees_the_coupon_before_the_dump(self):
+        # Human + public maker: hang when 32–42¢ is visible. Dump fills; flip cancels.
+        # Cached 42/42 hours show a nearby 32–42¢ NO; most minutes are not yet −$40.
         now = datetime(2026, 8, 26, 19, 21, tzinfo=timezone.utc)
-        forming = SpotQuote(78340, "test", annual_vol=0.55, impulse=-45)
         coupon = _market(
             ticker="KXBTCD-26AUG2616-T78299.99",
             event_ticker="KXBTCD-26AUG2616",
@@ -142,18 +142,48 @@ class ImpulseWaitTests(unittest.TestCase):
             open_time="2026-08-26T19:00:00Z",
             close_time="2026-08-26T20:00:00Z",
         )
-        self.assertTrue(dump_wait_rest_ready(-45, self.settings))
-        self.assertFalse(dump_wait_rest_ready(-20, self.settings))
-        self.assertFalse(dump_wait_rest_ready(45, self.settings))
-        opps = evaluate_impulse_wait_market(coupon, forming, self.settings, now)
+        self.assertTrue(dump_wait_rest_ready(0, self.settings))
+        self.assertTrue(dump_wait_rest_ready(-20, self.settings))
+        self.assertTrue(dump_wait_rest_ready(80, self.settings))
+        self.assertFalse(dump_wait_rest_ready(100, self.settings))
+        self.assertFalse(dump_wait_rest_ready(160, self.settings))
+        quiet = SpotQuote(78340, "test", annual_vol=0.55, impulse=0)
+        opps = evaluate_impulse_wait_market(coupon, quiet, self.settings, now)
         self.assertTrue(opps)
         self.assertEqual(opps[0].side, "no")
         self.assertAlmostEqual(opps[0].ask, 0.36)
         self.assertAlmostEqual(opps[0].limit_price, 0.25)
         shallow = SpotQuote(78340, "test", annual_vol=0.55, impulse=-20)
-        self.assertEqual(evaluate_impulse_wait_market(coupon, shallow, self.settings, now), [])
-        rally = SpotQuote(78340, "test", annual_vol=0.55, impulse=80)
-        self.assertEqual(evaluate_impulse_wait_market(coupon, rally, self.settings, now), [])
+        self.assertTrue(evaluate_impulse_wait_market(coupon, shallow, self.settings, now))
+        mild_rally = SpotQuote(78340, "test", annual_vol=0.55, impulse=80)
+        self.assertTrue(evaluate_impulse_wait_market(coupon, mild_rally, self.settings, now))
+        flipped = SpotQuote(78340, "test", annual_vol=0.55, impulse=160)
+        self.assertEqual(evaluate_impulse_wait_market(coupon, flipped, self.settings, now), [])
+
+    def test_high_p_coupon_is_not_swallowed_by_taker_qualify(self):
+        # Taker-off + coupon-first: a 32–42¢ NO with p≥52% used to return []
+        # because _taker_impulse_qualifies skipped the rest, then impulse_t
+        # also returned []. That ate the best coupons.
+        now = datetime(2026, 8, 26, 19, 21, tzinfo=timezone.utc)
+        coupon = _market(
+            ticker="KXBTCD-26AUG2616-T78399.99",
+            event_ticker="KXBTCD-26AUG2616",
+            floor_strike=78399.99,
+            yes_bid_dollars="0.63",
+            yes_ask_dollars="0.64",
+            no_bid_dollars="0.35",
+            no_ask_dollars="0.36",
+            open_time="2026-08-26T19:00:00Z",
+            close_time="2026-08-26T20:00:00Z",
+        )
+        spot = SpotQuote(78280, "test", annual_vol=0.55, impulse=-20)
+        model_p = 1.0 - digital_prob(78280, 78399.99, 39 * 60, 0.55)
+        self.assertGreaterEqual(model_p, 0.52)
+        self.assertTrue(_taker_impulse_qualifies(0.36, model_p, self.settings))
+        opps = evaluate_impulse_wait_market(coupon, spot, self.settings, now)
+        self.assertTrue(opps)
+        self.assertEqual(opps[0].play, "impulse_wait")
+        self.assertAlmostEqual(opps[0].limit_price, 0.25)
 
     def test_already_dumped_twenty_nine_cent_ask_is_not_a_gap(self):
         # Paper AUG2602 T78499: rest 0.25 under ask 0.29 filled immediately, then 0.03.
@@ -871,6 +901,29 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         self.assertEqual(take["exit_reason"], "t_clip")
         self.assertGreater(take["pnl"], 0)
         self.assertGreaterEqual(take["roi"], 0.50)
+
+    def test_quiet_coupon_rest_then_dump_fill(self):
+        settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
+        maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
+        strike = 78699.99
+        bars = [
+            ReplayBar(int(maturity - 1800), 78800, 0.55, {strike: {"yes_ask": 0.65, "yes_bid": 0.64}}, impulse=0),
+            ReplayBar(int(maturity - 1740), 78790, 0.55, {strike: {"yes_ask": 0.64, "yes_bid": 0.63}}, impulse=-20),
+            ReplayBar(
+                int(maturity - 1680),
+                78720,
+                0.55,
+                {strike: {"yes_ask": 0.65, "yes_bid": 0.64, "yes_bid_high": 0.76}},
+                impulse=-160,
+            ),
+            ReplayBar(int(maturity - 1620), 78640, 0.55, {strike: {"yes_ask": 0.60, "yes_bid": 0.59}}, impulse=-120),
+        ]
+        report = replay_bars("KXBTCD-26AUG2520", bars, {strike: "no"}, maturity, settings)
+        self.assertEqual(len(report["takes"]), 1)
+        self.assertEqual(report["takes"][0]["play"], "impulse_wait")
+        self.assertAlmostEqual(report["takes"][0]["ask"], 0.25)
+        self.assertEqual(report["takes"][0]["exit_reason"], "t_clip")
+        self.assertGreater(report["takes"][0]["pnl"], 0)
 
     def test_fade_keeps_the_bid_then_dump_reprint_fills(self):
         settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)

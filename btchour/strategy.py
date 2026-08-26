@@ -14,13 +14,19 @@ WAIT_PLAYS = frozenset({"lock_wait", "impulse_wait"})
 
 
 def dump_wait_rest_ready(impulse: float, settings: Settings) -> bool:
-    """Hang the 25¢ coupon while a dump is forming. Fill still needs impulse_min.
+    """Hang the 25¢ coupon when the 32–42¢ book is visible.
 
-    Paper AUG2616 15:21 ET: T78299 NO ≈0.36 while impulse was only −$40 to −$95.
-    Waiting for −$100 to rest meant the live ask was already 0.51. Humans hang
-    under 32–42¢ as the smash starts; they do not wait until the book is gone.
+    Cached 42/42 hours show a nearby 32–42¢ NO. Most of those minutes do not
+    yet have a −$40 dump. Humans rest when they SEE the coupon; public maker
+    research (Whelan; favorite-longshot fade; optimism-tax) does the same.
+    Dump is the fill filter, not the rest filter. Refuse only a flipped tape.
+    `impulse_wait_rest_min` stays as an optional tighten (default 0).
     """
+    if impulse_wait_flipped("no", impulse, settings):
+        return False
     need = settings.impulse_wait_rest_min
+    if need <= 0:
+        return True
     return impulse < 0 and abs(impulse) + 1e-9 >= need
 
 
@@ -534,7 +540,7 @@ def evaluate_impulse_wait_market(
     settings: Settings,
     now: datetime | None = None,
 ) -> list[Opportunity]:
-    """Rest a maker bid under a dump when the taker impulse path does not qualify."""
+    """Rest a maker NO under a visible 32–42¢ coupon. Dump is the fill filter."""
     now = now or datetime.now(timezone.utc)
     if not settings.impulse_wait or not settings.allow_maker:
         return []
@@ -567,8 +573,6 @@ def evaluate_impulse_wait_market(
         return []
     if ask > settings.impulse_wait_max_ask + 1e-12:
         return []
-    if _taker_impulse_qualifies(ask, model_p, settings):
-        return []
     if model_p + 1e-12 < rest:
         return []
     cost = fill_cost(rest, 1.0, taker=False)
@@ -589,7 +593,7 @@ def evaluate_impulse_wait_market(
         cost=cost,
         play="impulse_wait",
         reason=(
-            f"dump_gap {side.upper()} 动量 {move:+.0f} rest {rest:.2f} under {ask:.2f} "
+            f"dump_gap {side.upper()} 看见 {ask:.2f} rest {rest:.2f} 动量 {move:+.0f} "
             f"p={model_p:.1%} clip>={clip:.2f}; strike {market.strike:.2f} / spot {spot.price:.2f}"
         ),
     )

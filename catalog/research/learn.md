@@ -417,3 +417,25 @@ session 已清。**`AUG2611` 真挂 coupon**。
 14:00:20 `impulse_t` YES `T78299` @ **0.50**，p 59.7%，动量 **+$137**。当时没有砸盘，没有 32–42¢ coupon 可挂。随后 `t_clip` 在 bid **0.60**，**+12.7%**，pnl **+0.657**。`raw.peak_bid=0.58` 是标记，出场 0.60。没挂 YES wait。没追便宜 YES。
 
 赢了这小时 `swing.dead`：后头若再砸盘，coupon journal 可以写，引擎不再挂——一小时一笔 T。这不是 dump coupon clip。不换策略。完成成交 **8 / 3 / −4.3709**。回放绿不是达成。
+
+## 公开方案对照（2026-08-26 16:00 ET）：窗口不可能那么少
+
+用户说窗口不可能只有那几个。缓存 **42/42** 小时都有近 ATM **32–42¢ NO**，多数小时有 20–40 分钟这种盘口。等 −$40 / −$100 才挂，是把排队时间丢掉，不是市场没窗口。
+
+公开材料没有「Kalshi BTC 小时盘 32–42¢ 下挂 25¢」的现成 playbook，但做市侧是同一句话：
+
+| 来源 | 做法 | 和人手 coupon 的对应 |
+| --- | --- | --- |
+| Whelan *Makers and Takers*（30 万+ Kalshi 合约） | Taker 系统亏，Maker 相对赢；便宜合约对吃卖一的人更亏 | 挂 25¢，不要去吃 0.45–0.51 |
+| favorite–longshot fade（[agiprolabs/prediction-market-strategy](https://github.com/agiprolabs/claude-trading-skills/blob/main/skills/prediction-market-strategy/SKILL.md)） | 在 ~5–20¢ 的 NO 上 **持续** rest maker，不等人砸完再挂 | 32–42¢ **看见就挂** 25¢；成交仍只要砸盘 |
+| newyorkcompute `optimism-tax` | 在尾部区间做定向报价 | 只在 32–42¢ 这档挂，不追已经砸穿的 29¢ |
+| Bitcoin Edge（IBIT 期权 vs KXBTCD） | 模型价和 Kalshi 价有缺口就做，不是等波动极值 | 25¢ rest 对 32–42¢ ask 本身就是缺口 |
+| Kalshi View resting orders | 不成交、撤单都不收费 | 淡了不撤；没砸盘就空挂到翻面或收盘 |
+| 人手 `manual.md` / `AUG2520` | 0.20–0.25 挂进；32–42¢ 看见就挂；只在砸盘中成交 | 成交门仍是 impulse ≤−$100 |
+
+两道还在砍窗口的门，这一轮拆掉：
+
+1. **挂单不再要砸盘动量。** `impulse_wait_rest_min` 默认 0。已经翻到 ≥+$100 才不挂。成交、淡化、反手撤不变。
+2. **`_taker_impulse_qualifies` 不再跳过 coupon。** 默认 taker 关着时，p≥52% 的 32–42¢ 会变成「wait 跳过 + taker 也不吃」。那是最好的 coupon。
+
+不放宽到 0.45。不挂 YES。不默认便宜 taker。回放绿不是达成。`AUG2608` 已经 clip 过。
