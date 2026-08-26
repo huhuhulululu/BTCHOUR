@@ -370,6 +370,8 @@ skip-wait 守住了：579 次扫描，36 条 coupon journal（`T78599` / `T78499
 
 完成成交 **6 / 1 / −5.6825**。session：`last_loss_event=AUG2609`，`skip_next=True`，`skipped_event=AUG2610`。**`AUG2610` 空 wait**（连续亏不叠 skip）。回放绿不是达成。
 
-## 13:05 `AUG2610`：空 wait 守住了，同向 taker 开着
+## 13:05 `AUG2610`：空 wait 守住了，同向 taker clip 了
 
-skip-wait 守住了：journal 看见 `T78199` / `T78099` ask **0.42** coupon 盘，引擎没挂 wait。13:05:07 同向 `impulse_t` NO `T78299` @ **0.48**，p 52.2%，动量 −$114。规矩允许（AUG2518 / AUG2605 / AUG2606）。peak bid 已到 0.56，费后 10% clip 要 0.57。没挂 YES。连续亏不叠 skip，所以这小时若再亏，`AUG2611` 仍真挂。
+skip-wait 守住了：journal 看见 `T78199` / `T78099` ask **0.42** coupon 盘，引擎没挂 wait。13:05:07 同向 `impulse_t` NO `T78299` @ **0.48**，p 52.2%，动量 −$114。规矩允许（AUG2518 / AUG2605 / AUG2606）。随后 `t_clip` 在 bid **0.58**，**+13.2%**，pnl **+0.6546**。peak_bid 0.56 是标记，出场 0.58 是准的。没挂 YES。没挂 coupon。
+
+赢了 session 清掉（`skip_next=False`）。这不是 coupon clip，是 skip 小时同向 taker。不换策略。剩下的 working 是远 OTM `lock_wait` 0.83，不是 dump coupon。完成成交 **7 / 2 / −5.0279**。

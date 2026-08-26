@@ -489,9 +489,11 @@ Minute replay this hour is `incomplete data` at the close print. Sweep window no
 
 Paper completed **6 / 1 / −5.6825**. Session: `last_loss_event=AUG2609`, `skip_next=True`, `skipped_event=AUG2610`. **`AUG2610` is skip-wait** (consecutive losses do not stack). Replay green is not 达成.
 
-## AUG2610 mid-hour — skip-wait held, same-dir taker working (2026-08-26 ~13:05 UTC)
+## AUG2610 mid-hour — skip-wait held, same-dir taker clipped (2026-08-26 ~13:06 UTC)
 
-Skip-wait held: journal saw `T78199` / `T78099` ask **0.42** coupon books and did not rest. 13:05:07 same-dir `impulse_t` NO `T78299` @ **0.48**, p 52.2%, impulse −$114 — allowed (AUG2518 / AUG2605 / AUG2606). Peak bid 0.56; fee-on 10% clip needs 0.57. No YES rest. Consecutive losses do not stack, so a stop here still leaves `AUG2611` live.
+Skip-wait held: journal saw `T78199` / `T78099` ask **0.42** coupon books and did not rest. 13:05:07 same-dir `impulse_t` NO `T78299` @ **0.48**, p 52.2%, impulse −$114 — allowed (AUG2518 / AUG2605 / AUG2606). `t_clip` at bid **0.58**, **+13.2%**, pnl **+0.6546**. `raw.peak_bid=0.56` is a mark quirk; the exit print is 0.58. No YES. No coupon rest.
+
+The win cleared session (`skip_next=False`). This is a skip-hour taker clip, not a dump-coupon clip. Do not switch. Leftover working tickets are far-OTM `lock_wait` 0.83, not dump coupon. Paper completed **7 / 2 / −5.0279**.
 
 ## Order book
 
