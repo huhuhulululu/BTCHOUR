@@ -18,6 +18,7 @@ from btchour.paper import paper_close, paper_fill, paper_settle
 from btchour.score import score_market
 from btchour.store import Store
 from btchour.learn import diagnose_impulse, journal_line, merge_impulse, tape_impulse
+from btchour.tickers import format_et
 from btchour.strategy import (
     WAIT_PLAYS,
     Opportunity,
@@ -450,7 +451,7 @@ def run_loop(settings: Settings | None = None) -> None:
         try:
             cycle = _bounded_cycle(client, settings)
         except Exception as exc:
-            print(f"{datetime.now(timezone.utc).isoformat()} loop_error {exc}", flush=True)
+            print(f"{format_et()} loop_error {exc}", flush=True)
             client = make_client(settings)
             time.sleep(max(2, settings.poll_seconds))
             continue
@@ -459,7 +460,7 @@ def run_loop(settings: Settings | None = None) -> None:
         spot = cycle["scan"]["spot"]
         diagnosis = cycle["scan"].get("diagnosis") or {}
         print(
-            f"{datetime.now(timezone.utc).isoformat()} mode={settings.mode} playbook={settings.playbook} "
+            f"{format_et()} mode={settings.mode} playbook={settings.playbook} "
             f"event={event} spot={spot['price']:.2f} impulse={float(spot.get('impulse') or 0):+.0f} "
             f"tape={float(spot.get('tape_impulse') or 0):+.0f} diag={diagnosis.get('status')} "
             f"opps={n} taken={len(cycle['taken'])} exits={len(cycle['exits'])} "
@@ -484,7 +485,7 @@ def supervise_run(settings: Settings | None = None) -> None:
     cmd = [sys.executable, "-m", "btchour", "run", "--playbook", settings.playbook]
     while True:
         print(
-            f"{datetime.now(timezone.utc).isoformat()} supervisor start {' '.join(cmd)} "
+            f"{format_et()} supervisor start {' '.join(cmd)} "
             f"stall>{STALL_SECONDS}s",
             flush=True,
         )
@@ -494,11 +495,11 @@ def supervise_run(settings: Settings | None = None) -> None:
             try:
                 age = Store().scan_age_seconds()
             except Exception as exc:
-                print(f"{datetime.now(timezone.utc).isoformat()} supervisor store_error {exc}", flush=True)
+                print(f"{format_et()} supervisor store_error {exc}", flush=True)
                 continue
             if age is not None and age > STALL_SECONDS:
                 print(
-                    f"{datetime.now(timezone.utc).isoformat()} supervisor stall age={age:.0f}s, restarting",
+                    f"{format_et()} supervisor stall age={age:.0f}s, restarting",
                     flush=True,
                 )
                 proc.terminate()
@@ -509,7 +510,7 @@ def supervise_run(settings: Settings | None = None) -> None:
                     proc.wait(timeout=5)
                 break
         print(
-            f"{datetime.now(timezone.utc).isoformat()} supervisor child exit {proc.returncode}, restart in 2s",
+            f"{format_et()} supervisor child exit {proc.returncode}, restart in 2s",
             flush=True,
         )
         time.sleep(2)

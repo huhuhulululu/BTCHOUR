@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 from btchour.catalog import current_hourly_events
 from btchour.tickers import (
+    format_et,
     format_event_ticker,
     is_hourly_window,
     next_event_ticker,
@@ -15,6 +16,10 @@ from btchour.tickers import (
 
 
 class TickerTests(unittest.TestCase):
+    def test_format_et_uses_new_york(self):
+        now = datetime(2026, 8, 26, 18, 47, tzinfo=ZoneInfo("UTC"))
+        self.assertEqual(format_et(now), "2026-08-26 14:47:00 EDT")
+
     def test_parse_2pm_edt(self):
         event = parse_event_ticker("KXBTCD-26AUG2514")
         self.assertEqual(event["hour_et"], 14)

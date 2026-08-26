@@ -57,6 +57,12 @@ def parse_market_ticker(ticker: str) -> dict:
     }
 
 
+def format_et(now: datetime | None = None) -> str:
+    """Human-facing clock: America/New_York. Storage stays UTC ISO."""
+    local = now.astimezone(ET) if now is not None else datetime.now(ET)
+    return local.strftime("%Y-%m-%d %H:%M:%S %Z")
+
+
 def format_event_ticker(close_et: datetime, series: str = "KXBTCD") -> str:
     local = close_et.astimezone(ET)
     return f"{series}-{str(local.year)[2:]}{MONTH_ABBR[local.month]}{local.day:02d}{local.hour:02d}"

@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timezone
 
 from btchour.catalog import sync_catalog
 from btchour.config import apply_playbook, load_settings
 from btchour.engine import make_client, run_cycle, run_loop, scan_once, supervise_run
 from btchour.store import Store
+from btchour.tickers import format_et
 
 
 def _print_json(payload: object) -> None:
@@ -173,7 +173,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         print(
             f"starting {settings.mode} loop playbook={settings.playbook} "
-            f"at {datetime.now(timezone.utc).isoformat()} "
+            f"at {format_et()} "
             f"target_if_win={settings.target_profit:.0%} min_p={settings.min_win_prob:.0%} "
             f"early_exit={settings.allow_early_exit}",
             flush=True,
@@ -184,7 +184,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "loop":
         print(
             f"starting {settings.mode} auto-loop playbook={settings.playbook} "
-            f"at {datetime.now(timezone.utc).isoformat()}",
+            f"at {format_et()}",
             flush=True,
         )
         supervise_run(settings)

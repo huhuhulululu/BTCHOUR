@@ -11,7 +11,8 @@ KXBTCD-{YY}{MON}{DD}{HH}
 ```
 
 - `{HH}` 是 **America/New_York** 整点，不是 UTC。
-- 例：`KXBTCD-26AUG2514` = 2026-08-25 14:00 EDT = 18:00 UTC。
+- 例：`KXBTCD-26AUG2514` = 2026-08-25 14:00 EDT（对外报时用纽约时间；对照 UTC 是 18:00）。
+- loop / supervisor 日志和跟用户说话一律用纽约时间。库内 `created_at` 仍存 UTC ISO。
 - `product_metadata.cadence = hourly`。
 - 当前小时为 `status=open`（API 市场状态常为 `active`）；后续小时为 `unopened`，整点前开盘，窗口约 60 分钟。
 
