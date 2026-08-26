@@ -1,11 +1,12 @@
 {
-  "swept_at": "2026-08-26T18:35:03.856773+00:00",
+  "swept_at": "2026-08-26T19:02:38.281025+00:00",
   "hours": 24,
   "windows": [
     16,
     24
   ],
   "events": [
+    "KXBTCD-26AUG2615",
     "KXBTCD-26AUG2614",
     "KXBTCD-26AUG2613",
     "KXBTCD-26AUG2612",
@@ -28,8 +29,7 @@
     "KXBTCD-26AUG2519",
     "KXBTCD-26AUG2518",
     "KXBTCD-26AUG2517",
-    "KXBTCD-26AUG2516",
-    "KXBTCD-26AUG2515"
+    "KXBTCD-26AUG2516"
   ],
   "formula": "EV = p * b - (1 - p)",
   "runs": [
@@ -296,13 +296,12 @@
       "impulse_max_ask": 0.35,
       "impulse_wait": true,
       "impulse_taker": true,
-      "take_count": 12,
-      "wins": 5,
-      "realized_pnl": 0.8304000000000005,
+      "take_count": 11,
+      "wins": 6,
+      "realized_pnl": 1.555200000000001,
       "exit_reasons": {
-        "t_stop": 6,
-        "t_clip": 5,
-        "t_trail": 1
+        "t_stop": 5,
+        "t_clip": 6
       },
       "takes": [
         {
@@ -378,40 +377,31 @@
           "pnl": -0.6396999999999999
         },
         {
-          "event": "KXBTCD-26AUG2603",
+          "event": "KXBTCD-26AUG2604",
           "side": "yes",
-          "ask": 0.29,
+          "ask": 0.2,
+          "play": "impulse_t",
+          "exit": "t_clip",
+          "roi": 0.21306818181818188,
+          "pnl": 0.4500000000000002
+        },
+        {
+          "event": "KXBTCD-26AUG2602",
+          "side": "no",
+          "ask": 0.31,
           "play": "impulse_t",
           "exit": "t_stop",
-          "roi": -0.19016490375139608,
-          "pnl": -0.5789
+          "roi": -0.4190411717644163,
+          "pnl": -1.3618000000000001
         },
         {
-          "event": "KXBTCD-26AUG2601",
-          "side": "no",
-          "ask": 0.21,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.3205035646602293,
-          "pnl": -0.7103000000000002
-        },
-        {
-          "event": "KXBTCD-26AUG2601",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_trail",
-          "roi": -0.09108000000000001,
-          "pnl": -0.2277
-        },
-        {
-          "event": "KXBTCD-26AUG2523",
+          "event": "KXBTCD-26AUG2600",
           "side": "yes",
-          "ask": 0.33,
+          "ask": 0.18,
           "play": "impulse_t",
           "exit": "t_stop",
-          "roi": -0.3143742040060206,
-          "pnl": -1.0861
+          "roi": -0.5077230219607018,
+          "pnl": -0.9663999999999997
         }
       ]
     },
@@ -425,11 +415,11 @@
       "impulse_wait": true,
       "impulse_taker": true,
       "take_count": 11,
-      "wins": 2,
-      "realized_pnl": -3.5752999999999995,
+      "wins": 3,
+      "realized_pnl": -3.4225999999999996,
       "exit_reasons": {
-        "t_stop": 8,
-        "t_clip": 2,
+        "t_stop": 7,
+        "t_clip": 3,
         "invalidate": 1
       },
       "takes": [
@@ -506,31 +496,31 @@
           "pnl": -0.6396999999999999
         },
         {
-          "event": "KXBTCD-26AUG2603",
+          "event": "KXBTCD-26AUG2604",
           "side": "yes",
-          "ask": 0.29,
+          "ask": 0.2,
           "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.19016490375139608,
-          "pnl": -0.5789
+          "exit": "t_clip",
+          "roi": 0.21306818181818188,
+          "pnl": 0.4500000000000002
         },
         {
-          "event": "KXBTCD-26AUG2601",
+          "event": "KXBTCD-26AUG2602",
           "side": "no",
-          "ask": 0.21,
+          "ask": 0.31,
           "play": "impulse_t",
           "exit": "t_stop",
-          "roi": -0.3205035646602293,
-          "pnl": -0.7103000000000002
+          "roi": -0.4190411717644163,
+          "pnl": -1.3618000000000001
         },
         {
-          "event": "KXBTCD-26AUG2523",
-          "side": "yes",
-          "ask": 0.33,
+          "event": "KXBTCD-26AUG2600",
+          "side": "no",
+          "ask": 0.39,
           "play": "impulse_t",
           "exit": "t_stop",
-          "roi": -0.3143742040060206,
-          "pnl": -1.0861
+          "roi": -0.3223331530025083,
+          "pnl": -1.3108000000000004
         }
       ]
     },
