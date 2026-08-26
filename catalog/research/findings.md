@@ -205,11 +205,25 @@ Tried lowering p to 30% and cap ask at $0.35 (and $0.52). Also stopped using the
 
 Live `AUG2522` ~01:20 UTC: impulse faded to +$20s, **0 T**, paper completed PnL still **0**.
 
-## Maker wait under the dump (2026-08-26)
+## Maker wait under the dump (2026-08-26 ~01:58 UTC)
 
-Cheap **taker** NO (p 30% / ask 35¢) is the −5.60 tape. Human clips were **resting 20–25¢** while the touch was still ~32¢, then holding the bounce.
+Cheap **taker** NO (p 30% / ask 35¢) is still the red tape (−4.38 / −7.43 with wait on). Human clips were **resting 20–25¢ NO** while the touch was still ~32¢, then holding the bounce.
 
-New default path `impulse_wait`: same $100 impulse, but only when `impulse_t` does not qualify; rest **$0.25** while ask is **above rest and ≤ $0.48**; fill in replay/paper at the rest as maker (fee 0). Exits keep the 10–50% band; **no −12% stop / no fade**; hard stop −50%. Sweep always prints `flex_nowait` next to default flex so this can be turned off if the cached 16h/24h tape gets worse than +0.12 / +2.18.
+Symmetric 25¢ waits (YES on rallies) printed three −50% stops and put 24h **below** the +2.18 ATM baseline. Dump-only wait plus skip-after-loss still ate `AUG2519` (−70% wait instead of the +17% YES clip). Fix: after a losing T, skip **wait** next hour; same-direction **taker** is still allowed.
+
+`python3 -m btchour sweep --hours 16` after that (10 contracts, cached tapes AUG2506–AUG2521 / AUG2422–AUG2521):
+
+| Run | Takes | Wins | PnL |
+| --- | ---: | ---: | ---: |
+| flex skip + dump wait (default) 16h | 9 | 6 | **+1.29** |
+| flex no-wait 16h | 7 | 4 | +0.12 |
+| flex skip + dump wait 24h | 13 | 9 | **+5.03** |
+| flex no-wait 24h | 11 | 6 | +2.18 |
+| flex cheap p30/ask35 16h | 15 | 7 | −4.38 |
+
+Wait fills that survived: `AUG2514` / `AUG2513` NO @ 0.25 clip +10%; `AUG2504` NO @ 0.25 clip +41% (replaces the old ATM −13% stop). `AUG2513` also blocks the ATM YES `t_stop` −37%. Leftover: `AUG2507` wait stop −51%. `AUG2519` is now empty (bruised hour, no wait). This is not “every wait prints 10–50%.”
+
+Default stays dump-only `impulse_wait` on. Sweep still prints `flex_nowait` and `flex_cheap`.
 
 ## Order book
 
