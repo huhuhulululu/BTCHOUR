@@ -302,6 +302,27 @@ Paper bug: `Store.session_memory()` rebuilds from trades and drops `skipped_even
 
 Paper completed still **1 / 0 / −2.2204**. Replay green is not 达成.
 
+## AUG2604 close — right rest, fade fill (2026-08-26 ~08:00 UTC)
+
+First live coupon hour. Rest 07:10:33Z `T78899` NO 0.25 under ask **0.37**, impulse −$115. One wait. No YES. No hop. Fade held.
+
+Fill 07:41:30Z when ask printed 0.25 and 3-minute impulse was ~0, spot already +$42 from the rest. Peak bid 0.27 (peak ROI 2.5% after fees). `t_scratch` at 07:49:30Z bid **0.12**, **−1.374** (−55%). Scratch did its job.
+
+Not a 29¢ knife. The rest matched the human book. The fill did not match the human dump. Promote now requires impulse still ≤−$100. Keep the rest through fade. Bounce / fade ask==rest do not fill.
+
+Minute replay this hour: coupon/nowait/loose **0**. Cheap YES @ 0.20 clipped +21% — do not chase that.
+
+New window (AUG2604–AUG2513 / AUG2604–AUG2505) after dump-only fill:
+
+| Run | 16h | 24h |
+| --- | ---: | ---: |
+| dump coupon (default) | 6 / 4 / **−0.47** | 13 / 10 / **+6.98** |
+| flex_nowait | 3 / 1 / −2.21 | 7 / 4 / +0.12 |
+| flex_wait_loose | 7 / 6 / +4.93 | 13 / 11 / +11.83 |
+| flex cheap p30/ask35 | 13 / 4 / −6.33 | 21 / 8 / −7.61 |
+
+Coupon still beats nowait. `AUG2520` still +41.5%. Paper completed **2 / 0 / −3.5944**. Skip wait on `AUG2605`. Replay green is not 达成.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.

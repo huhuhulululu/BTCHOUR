@@ -263,7 +263,13 @@ def refresh_working(
         ask = market.yes_ask_effective if row["side"] == "yes" else market.no_ask_effective
         seconds = _seconds_left(market.close_time, now)
         if play == "impulse_wait":
-            if wait_book_crossed(row["side"], rest, ask, impulse=spot.impulse):
+            if wait_book_crossed(
+                row["side"],
+                rest,
+                ask,
+                impulse=spot.impulse,
+                min_impulse=settings.impulse_min if play == "impulse_wait" else None,
+            ):
                 filled = fill_cost(rest, float(row["count"]), taker=False)
                 store.promote_working(
                     row["id"], rest, filled.fee, filled.cost, filled.if_win_roi, taker=False

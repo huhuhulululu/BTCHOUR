@@ -276,6 +276,7 @@ def replay_bars(
                 yes_bid_high=quotes.get("yes_bid_high"),
                 yes_ask_low=quotes.get("yes_ask_low"),
                 impulse=bar.impulse if play == "impulse_wait" else None,
+                min_impulse=settings.impulse_min if play == "impulse_wait" else None,
             ):
                 position = _promote_wait(working)
                 entry = dict(position.get("entry") or {})
@@ -320,6 +321,7 @@ def replay_bars(
                         yes_bid_high=quotes.get("yes_bid_high"),
                         yes_ask_low=quotes.get("yes_ask_low"),
                         impulse=bar.impulse,
+                        min_impulse=settings.impulse_min,
                     ):
                         position = _promote_wait(working)
                         entry = dict(position.get("entry") or {})

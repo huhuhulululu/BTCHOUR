@@ -30,14 +30,18 @@ def wait_book_crossed(
     yes_bid_high: float | None = None,
     yes_ask_low: float | None = None,
     impulse: float | None = None,
+    min_impulse: float | None = None,
 ) -> bool:
-    """Maker fill at rest if the close or minute extreme traded through while the tape is still with us.
+    """Maker fill at rest if the close or minute extreme traded through while the dump is still on.
 
-    A dump NO rest must not fill on the bounce rip: that is how AUG2520 went
-    25¢ → marked 13¢ and died at the old −50% stop. Human filled during the dump.
+    A dump NO rest must not fill on the bounce rip (AUG2520 25¢ → marked 13¢)
+    or on a faded ask==rest print (AUG2604 07:41, spot already +$42, then scratch).
+    Keep the rest through fade; fill only while impulse is still a dump.
     """
     if impulse is not None:
         if side == "no" and impulse >= 0:
+            return False
+        if side == "no" and min_impulse is not None and impulse > -abs(min_impulse) + 1e-9:
             return False
         if side == "yes" and impulse <= 0:
             return False
