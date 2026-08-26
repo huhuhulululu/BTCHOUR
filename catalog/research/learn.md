@@ -137,3 +137,30 @@
 `AUG2602` 收盘后 Kalshi 仍把它标成 open（TWAP）。焦点按 `|close−now|` 排，刚关的小时会赢大约 30 分钟，循环在 `AUG2602` / `AUG2603` 之间来回跳。dump coupon 看不到新小时前半段。改成：**还没到 close 的小时优先**。
 
 收盘回放 `AUG2602`：dump coupon **0 笔**（29¢ 刀被 32–42¢ 门挡掉）。便宜 taker 吃了 0.31 NO，`t_stop` −42%。纸盘那笔 −2.22 是旧宽 wait。coupon 05:52 才上线，这小时没有新的纸盘成交。`AUG2603` 因亏后规则空 wait。新窗口 16h coupon **9 / 6 / +0.07**，nowait −0.95，仍留 coupon。
+
+## 07:00 收盘 `AUG2603`：该空 wait，但 skip 卡死了
+
+`AUG2603` 是亏后空 wait 的那一小时。循环扫了 **1022** 次，现货动量 −$155 / +$133。日记 **58** 次 coupon 级 wait：
+
+- 06:12–06:14 `T78899` NO ask **0.37–0.39**
+- 06:20 `T78899` ask **0.40**
+- 06:25 `T78799` ask **0.39**
+
+同向 taker 没过门（p<52% / gap）。涨势 YES 仍 `blocked`。纸盘 **0 笔成交**。这是规矩，不是漏单。
+
+1 分钟回放 coupon / nowait / loose 这小时也都是 **0 笔**。分钟收盘只剩两根砸盘 K：`T78899` 已经 31¢ / 35¢。便宜 taker 对照吃了 0.19 NO，`t_stop` −39%。
+
+新窗口（AUG2603–AUG2512 / AUG2603–AUG2504）：
+
+| Run | 16h | 24h |
+| --- | ---: | ---: |
+| dump coupon（默认） | 8 / 5 / **−1.19** | 14 / 9 / **+0.94** |
+| flex_nowait | 3 / 1 / −2.21 | 8 / 4 / −0.53 |
+| flex_wait_loose | 8 / 6 / +3.29 | 16 / 12 / +6.22 |
+| flex cheap p30/ask35 | 14 / 5 / −5.55 | 22 / 8 / −7.95 |
+
+16h 从 +0.07 落到 −1.19，是窗口滚掉 `AUG2511` YES clip +26%，不是 coupon 这小时亏了。coupon 仍赢 nowait。`AUG2520` 仍是 +41.5%。便宜 taker 仍红。不换策略。
+
+真正挡住纸盘的是另一件事：账本每次扫描只从成交重建 `SessionMemory`，`skipped_event` 丢了。亏后「空下一小时 wait」变成**之后每一小时都空 wait**。`AUG2604` 本来该是第一小时真挂 coupon，却会被当成第二个 skip 小时。已改成：skip 小时 = `last_loss_event` 的下一张小时 ticker。`AUG2604` 现在 `skip_next=False`。
+
+完成成交仍是 **1 / 0 / −2.2204**。回放绿不是达成。`AUG2604` 才是 coupon 的第一小时实盘。

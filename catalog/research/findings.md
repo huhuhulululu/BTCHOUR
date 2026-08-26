@@ -283,6 +283,25 @@ Cache sweep after the switch (AUG2601–AUG2502, 10 contracts):
 
 `AUG2520` still clips +41.5% under the new default. Loose wait is greener on 1-minute bars because it still eats 29¢ knives. Paper already proved that path. Default stays dump coupon while it beats nowait. Cheap taker still red.
 
+## AUG2603 close + skip-hour stuck (2026-08-26 ~07:09 UTC)
+
+`AUG2603` was the designed skip-wait hour after the `AUG2602` knife. Paper 0 fills. Journal 58 coupon-quality waits (`T78899` / `T78799` ask 0.37–0.40). Same-dir taker never cleared p 52%. Minute replay coupon/nowait/loose: **0 takes**. Cheap taker NO @ 0.19 `t_stop` −39%.
+
+New window (AUG2603–AUG2512 / AUG2603–AUG2504):
+
+| Run | 16h | 24h |
+| --- | ---: | ---: |
+| dump coupon (default) | 8 / 5 / **−1.19** | 14 / 9 / **+0.94** |
+| flex_nowait | 3 / 1 / −2.21 | 8 / 4 / −0.53 |
+| flex_wait_loose | 8 / 6 / +3.29 | 16 / 12 / +6.22 |
+| flex cheap p30/ask35 | 14 / 5 / −5.55 | 22 / 8 / −7.95 |
+
+16h went from +0.07 to −1.19 because `AUG2511` +26% rolled out of the window, not because coupon lost this hour. Coupon still beats nowait. Keep it. Cheap still red.
+
+Paper bug: `Store.session_memory()` rebuilds from trades and drops `skipped_event`, so every later hour looked like the skip hour. Skip hour is now the next ticker after `last_loss_event`. `AUG2604` is the first live coupon hour.
+
+Paper completed still **1 / 0 / −2.2204**. Replay green is not 达成.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.
