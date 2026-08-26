@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
+import threading
 import time
 from datetime import datetime, timezone
 
 from btchour.broker import live_flatten, live_submit
 from btchour.catalog import sync_catalog
-from btchour.config import Settings, load_settings
+from btchour.config import ROOT, Settings, load_settings
 from btchour.exits import OpenPosition, evaluate_exit
 from btchour.fees import fill_cost
 from btchour.kalshi import KalshiClient, Market, market_from_api
@@ -27,6 +30,8 @@ from btchour.strategy import (
 )
 
 _LAST_FULL_SYNC = 0.0
+CYCLE_TIMEOUT_SECONDS = 25
+STALL_SECONDS = 60
 
 
 def make_client(settings: Settings) -> KalshiClient:
@@ -402,14 +407,35 @@ def run_cycle(client: KalshiClient | None = None, settings: Settings | None = No
     }
 
 
+def _bounded_cycle(client: KalshiClient, settings: Settings, seconds: int = CYCLE_TIMEOUT_SECONDS) -> dict:
+    """Run one cycle with a hard deadline. urllib can hang past its own timeout."""
+    box: dict = {}
+
+    def worker() -> None:
+        try:
+            box["cycle"] = run_cycle(client, settings)
+        except Exception as exc:
+            box["error"] = exc
+
+    thread = threading.Thread(target=worker, daemon=True, name="btchour-cycle")
+    thread.start()
+    thread.join(seconds)
+    if thread.is_alive():
+        raise TimeoutError(f"run_cycle exceeded {seconds}s")
+    if "error" in box:
+        raise box["error"]
+    return box["cycle"]
+
+
 def run_loop(settings: Settings | None = None) -> None:
     settings = settings or load_settings()
     client = make_client(settings)
     while True:
         try:
-            cycle = run_cycle(client, settings)
+            cycle = _bounded_cycle(client, settings)
         except Exception as exc:
             print(f"{datetime.now(timezone.utc).isoformat()} loop_error {exc}", flush=True)
+            client = make_client(settings)
             time.sleep(max(2, settings.poll_seconds))
             continue
         event = (cycle["scan"].get("event") or {}).get("event_ticker")
@@ -434,3 +460,40 @@ def run_loop(settings: Settings | None = None) -> None:
         for item in cycle["exits"]:
             print(f"  exit {item.get('ticker')} {item.get('result')} pnl={item.get('pnl')}", flush=True)
         time.sleep(max(2, settings.poll_seconds))
+
+
+def supervise_run(settings: Settings | None = None) -> None:
+    """Keep `btchour run` alive. Restart if scans stall or the child dies."""
+    settings = settings or load_settings()
+    cmd = [sys.executable, "-m", "btchour", "run", "--playbook", settings.playbook]
+    while True:
+        print(
+            f"{datetime.now(timezone.utc).isoformat()} supervisor start {' '.join(cmd)} "
+            f"stall>{STALL_SECONDS}s",
+            flush=True,
+        )
+        proc = subprocess.Popen(cmd, cwd=str(ROOT))
+        while proc.poll() is None:
+            time.sleep(10)
+            try:
+                age = Store().scan_age_seconds()
+            except Exception as exc:
+                print(f"{datetime.now(timezone.utc).isoformat()} supervisor store_error {exc}", flush=True)
+                continue
+            if age is not None and age > STALL_SECONDS:
+                print(
+                    f"{datetime.now(timezone.utc).isoformat()} supervisor stall age={age:.0f}s, restarting",
+                    flush=True,
+                )
+                proc.terminate()
+                try:
+                    proc.wait(timeout=8)
+                except Exception:
+                    proc.kill()
+                    proc.wait(timeout=5)
+                break
+        print(
+            f"{datetime.now(timezone.utc).isoformat()} supervisor child exit {proc.returncode}, restart in 2s",
+            flush=True,
+        )
+        time.sleep(2)

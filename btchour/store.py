@@ -109,6 +109,24 @@ class Store:
     def recent_journal(self, limit: int = 12) -> list[sqlite3.Row]:
         return list(self.conn.execute("SELECT * FROM journal ORDER BY id DESC LIMIT ?", (limit,)))
 
+    def last_scan_at(self) -> datetime | None:
+        row = self.conn.execute("SELECT created_at FROM scans ORDER BY id DESC LIMIT 1").fetchone()
+        if row is None:
+            return None
+        try:
+            ts = datetime.fromisoformat(str(row["created_at"]).replace("Z", "+00:00"))
+        except Exception:
+            return None
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return ts
+
+    def scan_age_seconds(self) -> float | None:
+        ts = self.last_scan_at()
+        if ts is None:
+            return None
+        return (datetime.now(timezone.utc) - ts).total_seconds()
+
     def record_trade(self, trade: dict) -> int:
         cur = self.conn.execute(
             """

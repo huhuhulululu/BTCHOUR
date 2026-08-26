@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import socket
 import time
 import urllib.error
 import urllib.parse
@@ -8,6 +9,8 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
+
+PAGINATE_MAX_PAGES = 10
 
 
 class KalshiError(RuntimeError):
@@ -142,6 +145,7 @@ class KalshiClient:
 
     def _request(self, method: str, url: str, headers: dict, body: bytes | None = None) -> Any:
         req = urllib.request.Request(url, data=body, headers=headers, method=method)
+        socket.setdefaulttimeout(self.timeout)
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                 raw = resp.read().decode()
@@ -151,7 +155,7 @@ class KalshiClient:
             raise KalshiError(f"{method} {url} -> {exc.code}: {text[:400]}", exc.code, text) from exc
         except urllib.error.URLError as exc:
             raise KalshiError(f"{method} {url} failed: {exc}") from exc
-        except TimeoutError as exc:
+        except (TimeoutError, socket.timeout, OSError) as exc:
             raise KalshiError(f"{method} {url} timed out: {exc}") from exc
 
     def _sign_headers(self, method: str, path: str) -> dict:
@@ -187,7 +191,7 @@ class KalshiClient:
     ) -> list:
         items: list = []
         cursor = None
-        while True:
+        for _ in range(PAGINATE_MAX_PAGES):
             query = dict(params or {})
             query["limit"] = limit
             if cursor:

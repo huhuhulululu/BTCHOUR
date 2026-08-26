@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import socket
 import urllib.request
 from statistics import mean
 
@@ -47,6 +48,7 @@ def coinbase_spot(user_agent: str = "BTCHOUR/0.1") -> SpotQuote:
         "https://api.coinbase.com/v2/prices/BTC-USD/spot",
         headers={"User-Agent": user_agent},
     )
+    socket.setdefaulttimeout(15)
     with urllib.request.urlopen(req, timeout=15) as resp:
         payload = json.loads(resp.read().decode())
     return SpotQuote(price=float(payload["data"]["amount"]), source="coinbase")

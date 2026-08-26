@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from btchour.catalog import sync_catalog
 from btchour.config import apply_playbook, load_settings
-from btchour.engine import make_client, run_cycle, run_loop, scan_once
+from btchour.engine import make_client, run_cycle, run_loop, scan_once, supervise_run
 from btchour.store import Store
 
 
@@ -39,6 +39,8 @@ def main(argv: list[str] | None = None) -> int:
     run = sub.add_parser("run", help="Loop: manage exits, scan, paper/live fill, settle")
     run.add_argument("--once", action="store_true")
     run.add_argument("--playbook", choices=["flex", "swing", "lock", "hold", "scalp"])
+    loop = sub.add_parser("loop", help="Auto-loop: supervise paper/live run and restart if scans stall")
+    loop.add_argument("--playbook", choices=["flex", "swing", "lock", "hold", "scalp"])
     sub.add_parser("status", help="Local paper/live ledger summary")
     sub.add_parser("learn", help="Show recent impulse journal: what printed, what was rejected, why")
     fills = sub.add_parser("fills", help="Read-only: pull recent Kalshi fills and same-side clips (never prints keys)")
@@ -177,6 +179,15 @@ def main(argv: list[str] | None = None) -> int:
             flush=True,
         )
         run_loop(settings)
+        return 0
+
+    if args.cmd == "loop":
+        print(
+            f"starting {settings.mode} auto-loop playbook={settings.playbook} "
+            f"at {datetime.now(timezone.utc).isoformat()}",
+            flush=True,
+        )
+        supervise_run(settings)
         return 0
 
     if args.cmd == "status":

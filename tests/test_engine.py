@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from btchour import engine as engine_mod
 from btchour import store as store_mod
 from btchour.config import Settings
+from btchour.kalshi import KalshiClient
 from btchour.paper import paper_close, paper_fill, paper_settle
 from btchour.strategy import Opportunity
 
@@ -122,3 +125,39 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.swing_target, 0.10)
         self.assertEqual(settings.swing_max_clip, 0.50)
         self.assertTrue(settings.skip_after_loss)
+
+
+class LoopGuardTests(unittest.TestCase):
+    def test_scan_age_empty_and_fresh(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                self.assertIsNone(db.last_scan_at())
+                self.assertIsNone(db.scan_age_seconds())
+                db.record_scan("KXBTCD-26AUG2600", 79000, [])
+                self.assertIsNotNone(db.last_scan_at())
+                self.assertLess(db.scan_age_seconds(), 2)
+
+    def test_bounded_cycle_raises_when_the_cycle_hangs(self):
+        def hang(_client, _settings):
+            time.sleep(2)
+            return {}
+
+        with patch.object(engine_mod, "run_cycle", hang):
+            with self.assertRaises(TimeoutError):
+                engine_mod._bounded_cycle(object(), Settings(), seconds=0.2)
+
+    def test_paginate_stops_after_max_pages(self):
+        class Fake(KalshiClient):
+            def __init__(self):
+                super().__init__()
+                self.calls = 0
+
+            def get(self, path, params=None, signed=False):
+                self.calls += 1
+                return {"markets": [{"n": self.calls}], "cursor": "more"}
+
+        client = Fake()
+        items = client.paginate("/markets", "markets")
+        self.assertEqual(client.calls, 10)
+        self.assertEqual(len(items), 10)
