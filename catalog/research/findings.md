@@ -408,6 +408,27 @@ This is the first paper human-style dump NO clip: 32–42¢ book, rest 25¢, fil
 
 Paper completed **5 / 1 / −5.0327**. Replay green is not 达成.
 
+## AUG2608 close — live coupon dumped and clipped (2026-08-26 ~12:00 UTC)
+
+Closed ledger is the same clip: one dump coupon, `t_clip` **+0.4502** (+18% at bid 0.31). 1007 scans, 11 wait journals, 10 open diagnoses. Impulse floor **−$246**, ceiling +$97. After the fill, rally YES stayed `no_impulse` — no YES rest, no second T. Win cleared session (`skip_next=False`). **`AUG2609` is the next live coupon rest.**
+
+This closed live coupon hour dumped and printed a human-style clip. Do not switch.
+
+Minute replay this hour is `incomplete data` at the close print. `AUG2607` tape is now complete: band 78699.99–78799.99, replay 0 (matches paper).
+
+New window (AUG2608–AUG2517 / AUG2608–AUG2509):
+
+| Run | 16h | 24h |
+| --- | ---: | ---: |
+| dump coupon (default) | 6 / 3 / **−0.70** | 12 / 7 / **+0.15** |
+| flex_nowait | 3 / 0 / −2.44 | 8 / 3 / −2.14 |
+| flex_wait_loose | 7 / 5 / +4.70 | 12 / 8 / +5.01 |
+| flex cheap p30/ask35 | 15 / 4 / −8.68 | 22 / 8 / −8.74 |
+
+16h fell because `AUG2516` taker clip +0.76 rolled out and `AUG2608` replayed 0 (live +0.45 is not on the minute tape yet). Coupon still beats nowait. `AUG2520` still +41.5%. Cheap still red. Do not switch on the 29¢ knife. Do not chase YES.
+
+Paper completed **5 / 1 / −5.0327**. Replay green is not 达成.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.
