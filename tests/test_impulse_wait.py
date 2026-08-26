@@ -81,6 +81,16 @@ class ImpulseWaitTests(unittest.TestCase):
         settings = Settings(playbook="flex", max_contracts=1, allow_maker=True, impulse_wait=False)
         self.assertEqual(evaluate_impulse_wait_market(_market(), self.spot, settings, self.now), [])
 
+    def test_rally_does_not_rest_yes(self):
+        rally = SpotQuote(78800, "test", annual_vol=0.55, impulse=160)
+        market = _market(
+            yes_bid_dollars="0.40",
+            yes_ask_dollars="0.41",
+            no_bid_dollars="0.59",
+            no_ask_dollars="0.60",
+        )
+        self.assertEqual(evaluate_impulse_wait_market(market, rally, self.settings, self.now), [])
+
 
 class ImpulseWaitEngineTests(unittest.TestCase):
     def setUp(self):

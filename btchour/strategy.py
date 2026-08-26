@@ -492,17 +492,17 @@ def evaluate_impulse_wait_market(
     if seconds is None or seconds + 1e-12 < settings.swing_min_seconds:
         return []
     move = spot.impulse
-    if abs(move) + 1e-9 < settings.impulse_min:
+    if move >= 0 or abs(move) + 1e-9 < settings.impulse_min:
         return []
     if abs((market.strike or 0.0) - spot.price) > settings.swing_max_distance + 1e-9:
         return []
     vol = effective_vol(spot.annual_vol, settings.annual_vol)
     p_yes = digital_prob(spot.price, market.strike, seconds, vol)
-    want_yes = move > 0
-    side = "yes" if want_yes else "no"
-    book_side = "bid" if want_yes else "ask"
-    model_p = p_yes if want_yes else 1.0 - p_yes
-    ask = market.yes_ask_effective if want_yes else market.no_ask_effective
+    want_yes = False
+    side = "no"
+    book_side = "ask"
+    model_p = 1.0 - p_yes
+    ask = market.no_ask_effective
     rest = settings.impulse_rest
     if ask is None or ask <= 0 or ask >= 1.0:
         return []
