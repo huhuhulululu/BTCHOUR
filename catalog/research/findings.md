@@ -429,6 +429,25 @@ New window (AUG2608–AUG2517 / AUG2608–AUG2509):
 
 Paper completed **5 / 1 / −5.0327**. Replay green is not 达成.
 
+## AUG2608 tape complete + AUG2609 live rest (2026-08-26 ~12:15 UTC)
+
+`AUG2608` band is **78399.99–78499.99**. `T78299` settled YES — holding the paper NO to expiry would have been −100%. The +18% clip was the right exit.
+
+Minute replay does not match paper. Replay 11:39 took `T78399` NO taker @ **0.52** and `t_stop` −1.05. Live blocked that book (ask 0.49, p&lt;52%) and rested `T78299` 0.25, which clipped. Loose wait replayed the 25¢ rest and `t_clip` +97% on 1-minute closes — do not make that the default. Default coupon also ate the replay taker, so the window is now:
+
+| Run | 16h | 24h |
+| --- | ---: | ---: |
+| dump coupon (default) | 7 / 3 / **−1.74** | 13 / 7 / **−0.89** |
+| flex_nowait | 4 / 0 / −3.49 | 9 / 3 / −3.18 |
+| flex_wait_loose | 8 / 6 / +7.13 | 13 / 9 / +7.43 |
+| flex cheap p30/ask35 | 16 / 4 / −9.27 | 23 / 8 / −9.33 |
+
+Coupon still beats nowait. `AUG2520` still +41.5%. Cheap still red. Do not switch. Replay green is not 达成.
+
+`AUG2609` live coupon is working: 12:06:29 rest `T78299` NO **0.25** under ask **0.41**, impulse −$100, spot 78414 (~$115). One wait. Dump ask printed 0.37, not 0.25 — no fill. Fade to +$62 did not cancel. Still working at 12:17 with impulse ~−$44. Do not loosen taker p. Do not rest YES.
+
+Paper completed **5 / 1 / −5.0327**.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.
