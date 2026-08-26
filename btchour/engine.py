@@ -387,9 +387,11 @@ def run_cycle(client: KalshiClient | None = None, settings: Settings | None = No
         takers = [item for item in opps if item.get("taker")]
         working_plays = {_row_play(row) for row in store.working_trades()}
         rest = [item for item in opps if not item.get("taker") and item.get("play") in WAIT_PLAYS]
+        dump_waits = [item for item in rest if item.get("play") == "impulse_wait"]
+        locks = [item for item in rest if item.get("play") != "impulse_wait"]
         if "impulse_wait" in working_plays:
-            rest = [item for item in rest if item.get("play") != "impulse_wait"]
-        chosen = takers[:1] or rest[:3]
+            dump_waits = []
+        chosen = takers[:1] or dump_waits[:1] + locks[:3]
         for item in chosen:
             taken.append(_execute(Opportunity(**item), client, settings, store))
             if store.open_trades():

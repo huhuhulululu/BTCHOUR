@@ -704,6 +704,7 @@ def scan_markets(markets: list[Market], spot: SpotQuote, settings: Settings, now
                 swings.extend(evaluate_swing_market(market, spot, settings, now))
         impulses.sort(key=lambda row: (abs(spot.impulse), row.ev, -row.seconds_left), reverse=True)
         waits.sort(key=lambda row: (row.ask - row.limit_price, -row.ev, -row.seconds_left))
+        waits = waits[:1]
         swings.sort(key=lambda row: ((row.model_p - row.ask), row.ev, -row.seconds_left), reverse=True)
         swings = impulses + waits + swings
     if settings.playbook == "hold":

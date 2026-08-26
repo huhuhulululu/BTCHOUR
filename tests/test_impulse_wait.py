@@ -53,6 +53,19 @@ class ImpulseWaitTests(unittest.TestCase):
         self.settings = Settings(playbook="flex", max_contracts=1, allow_maker=True)
         self.spot = SpotQuote(78800, "test", annual_vol=0.55, impulse=-160)
 
+    def test_scan_rests_only_one_dump_wait(self):
+        other = _market(
+            ticker="KXBTCD-26AUG2520-T78599.99",
+            floor_strike=78599.99,
+            yes_bid_dollars="0.62",
+            yes_ask_dollars="0.63",
+            no_bid_dollars="0.37",
+            no_ask_dollars="0.38",
+        )
+        opps = scan_markets([_market(), other], self.spot, self.settings, self.now)
+        waits = [row for row in opps if row.play == "impulse_wait"]
+        self.assertEqual(len(waits), 1)
+
     def test_dump_rests_under_a_forty_cent_no(self):
         opps = evaluate_impulse_wait_market(_market(), self.spot, self.settings, self.now)
         self.assertTrue(opps)
