@@ -272,6 +272,13 @@ class Store:
                 mem = remember_session_exit(
                     mem, row["event_ticker"], row["result"] or "", row["pnl"], row["side"]
                 )
+        if mem.skip_next and mem.last_loss_event and mem.skipped_event is None:
+            from btchour.tickers import next_event_ticker
+
+            try:
+                mem.skipped_event = next_event_ticker(mem.last_loss_event)
+            except ValueError:
+                pass
         return mem
 
     def summary(self) -> dict:

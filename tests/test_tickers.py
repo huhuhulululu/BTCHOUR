@@ -5,7 +5,13 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from btchour.catalog import current_hourly_events
-from btchour.tickers import format_event_ticker, is_hourly_window, parse_event_ticker, parse_market_ticker
+from btchour.tickers import (
+    format_event_ticker,
+    is_hourly_window,
+    next_event_ticker,
+    parse_event_ticker,
+    parse_market_ticker,
+)
 
 
 class TickerTests(unittest.TestCase):
@@ -22,6 +28,10 @@ class TickerTests(unittest.TestCase):
     def test_round_trip(self):
         close = datetime(2026, 8, 25, 14, 0, tzinfo=ZoneInfo("America/New_York"))
         self.assertEqual(format_event_ticker(close), "KXBTCD-26AUG2514")
+
+    def test_next_event_rolls_the_et_day(self):
+        self.assertEqual(next_event_ticker("KXBTCD-26AUG2602"), "KXBTCD-26AUG2603")
+        self.assertEqual(next_event_ticker("KXBTCD-26AUG2523"), "KXBTCD-26AUG2600")
 
     def test_hourly_window(self):
         self.assertTrue(is_hourly_window("2026-08-25T17:00:00Z", "2026-08-25T18:00:00Z"))

@@ -205,6 +205,46 @@ class ImpulseWaitTests(unittest.TestCase):
         self.assertEqual(taker[0].play, "impulse_t")
         self.assertEqual(taker[0].side, "no")
 
+    def test_store_rebuild_allows_dump_wait_two_hours_after_the_loss(self):
+        wait_mkt = _market(
+            ticker="KXBTCD-26AUG2604-T78899.99",
+            event_ticker="KXBTCD-26AUG2604",
+            open_time="2026-08-26T07:00:00Z",
+            close_time="2026-08-26T08:00:00Z",
+        )
+        now = datetime(2026, 8, 26, 7, 20, tzinfo=timezone.utc)
+        fill = {
+            "ticker": "KXBTCD-26AUG2602-T78499.99",
+            "event_ticker": "KXBTCD-26AUG2602",
+            "side": "no",
+            "price": 0.25,
+            "count": 10,
+            "fee": 0.0,
+            "cost": 2.5,
+            "mode": "paper",
+            "taker": False,
+            "model_p": 0.33,
+            "if_win_roi": 3.0,
+            "expected_roi": 0.33,
+            "status": "closed",
+            "result": "t_wait_stop",
+            "pnl": -2.2204,
+            "raw": {"play": "impulse_wait"},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            db = store_mod.Store(Path(tmp) / "t.sqlite")
+            db.record_trade(fill)
+            session = refresh_session(db.session_memory(), "KXBTCD-26AUG2604")
+        self.assertFalse(session.skip_next)
+        waits = apply_swing_memory(
+            scan_markets([wait_mkt], self.spot, self.settings, now),
+            None,
+            session,
+        )
+        self.assertTrue(waits)
+        self.assertEqual(waits[0].play, "impulse_wait")
+        self.assertEqual(waits[0].side, "no")
+
     def test_rally_does_not_rest_yes(self):
         rally = SpotQuote(78800, "test", annual_vol=0.55, impulse=160)
         market = _market(

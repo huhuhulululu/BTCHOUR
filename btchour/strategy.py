@@ -7,7 +7,7 @@ from btchour.config import Settings
 from btchour.fees import fill_cost, lock_exit_price, max_entry_price
 from btchour.kalshi import Market
 from btchour.model import SpotQuote, digital_prob, effective_vol, sigma_cushion
-from btchour.tickers import is_hourly_window
+from btchour.tickers import is_hourly_window, next_event_ticker
 
 T_PLAYS = frozenset({"swing_t", "impulse_t", "impulse_wait"})
 WAIT_PLAYS = frozenset({"lock_wait", "impulse_wait"})
@@ -624,22 +624,42 @@ def remember_session_exit(
     return SessionMemory()
 
 
+def _skip_hour(session: SessionMemory) -> str | None:
+    if session.skipped_event:
+        return session.skipped_event
+    if not session.last_loss_event:
+        return None
+    try:
+        return next_event_ticker(session.last_loss_event)
+    except ValueError:
+        return None
+
+
 def refresh_session(session: SessionMemory | None, current_event: str | None) -> SessionMemory:
+    """Skip waits on the hour after a loss. Paper rebuilds this from trades each scan,
+    so the skip hour is the next ticker after last_loss_event — not whatever hour
+    happens to be live the first time we notice the loss."""
     session = session or SessionMemory()
     if not session.skip_next or not current_event:
         return session
     if current_event == session.last_loss_event:
         return session
-    if session.skipped_event is None:
+    skip_hour = _skip_hour(session)
+    if skip_hour is None:
         return SessionMemory(
             last_loss_event=session.last_loss_event,
             last_side=session.last_side,
             skip_next=True,
             skipped_event=current_event,
         )
-    if current_event != session.skipped_event:
-        return SessionMemory()
-    return session
+    if current_event == skip_hour:
+        return SessionMemory(
+            last_loss_event=session.last_loss_event,
+            last_side=session.last_side,
+            skip_next=True,
+            skipped_event=skip_hour,
+        )
+    return SessionMemory()
 
 
 def allow_swing(opportunity: Opportunity, memory: SwingMemory | None) -> bool:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 ET = ZoneInfo("America/New_York")
@@ -60,6 +60,12 @@ def parse_market_ticker(ticker: str) -> dict:
 def format_event_ticker(close_et: datetime, series: str = "KXBTCD") -> str:
     local = close_et.astimezone(ET)
     return f"{series}-{str(local.year)[2:]}{MONTH_ABBR[local.month]}{local.day:02d}{local.hour:02d}"
+
+
+def next_event_ticker(event_ticker: str) -> str:
+    """The next KXBTCD hourly event after this close hour."""
+    parsed = parse_event_ticker(event_ticker)
+    return format_event_ticker(parsed["close_et"] + timedelta(hours=1), parsed["series"])
 
 
 def is_hourly_window(open_time: str | None, close_time: str | None) -> bool:

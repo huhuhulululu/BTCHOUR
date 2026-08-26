@@ -102,6 +102,18 @@ class ManualDisciplineTests(unittest.TestCase):
         cleared = refresh_session(session, "KXBTCD-26AUG2522")
         self.assertFalse(cleared.skip_next)
 
+    def test_rebuilt_loss_skips_only_the_next_hour(self):
+        # Paper rebuilds SessionMemory from trades each scan. skipped_event is
+        # missing, so the skip hour must be inferred from last_loss_event —
+        # otherwise every later hour looks like the first skip hour.
+        rebuilt = remember_session_exit(SessionMemory(), "KXBTCD-26AUG2602", "t_wait_stop", -2.22, "no")
+        self.assertIsNone(rebuilt.skipped_event)
+        skip_hour = refresh_session(rebuilt, "KXBTCD-26AUG2603")
+        self.assertTrue(skip_hour.skip_next)
+        self.assertEqual(skip_hour.skipped_event, "KXBTCD-26AUG2603")
+        live_hour = refresh_session(rebuilt, "KXBTCD-26AUG2604")
+        self.assertFalse(live_hour.skip_next)
+
     def test_replay_clips_ten_percent_and_does_not_flip(self):
         settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
         maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
