@@ -232,3 +232,22 @@ skip 守住了：0 笔 `impulse_wait` 成交。同向 taker 亏完把 `last_loss
 这是连续第二小时亏。若再按「任何一笔亏都空下一小时 wait」，`AUG2607` 又是 skip，coupon 永远挂不上。AUG2518 只要空 **一小时** wait。改成：**连续亏的小时不叠坐下一小时**。这小时刚亏过，不再开 T；`AUG2607` 真挂 coupon。
 
 完成成交 **4 / 0 / −5.4829**。小时没收盘，不 sweep。回放绿不是达成。
+
+## 10:00 收盘 `AUG2606`：skip 小时，不是 coupon 实盘
+
+skip-wait 守住了：579 次扫描，36 条 coupon journal（`T78599` / `T78499` / `T78399`），0 笔 `impulse_wait`。09:16 `T78599` ask **0.36** 是人手盘，空掉了。09:20 同向 taker `T78499` @ 0.46 `t_stop` **−0.6455**。亏后这小时不再开 T（last_loss）。连续亏不叠 skip，所以 **`AUG2607` 现在真挂 coupon**。
+
+不要把「这小时没挂 coupon」当成 coupon 失败。开关仍是下一小时 **真正挂上并收盘** 的 coupon。
+
+分钟回放这小时 Kalshi 还没出 TWAP / live_data（`incomplete data`）。sweep 窗口滚到 AUG2606 起：
+
+| Run | 16h | 24h |
+| --- | ---: | ---: |
+| dump coupon（默认） | 6 / 4 / **+0.81** | 12 / 8 / **+1.77** |
+| flex_nowait | 3 / 1 / −0.93 | 8 / 4 / −0.53 |
+| flex_wait_loose | 7 / 6 / +6.21 | 12 / 9 / +6.62 |
+| flex cheap p30/ask35 | 14 / 5 / −5.79 | 22 / 8 / −9.16 |
+
+16h 和上一窗口一样，这小时回放 0 笔。24h 从 +5.10 落到 +1.77，是滚掉 `AUG2506` wait clip +3.33。coupon 仍赢 nowait。`AUG2520` 仍是 +41.5%。便宜仍红。不换 29¢ 刀，不追 YES。
+
+完成成交 **4 / 0 / −5.4829**。回放绿不是达成。`AUG2607` 真挂。

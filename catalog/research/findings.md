@@ -354,6 +354,23 @@ Second consecutive losing hour (`AUG2605` then `AUG2606`). Chaining skip would s
 
 Paper completed **4 / 0 / −5.4829**. Hour still open; no sweep. Replay green is not 达成.
 
+## AUG2606 close — skip hour, not a live coupon test (2026-08-26 ~10:00 UTC)
+
+Skip-wait held: 579 scans, 36 coupon journals (`T78599` / `T78499` / `T78399`), 0 `impulse_wait` fills. 09:16 `T78599` ask **0.36** was the human book and was skipped. 09:20 same-dir `impulse_t` NO `T78499` @ 0.46 `t_stop` **−0.6455**. Remainder of the hour took no more T. Consecutive-loss patch left `skip_next=False`, so `AUG2607` is the live coupon rest.
+
+Do not treat empty coupon on a skip hour as coupon failure. Switch only after the next **closed live coupon hour**.
+
+Minute replay this hour is `incomplete data` (TWAP / live_data not published at the close print). Sweep window now starts AUG2606:
+
+| Run | 16h | 24h |
+| --- | ---: | ---: |
+| dump coupon (default) | 6 / 4 / **+0.81** | 12 / 8 / **+1.77** |
+| flex_nowait | 3 / 1 / −0.93 | 8 / 4 / −0.53 |
+| flex_wait_loose | 7 / 6 / +6.21 | 12 / 9 / +6.62 |
+| flex cheap p30/ask35 | 14 / 5 / −5.79 | 22 / 8 / −9.16 |
+
+16h unchanged (this hour replayed 0). 24h fell because `AUG2506` +3.33 rolled out. Coupon still beats nowait. `AUG2520` still +41.5%. Cheap still red. Paper completed **4 / 0 / −5.4829**. `AUG2607` is live coupon. Replay green is not 达成.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.
