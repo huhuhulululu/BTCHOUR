@@ -58,16 +58,26 @@ def _event_summary(event: dict) -> dict:
 
 
 def current_hourly_events(events: list[dict], now: datetime | None = None) -> list[dict]:
+    """Prefer the still-open hour. A just-closed event stays 'open' on Kalshi through TWAP
+    and would otherwise win abs(close-now) for ~30 minutes into the next hour."""
     now = now or datetime.now(timezone.utc)
-    ranked = []
+    live: list[tuple[datetime, dict]] = []
+    closed: list[tuple[datetime, dict]] = []
     for event in events:
         try:
             parsed = parse_event_ticker(event["event_ticker"])
         except (KeyError, ValueError):
             continue
-        ranked.append((abs((parsed["close_utc"] - now).total_seconds()), parsed["close_utc"], event))
-    ranked.sort(key=lambda row: row[0])
-    return [row[2] for row in ranked]
+        close = parsed["close_utc"]
+        if close > now:
+            live.append((close, event))
+        else:
+            closed.append((close, event))
+    live.sort(key=lambda row: row[0])
+    if live:
+        return [event for _, event in live]
+    closed.sort(key=lambda row: row[0], reverse=True)
+    return [event for _, event in closed]
 
 
 def sync_catalog(client: KalshiClient, settings: Settings, *, light: bool = False) -> dict:
