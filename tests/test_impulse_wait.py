@@ -236,6 +236,91 @@ class ImpulseWaitTests(unittest.TestCase):
         self.assertEqual([row.play for row in kept], ["impulse_wait"])
         self.assertEqual(kept[0].ticker, coupon.ticker)
 
+    def test_dump_coupon_still_rests_after_a_taker_stop(self):
+        # Paper AUG2614: 17:30 YES impulse_t t_stop, 17:47 dump T78399 ask 0.40
+        # journaled wait. allow_swing would keep it; same-hour last_loss_event
+        # ate the rest. Skip-wait is the next ticker, not this one.
+        memory = remember_swing_exit(
+            SwingMemory(),
+            "KXBTCD-26AUG2614-T78499.99",
+            "yes",
+            "t_stop",
+            play="impulse_t",
+        )
+        session = remember_session_exit(
+            SessionMemory(), "KXBTCD-26AUG2614", "t_stop", -0.6494, "yes", play="impulse_t"
+        )
+        session = refresh_session(session, "KXBTCD-26AUG2614")
+        now = datetime(2026, 8, 26, 17, 47, tzinfo=timezone.utc)
+        dump = SpotQuote(78462, "test", annual_vol=0.55, impulse=-103)
+        coupon = _market(
+            ticker="KXBTCD-26AUG2614-T78399.99",
+            event_ticker="KXBTCD-26AUG2614",
+            floor_strike=78399.99,
+            yes_bid_dollars="0.59",
+            yes_ask_dollars="0.60",
+            no_bid_dollars="0.39",
+            no_ask_dollars="0.40",
+            open_time="2026-08-26T17:00:00Z",
+            close_time="2026-08-26T18:00:00Z",
+        )
+        waits = evaluate_impulse_wait_market(coupon, dump, self.settings, now)
+        self.assertTrue(waits)
+        kept = apply_swing_memory(waits, memory, session)
+        self.assertEqual([row.play for row in kept], ["impulse_wait"])
+        self.assertEqual(kept[0].ticker, coupon.ticker)
+
+    def test_skip_hour_still_blocks_wait_after_isolated_taker_stop(self):
+        session = remember_session_exit(
+            SessionMemory(), "KXBTCD-26AUG2614", "t_stop", -0.6494, "yes", play="impulse_t"
+        )
+        session = refresh_session(session, "KXBTCD-26AUG2615")
+        now = datetime(2026, 8, 26, 18, 20, tzinfo=timezone.utc)
+        dump = SpotQuote(78462, "test", annual_vol=0.55, impulse=-103)
+        coupon = _market(
+            ticker="KXBTCD-26AUG2615-T78399.99",
+            event_ticker="KXBTCD-26AUG2615",
+            floor_strike=78399.99,
+            yes_bid_dollars="0.59",
+            yes_ask_dollars="0.60",
+            no_bid_dollars="0.39",
+            no_ask_dollars="0.40",
+            open_time="2026-08-26T18:00:00Z",
+            close_time="2026-08-26T19:00:00Z",
+        )
+        waits = evaluate_impulse_wait_market(coupon, dump, self.settings, now)
+        self.assertTrue(waits)
+        self.assertEqual(apply_swing_memory(waits, None, session), [])
+
+    def test_coupon_scratch_still_blocks_same_hour_second_wait(self):
+        memory = remember_swing_exit(
+            SwingMemory(),
+            "KXBTCD-26AUG2604-T78899.99",
+            "no",
+            "t_scratch",
+            play="impulse_wait",
+        )
+        session = remember_session_exit(
+            SessionMemory(), "KXBTCD-26AUG2604", "t_scratch", -1.374, "no", play="impulse_wait"
+        )
+        session = refresh_session(session, "KXBTCD-26AUG2604")
+        now = datetime(2026, 8, 26, 7, 40, tzinfo=timezone.utc)
+        dump = SpotQuote(78462, "test", annual_vol=0.55, impulse=-112)
+        later = _market(
+            ticker="KXBTCD-26AUG2604-T78399.99",
+            event_ticker="KXBTCD-26AUG2604",
+            floor_strike=78399.99,
+            yes_bid_dollars="0.59",
+            yes_ask_dollars="0.60",
+            no_bid_dollars="0.39",
+            no_ask_dollars="0.40",
+            open_time="2026-08-26T07:00:00Z",
+            close_time="2026-08-26T08:00:00Z",
+        )
+        waits = evaluate_impulse_wait_market(later, dump, self.settings, now)
+        self.assertTrue(waits)
+        self.assertEqual(apply_swing_memory(waits, memory, session), [])
+
     def test_second_coupon_stays_blocked_after_a_coupon_clip(self):
         memory = remember_swing_exit(
             SwingMemory(),
@@ -321,6 +406,56 @@ class ImpulseWaitTests(unittest.TestCase):
         waits = apply_swing_memory(
             scan_markets([coupon], dump, self.settings, now),
             memory,
+        )
+        self.assertTrue(waits)
+        self.assertEqual(waits[0].play, "impulse_wait")
+        self.assertEqual(waits[0].ticker, coupon.ticker)
+
+    def test_store_rebuild_allows_dump_wait_after_a_taker_stop(self):
+        now = datetime(2026, 8, 26, 17, 47, tzinfo=timezone.utc)
+        dump = SpotQuote(78462, "test", annual_vol=0.55, impulse=-103)
+        coupon = _market(
+            ticker="KXBTCD-26AUG2614-T78399.99",
+            event_ticker="KXBTCD-26AUG2614",
+            floor_strike=78399.99,
+            yes_bid_dollars="0.59",
+            yes_ask_dollars="0.60",
+            no_bid_dollars="0.39",
+            no_ask_dollars="0.40",
+            open_time="2026-08-26T17:00:00Z",
+            close_time="2026-08-26T18:00:00Z",
+        )
+        fill = {
+            "ticker": "KXBTCD-26AUG2614-T78499.99",
+            "event_ticker": "KXBTCD-26AUG2614",
+            "side": "yes",
+            "price": 0.50,
+            "count": 10,
+            "fee": 0.175,
+            "cost": 5.175,
+            "mode": "paper",
+            "taker": True,
+            "model_p": 0.521,
+            "if_win_roi": 0.93,
+            "expected_roi": 0.01,
+            "status": "closed",
+            "result": "t_stop",
+            "pnl": -0.6494,
+            "raw": {"play": "impulse_t"},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            db = store_mod.Store(Path(tmp) / "t.sqlite")
+            db.record_trade(fill)
+            memory = db.swing_memories()["KXBTCD-26AUG2614"]
+            session = refresh_session(db.session_memory(), "KXBTCD-26AUG2614")
+        self.assertTrue(memory.dead)
+        self.assertEqual(memory.play, "impulse_t")
+        self.assertTrue(session.skip_next)
+        self.assertEqual(session.last_play, "impulse_t")
+        waits = apply_swing_memory(
+            scan_markets([coupon], dump, self.settings, now),
+            memory,
+            session,
         )
         self.assertTrue(waits)
         self.assertEqual(waits[0].play, "impulse_wait")
@@ -863,3 +998,51 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         self.assertAlmostEqual(coupon_take["ask"], 0.25)
         self.assertEqual(coupon_take["exit_reason"], "t_clip")
         self.assertGreater(coupon_take["pnl"], 0)
+
+    def test_dump_coupon_still_rests_after_a_taker_stop_on_replay(self):
+        # Same as the clip replay, but the YES taker stops. Session last_loss
+        # used to eat the later dump coupon on that hour.
+        settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
+        maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
+        taker = 78799.99
+        coupon = 78599.99
+        bars = [
+            ReplayBar(
+                int(maturity - 1800),
+                78820,
+                0.55,
+                {taker: {"yes_ask": 0.50, "yes_bid": 0.49}},
+                impulse=160,
+            ),
+            ReplayBar(
+                int(maturity - 1740),
+                78740,
+                0.55,
+                {taker: {"yes_ask": 0.40, "yes_bid": 0.35}},
+                impulse=40,
+            ),
+            ReplayBar(
+                int(maturity - 1680),
+                78680,
+                0.55,
+                {coupon: {"yes_ask": 0.64, "yes_bid": 0.63}},
+                impulse=-160,
+            ),
+            ReplayBar(
+                int(maturity - 1620),
+                78640,
+                0.55,
+                {coupon: {"yes_ask": 0.64, "yes_bid": 0.63, "yes_bid_high": 0.76}},
+                impulse=-180,
+            ),
+            ReplayBar(int(maturity - 1560), 78580, 0.55, {coupon: {"yes_ask": 0.60, "yes_bid": 0.59}}, impulse=-80),
+        ]
+        report = replay_bars("KXBTCD-26AUG2614", bars, {taker: "yes", coupon: "no"}, maturity, settings)
+        plays = [take["play"] for take in report["takes"]]
+        self.assertIn("impulse_t", plays)
+        self.assertIn("impulse_wait", plays)
+        self.assertEqual(report["takes"][0]["exit_reason"], "t_stop")
+        coupon_take = next(take for take in report["takes"] if take["play"] == "impulse_wait")
+        self.assertEqual(coupon_take["ticker"], f"KXBTCD-26AUG2614-T{coupon}")
+        self.assertAlmostEqual(coupon_take["ask"], 0.25)
+        self.assertEqual(coupon_take["exit_reason"], "t_clip")

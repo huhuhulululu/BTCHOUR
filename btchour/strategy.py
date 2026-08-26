@@ -606,10 +606,16 @@ class SessionMemory:
     Consecutive losing hours do not stack another sit-out. Paper `AUG2605`
     then `AUG2606` same-dir taker stops kept pushing the live dump coupon
     one more hour each time.
+
+    After an isolated impulse_t / swing_t stop, a dump coupon may still rest
+    on that same hour. Skip-wait is the next ticker. Paper AUG2614: 17:32
+    YES taker t_stop, 17:47 T78399 ask 0.40 journaled wait and the same-hour
+    last_loss_event gate ate the rest.
     """
 
     last_loss_event: str | None = None
     last_side: str | None = None
+    last_play: str = ""
     skip_next: bool = False
     skipped_event: str | None = None
 
@@ -626,6 +632,7 @@ def remember_session_exit(
     reason: str,
     pnl: float | None,
     side: str | None = None,
+    play: str = "",
 ) -> SessionMemory:
     lost = (pnl is not None and pnl < 0) or reason in {
         "t_stop",
@@ -644,11 +651,14 @@ def remember_session_exit(
                     return SessionMemory(
                         last_loss_event=event_ticker,
                         last_side=side,
+                        last_play=play,
                         skip_next=False,
                     )
             except ValueError:
                 pass
-        return SessionMemory(last_loss_event=event_ticker, last_side=side, skip_next=True)
+        return SessionMemory(
+            last_loss_event=event_ticker, last_side=side, last_play=play, skip_next=True
+        )
     return SessionMemory()
 
 
@@ -677,6 +687,7 @@ def refresh_session(session: SessionMemory | None, current_event: str | None) ->
         return SessionMemory(
             last_loss_event=session.last_loss_event,
             last_side=session.last_side,
+            last_play=session.last_play,
             skip_next=True,
             skipped_event=current_event,
         )
@@ -684,6 +695,7 @@ def refresh_session(session: SessionMemory | None, current_event: str | None) ->
         return SessionMemory(
             last_loss_event=session.last_loss_event,
             last_side=session.last_side,
+            last_play=session.last_play,
             skip_next=True,
             skipped_event=skip_hour,
         )
@@ -759,6 +771,17 @@ def allow_session(opportunity: Opportunity, session: SessionMemory | None) -> bo
     if session is None:
         return True
     if session.last_loss_event and opportunity.event_ticker == session.last_loss_event:
+        # After an isolated taker stop, a later dump coupon may still rest
+        # this hour. Skip-wait is the next ticker. Paper AUG2614: 17:32 YES
+        # impulse_t t_stop, 17:47 T78399 ask 0.40 journaled wait and this
+        # same-hour gate ate the rest. After a coupon scratch/stop, or after
+        # a skip-hour taker loss (skip_next already cleared), stay dead.
+        if (
+            opportunity.play == "impulse_wait"
+            and session.skip_next
+            and session.last_play in {"impulse_t", "swing_t"}
+        ):
+            return True
         return False
     if not session.skip_next:
         return True

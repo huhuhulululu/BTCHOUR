@@ -254,7 +254,12 @@ def replay_bars(
                         )
                     if play in T_PLAYS and settings.skip_after_loss:
                         session = remember_session_exit(
-                            session, event_ticker, action.reason, closed["pnl"], position["side"]
+                            session,
+                            event_ticker,
+                            action.reason,
+                            closed["pnl"],
+                            position["side"],
+                            play,
                         )
                     position = None
 
@@ -602,6 +607,7 @@ def _session_public(mem) -> dict | None:
         return {
             "last_loss_event": mem.last_loss_event,
             "last_side": getattr(mem, "last_side", None),
+            "last_play": getattr(mem, "last_play", ""),
             "skip_next": mem.skip_next,
             "skipped_event": mem.skipped_event,
         }

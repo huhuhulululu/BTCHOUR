@@ -271,11 +271,12 @@ class Store:
                 raw = json.loads(row["raw"] or "{}")
             except Exception:
                 raw = {}
-            if raw.get("play") not in {"swing_t", "impulse_t", "impulse_wait"}:
+            play = raw.get("play") or ""
+            if play not in {"swing_t", "impulse_t", "impulse_wait"}:
                 continue
             if row["status"] in {"closed", "settled"}:
                 mem = remember_session_exit(
-                    mem, row["event_ticker"], row["result"] or "", row["pnl"], row["side"]
+                    mem, row["event_ticker"], row["result"] or "", row["pnl"], row["side"], play
                 )
         if mem.skip_next and mem.last_loss_event and mem.skipped_event is None:
             from btchour.tickers import next_event_ticker
