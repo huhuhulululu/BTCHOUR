@@ -512,6 +512,31 @@ Minute replay does not match paper. Replay 12:39 took the same `T78299` NO @ **0
 
 The window greened because this hour’s replay taker clipped +0.56, not because paper coupon earned. Coupon still beats nowait. Cheap still red. Do not switch on the 29¢ knife. Do not chase YES. Replay green is not 达成. `AUG2610` is still open — sweep again at 14:00.
 
+## AUG2610 close — skip-hour taker clip, not a coupon test (2026-08-26 ~14:00 UTC)
+
+Skip-wait held: 994 scans, 85 coupon journals (`T78199` / `T78099` / `T77999`), **0 `impulse_wait`**. 13:05 same-dir `impulse_t` NO `T78299` @ 0.48 `t_clip` **+13.2% / +0.6546**. After the win the hour was `swing.dead` — later 0.42 / 0.41 books were not rested. Rally YES stayed `blocked`. No YES wait.
+
+Do not treat “no coupon rest this hour” as coupon failure. This was the skip hour. The switch trigger is a closed live coupon hour that dumped and still could not clip. `AUG2608` already clipped. Do not switch.
+
+Minute replay this hour is `incomplete data` at the close print. Sweep window now starts at AUG2610 (this hour replayed 0):
+
+| Run | 16h | 24h |
+| --- | ---: | ---: |
+| dump coupon (default) | 8 / 5 / **+0.71** | 12 / 8 / **+2.32** |
+| flex_nowait | 5 / 2 / −1.03 | 8 / 3 / −2.84 |
+| flex_wait_loose | 8 / 6 / +6.83 | 12 / 9 / +9.72 |
+| flex cheap p30/ask35 | 15 / 4 / −6.45 | 21 / 9 / −4.53 |
+
+16h matches the completed-AUG2609 window. 24h fell +3.28 → +2.32 because a winning T rolled out. Coupon still beats nowait. Cheap still red. Do not switch on the 29¢ knife.
+
+Session already clear. **`AUG2611` is the next live coupon rest.**
+
+## AUG2611 open — rally YES taker clipped, not dump coupon (2026-08-26 ~14:01 UTC)
+
+14:00:20 `impulse_t` YES `T78299` @ **0.50**, p 59.7%, impulse **+$137**. No dump, no 32–42¢ coupon book. `t_clip` at bid **0.60**, **+12.7%**, pnl **+0.657**. `raw.peak_bid=0.58` is a mark quirk; the exit print is 0.60. No YES wait. Not a cheap YES chase.
+
+The win marks the hour `swing.dead`: a later dump can journal a coupon and will not rest (one T per hour). This is not a dump-coupon clip. Do not switch. Paper completed **8 / 3 / −4.3709**. Replay green is not 达成.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.

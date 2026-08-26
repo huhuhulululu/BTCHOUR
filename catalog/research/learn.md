@@ -392,3 +392,28 @@ skip-wait 守住了：journal 看见 `T78199` / `T78099` ask **0.42** coupon 盘
 | flex cheap p30/ask35 | 16 / 4 / −7.88 | 22 / 9 / −5.40 |
 
 16h/24h 变绿是滚进这小时回放 taker clip +0.56，不是纸盘 coupon 赚了。coupon 仍赢 nowait。便宜仍红。不换 29¢ 刀，不追 YES。回放绿不是达成。`AUG2610` 还开着，14:00 再 sweep。
+
+## 14:00 收盘 `AUG2610`：skip 小时，同向 taker clip，不是 coupon 实盘
+
+skip-wait 守住了：994 次扫描，85 条 coupon journal（`T78199` / `T78099` / `T77999`），**0 笔 `impulse_wait`**。13:05 同向 `impulse_t` NO `T78299` @ 0.48 `t_clip` **+13.2% / +0.6546**。赢了之后 `swing.dead`，后半小时 0.42 / 0.41 盘没挂——一小时一笔 T。涨势 YES 一直 `blocked`。没挂 YES wait。
+
+不要把「这小时没挂 coupon」当成 coupon 失败。这是 skip 小时。开关要的是真挂小时砸盘里打不出 clip。`AUG2608` 已经 clip 过。不换策略。
+
+分钟回放这小时收盘瞬间仍是 `incomplete data`。sweep 窗口滚到 AUG2610 起（这小时回放 0 笔）：
+
+| Run | 16h | 24h |
+| --- | ---: | ---: |
+| dump coupon（默认） | 8 / 5 / **+0.71** | 12 / 8 / **+2.32** |
+| flex_nowait | 5 / 2 / −1.03 | 8 / 3 / −2.84 |
+| flex_wait_loose | 8 / 6 / +6.83 | 12 / 9 / +9.72 |
+| flex cheap p30/ask35 | 15 / 4 / −6.45 | 21 / 9 / −4.53 |
+
+16h 和 AUG2609 带子齐了那窗一样。24h 从 +3.28 到 +2.32，是窗口滚掉一笔赢的 T。coupon 仍赢 nowait。便宜仍红。不换 29¢ 刀。
+
+session 已清。**`AUG2611` 真挂 coupon**。
+
+## 14:00 `AUG2611`：开盘涨势 YES taker clip 了，不是 dump coupon
+
+14:00:20 `impulse_t` YES `T78299` @ **0.50**，p 59.7%，动量 **+$137**。当时没有砸盘，没有 32–42¢ coupon 可挂。随后 `t_clip` 在 bid **0.60**，**+12.7%**，pnl **+0.657**。`raw.peak_bid=0.58` 是标记，出场 0.60。没挂 YES wait。没追便宜 YES。
+
+赢了这小时 `swing.dead`：后头若再砸盘，coupon journal 可以写，引擎不再挂——一小时一笔 T。这不是 dump coupon clip。不换策略。完成成交 **8 / 3 / −4.3709**。回放绿不是达成。
