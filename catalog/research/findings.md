@@ -448,6 +448,14 @@ Coupon still beats nowait. `AUG2520` still +41.5%. Cheap still red. Do not switc
 
 Paper completed **5 / 1 / −5.0327**.
 
+## AUG2609 mid-hour — flip cancel, then second dump rest (2026-08-26 ~12:30 UTC)
+
+First rest never filled. At 12:22:52 impulse **+$102** cancelled it `wait_invalid` — the ≥+$100 flip rule, not a fade cancel. Rally YES `T78499` / `T78599` / `T78699` stayed `blocked`. No YES rest.
+
+12:31:27 second dump rest: `T78199` NO **0.25** under ask **0.37**, impulse **−$281**, spot 78335, ~$135, p 33.6%. One wait. `T78299` taker ask 0.46 still blocked. Fill only while the dump is on.
+
+Paper completed **5 / 1 / −5.0327**. Hour still open.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.
