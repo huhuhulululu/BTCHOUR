@@ -29,14 +29,24 @@ def wait_book_crossed(
     *,
     yes_bid_high: float | None = None,
     yes_ask_low: float | None = None,
+    impulse: float | None = None,
 ) -> bool:
-    """Maker fill at rest if the close crosses, or the minute extreme traded through."""
-    if close_ask is not None and close_ask + 1e-12 <= rest:
+    """Maker fill at rest if the close or minute extreme traded through while the tape is still with us.
+
+    A dump NO rest must not fill on the bounce rip: that is how AUG2520 went
+    25¢ → marked 13¢ and died at the old −50% stop. Human filled during the dump.
+    """
+    if impulse is not None:
+        if side == "no" and impulse >= 0:
+            return False
+        if side == "yes" and impulse <= 0:
+            return False
+    if close_ask is not None and close_ask <= rest + 1e-12:
         return True
     if side == "no" and yes_bid_high is not None:
-        return (1.0 - yes_bid_high) + 1e-12 <= rest
+        return (1.0 - yes_bid_high) <= rest + 1e-12
     if side == "yes" and yes_ask_low is not None:
-        return yes_ask_low + 1e-12 <= rest
+        return yes_ask_low <= rest + 1e-12
     return False
 
 
@@ -507,7 +517,7 @@ def evaluate_impulse_wait_market(
     settings: Settings,
     now: datetime | None = None,
 ) -> list[Opportunity]:
-    """Rest a maker bid under a dump/rally when the taker impulse path does not qualify."""
+    """Rest a maker bid under a dump when the taker impulse path does not qualify."""
     now = now or datetime.now(timezone.utc)
     if not settings.impulse_wait or not settings.allow_maker:
         return []

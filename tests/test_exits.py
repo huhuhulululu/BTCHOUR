@@ -107,7 +107,7 @@ class ExitTests(unittest.TestCase):
         action = self._act(waiting, _market(yes_bid="0.78", yes_ask="0.79", no_bid="0.21", no_ask="0.22"), 0.30, 1200, self.settings)
         self.assertIsNone(action)
 
-    def test_impulse_wait_stops_a_fifty_percent_hole(self):
+    def test_impulse_wait_holds_a_fifty_percent_bounce_mark(self):
         cost = fill_cost(0.25, taker=False)
         waiting = OpenPosition(
             ticker=self.position.ticker,
@@ -119,6 +119,20 @@ class ExitTests(unittest.TestCase):
             entry_p=0.36,
         )
         action = self._act(waiting, _market(yes_bid="0.88", yes_ask="0.89", no_bid="0.11", no_ask="0.12"), 0.20, 1200, self.settings)
+        self.assertIsNone(action)
+
+    def test_impulse_wait_stops_an_eighty_percent_hole(self):
+        cost = fill_cost(0.25, taker=False)
+        waiting = OpenPosition(
+            ticker=self.position.ticker,
+            event_ticker=self.position.event_ticker,
+            side="no",
+            cost=cost.cost,
+            count=1.0,
+            play="impulse_wait",
+            entry_p=0.36,
+        )
+        action = self._act(waiting, _market(yes_bid="0.96", yes_ask="0.97", no_bid="0.03", no_ask="0.04"), 0.10, 1200, self.settings)
         self.assertIsNotNone(action)
         self.assertEqual(action.reason, "t_wait_stop")
 

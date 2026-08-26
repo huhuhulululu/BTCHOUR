@@ -266,11 +266,16 @@ def replay_bars(
                 ask,
                 yes_bid_high=quotes.get("yes_bid_high"),
                 yes_ask_low=quotes.get("yes_ask_low"),
+                impulse=bar.impulse if play == "impulse_wait" else None,
             ):
                 position = _promote_wait(working)
                 working = None
                 continue
-            if impulse_wait_flipped(side, bar.impulse, settings) or left + 1e-12 < settings.swing_min_seconds:
+            if play == "impulse_wait" and (
+                impulse_wait_flipped(side, bar.impulse, settings) or left + 1e-12 < settings.swing_min_seconds
+            ):
+                working = None
+            elif play != "impulse_wait" and left + 1e-12 < settings.swing_min_seconds:
                 working = None
 
         if position is None:
@@ -294,6 +299,18 @@ def replay_bars(
                     position = _position_from_fill(fill, opps[0], now, event_ticker, bar, left)
                 elif fill.get("play") == "impulse_wait":
                     working = _position_from_fill(fill, opps[0], now, event_ticker, bar, left)
+                    quotes = bar.quotes.get(float(opps[0].strike)) or {}
+                    ask = opps[0].ask
+                    if wait_book_crossed(
+                        working["side"],
+                        float(working["price"]),
+                        ask,
+                        yes_bid_high=quotes.get("yes_bid_high"),
+                        yes_ask_low=quotes.get("yes_ask_low"),
+                        impulse=bar.impulse,
+                    ):
+                        position = _promote_wait(working)
+                        working = None
 
     if position is not None:
         result = results.get(position["entry"]["strike"], "")

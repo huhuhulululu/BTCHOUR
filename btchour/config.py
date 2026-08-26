@@ -79,7 +79,7 @@ class Settings:
     impulse_wait: bool = True
     impulse_rest: float = 0.25
     impulse_wait_max_ask: float = 0.48
-    impulse_wait_stop: float = 0.50
+    impulse_wait_stop: float = 0.80
     scan_15m: bool = True
     scan_daily: bool = True
     scan_weekly: bool = True
@@ -167,7 +167,7 @@ def load_settings() -> Settings:
         impulse_wait=_env_bool("BTCHOUR_IMPULSE_WAIT", True),
         impulse_rest=_env_float("BTCHOUR_IMPULSE_REST", 0.25),
         impulse_wait_max_ask=_env_float("BTCHOUR_IMPULSE_WAIT_MAX_ASK", 0.48),
-        impulse_wait_stop=_env_float("BTCHOUR_IMPULSE_WAIT_STOP", 0.50),
+        impulse_wait_stop=_env_float("BTCHOUR_IMPULSE_WAIT_STOP", 0.80),
         scan_15m=_env_bool("BTCHOUR_SCAN_15M", True),
         scan_daily=_env_bool("BTCHOUR_SCAN_DAILY", True),
         scan_weekly=_env_bool("BTCHOUR_SCAN_WEEKLY", True),

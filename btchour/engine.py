@@ -22,6 +22,7 @@ from btchour.strategy import (
     apply_swing_memory,
     impulse_wait_flipped,
     refresh_session,
+    wait_book_crossed,
     scan_markets,
 )
 
@@ -257,7 +258,7 @@ def refresh_working(
         ask = market.yes_ask_effective if row["side"] == "yes" else market.no_ask_effective
         seconds = _seconds_left(market.close_time, now)
         if play == "impulse_wait":
-            if ask is not None and ask + 1e-12 <= rest:
+            if wait_book_crossed(row["side"], rest, ask, impulse=spot.impulse):
                 filled = fill_cost(rest, float(row["count"]), taker=False)
                 store.promote_working(
                     row["id"], rest, filled.fee, filled.cost, filled.if_win_roi, taker=False
@@ -278,7 +279,7 @@ def refresh_working(
                     {"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": "wait_invalid"}
                 )
             continue
-        if ask is not None and ask + 1e-12 <= rest:
+        if ask is not None and ask <= rest + 1e-12:
             filled = fill_cost(ask, float(row["count"]), taker=True)
             store.promote_working(row["id"], ask, filled.fee, filled.cost, filled.if_win_roi)
             updates.append({"id": row["id"], "ticker": row["ticker"], "status": "open", "price": ask, "reason": "wait_crossed"})
@@ -425,6 +426,8 @@ def run_loop(settings: Settings | None = None) -> None:
         )
         for opp in cycle["scan"]["opportunities"][:5]:
             print(f"  {opp['reason']}", flush=True)
+        if diagnosis.get("status") == "wait":
+            print(f"  {journal_line(diagnosis)}", flush=True)
         if diagnosis.get("status") == "blocked":
             for row in (diagnosis.get("candidates") or [])[:2]:
                 print(f"  reject {row.get('side')} {row.get('ticker')} ask={row.get('ask')} p={row.get('p')} {row.get('reasons')}", flush=True)

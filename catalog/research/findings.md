@@ -225,6 +225,32 @@ Wait fills that survived: `AUG2514` / `AUG2513` NO @ 0.25 clip +10%; `AUG2504` N
 
 Default stays dump-only `impulse_wait` on. Sweep still prints `flex_nowait` and `flex_cheap`.
 
+## Fade-hold, dump-only fill, 80% wait stop (2026-08-26 ~03:27 UTC)
+
+Gold tape `AUG2520`: human `T78699` NO maker 0.25 at **23:11:21Z**, sold 0.51 at 23:28. First wait code offered then **cancelled** when impulse faded −112 → −87. Fade-hold + any-extreme promote then filled the **23:14 bounce** (yes bid 0.86) and `t_wait_stop` −51% at 23:15.
+
+Fixes that stay default:
+
+- Keep the rest through fade; cancel only on a ≥+$100 flip.
+- Promote a dump NO wait only while impulse is still negative. Bounce prints do not fill.
+- `ask == rest` is a fill (`AUG2520` 23:20 `no_low=0.25`).
+- Wait hard stop **80%**. 50% dies on bounce marks; 99% lets `AUG2507` settle −100%.
+
+Same old tapes as the +1.29 / +5.03 sweep (AUG2506–AUG2521 / AUG2422–AUG2521): default **15 / 13 / +7.98** and **21 / 18 / +13.46**. `AUG2520` is now wait NO @ 0.25 → `t_clip` **+41.5%** at 23:21.
+
+Official current window (`--hours 16`, AUG2508–AUG2523 / AUG2500–AUG2523, 10 contracts):
+
+| Run | Takes | Wins | PnL |
+| --- | ---: | ---: | ---: |
+| flex skip + dump wait (default) 16h | 14 | 13 | **+9.89** |
+| flex no-wait 16h | 7 | 4 | +0.12 |
+| flex skip + dump wait 24h | 20 | 17 | **+11.98** |
+| flex no-wait 24h | 9 | 4 | −1.27 |
+| flex cheap p30/ask35 16h | 15 | 11 | +2.85 |
+| flex cheap p30/ask35 24h | 23 | 13 | −1.89 |
+
+`AUG2520` / `AUG2521` (`T78399` @ 00:38, the live dump the old paper loop only logged as taker `blocked`) now clip. Leftover: `AUG2507` wait stop −81%. Cheap taker 24h is still red — do not lower `impulse_min_p`. This is replay, not paper. Paper completed PnL is still **0**.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.

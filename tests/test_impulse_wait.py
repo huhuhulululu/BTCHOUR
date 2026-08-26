@@ -147,9 +147,13 @@ class ImpulseWaitTests(unittest.TestCase):
 
     def test_minute_high_counts_as_a_maker_fill(self):
         self.assertFalse(wait_book_crossed("no", 0.25, 0.32))
-        self.assertTrue(wait_book_crossed("no", 0.25, 0.32, yes_bid_high=0.76))
-        self.assertTrue(wait_book_crossed("no", 0.25, 0.24))
-        self.assertTrue(wait_book_crossed("yes", 0.25, 0.32, yes_ask_low=0.24))
+        self.assertTrue(wait_book_crossed("no", 0.25, 0.32, yes_bid_high=0.76, impulse=-40))
+        self.assertTrue(wait_book_crossed("no", 0.25, 0.24, impulse=-80))
+        self.assertTrue(wait_book_crossed("yes", 0.25, 0.32, yes_ask_low=0.24, impulse=80))
+
+    def test_bounce_does_not_fill_a_dump_rest(self):
+        self.assertFalse(wait_book_crossed("no", 0.25, 0.14, yes_bid_high=0.86, impulse=95))
+        self.assertFalse(wait_book_crossed("no", 0.25, 0.24, impulse=80))
 
 
 class ImpulseWaitEngineTests(unittest.TestCase):
@@ -193,6 +197,24 @@ class ImpulseWaitEngineTests(unittest.TestCase):
                 db.record_trade(fill)
                 faded = SpotQuote(78800, "test", annual_vol=0.55, impulse=-20)
                 updates = refresh_working(db, self.settings, [_market()], faded, self.now)
+                self.assertEqual(updates, [])
+                self.assertEqual(len(db.working_trades()), 1)
+
+    def test_does_not_promote_on_a_bounce_print(self):
+        opp = evaluate_impulse_wait_market(_market(), self.spot, self.settings, self.now)[0]
+        fill = paper_fill(opp)
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                db.record_trade(fill)
+                bounce = SpotQuote(78910, "test", annual_vol=0.55, impulse=80)
+                crossed = _market(
+                    yes_bid_dollars="0.86",
+                    yes_ask_dollars="0.87",
+                    no_bid_dollars="0.13",
+                    no_ask_dollars="0.14",
+                )
+                updates = refresh_working(db, self.settings, [crossed], bounce, self.now)
                 self.assertEqual(updates, [])
                 self.assertEqual(len(db.working_trades()), 1)
 
@@ -252,6 +274,37 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         self.assertAlmostEqual(report["takes"][0]["ask"], 0.25)
         self.assertEqual(report["takes"][0]["exit_reason"], "t_clip")
         self.assertGreater(report["takes"][0]["pnl"], 0)
+
+    def test_bounce_rip_does_not_fill_then_second_dump_does(self):
+        settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
+        maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
+        strike = 78699.99
+        bars = [
+            ReplayBar(int(maturity - 1800), 78800, 0.55, {strike: {"yes_ask": 0.74, "yes_bid": 0.73}}, impulse=-112),
+            ReplayBar(
+                int(maturity - 1740),
+                78910,
+                0.55,
+                {strike: {"yes_ask": 0.86, "yes_bid": 0.85, "yes_bid_high": 0.86}},
+                impulse=95,
+            ),
+            ReplayBar(int(maturity - 1680), 78940, 0.55, {strike: {"yes_ask": 0.86, "yes_bid": 0.85}}, impulse=112),
+            ReplayBar(
+                int(maturity - 1620),
+                78790,
+                0.55,
+                {strike: {"yes_ask": 0.65, "yes_bid": 0.64, "yes_bid_high": 0.75}},
+                impulse=-119,
+            ),
+            ReplayBar(int(maturity - 1560), 78640, 0.55, {strike: {"yes_ask": 0.40, "yes_bid": 0.39}}, impulse=-80),
+        ]
+        report = replay_bars("KXBTCD-26AUG2520", bars, {strike: "no"}, maturity, settings)
+        self.assertEqual(len(report["takes"]), 1)
+        take = report["takes"][0]
+        self.assertEqual(take["play"], "impulse_wait")
+        self.assertAlmostEqual(take["ask"], 0.25)
+        self.assertEqual(take["exit_reason"], "t_clip")
+        self.assertGreater(take["pnl"], 0)
 
     def test_lock_close_still_deads_the_wait(self):
         settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
