@@ -42,24 +42,39 @@ class ExitTests(unittest.TestCase):
     def _act(self, *args, **kwargs):
         return evaluate_exit(*args, **kwargs).action
 
-    def test_lock_on_book_when_bid_clears_target(self):
+    def test_lock_hold_still_locks_twenty_percent(self):
+        locked = OpenPosition(
+            ticker=self.position.ticker,
+            event_ticker=self.position.event_ticker,
+            side="yes",
+            cost=self.cost.cost,
+            count=1.0,
+            play="lock_hold",
+            entry_p=0.999,
+        )
         lock = lock_exit_price(self.cost.cost, 1.0, 0.20)
-        action = self._act(self.position, _market(yes_bid=f"{lock:.2f}"), 0.80, 1200, self.settings)
+        action = self._act(locked, _market(yes_bid=f"{lock:.2f}"), 0.999, 1200, self.settings)
         self.assertIsNotNone(action)
         self.assertEqual(action.reason, "lock_on_book")
         self.assertAlmostEqual(action.price, lock)
 
-    def test_t_clip_when_ten_percent_prints(self):
-        clip = lock_exit_price(self.cost.cost, 1.0, 0.10)
-        action = self._act(self.position, _market(yes_bid=f"{clip:.2f}"), 0.80, 1200, self.settings)
+    def test_t_does_not_force_twenty_percent_if_band_is_still_running(self):
+        floor = lock_exit_price(self.cost.cost, 1.0, 0.10)
+        action = self._act(self.position, _market(yes_bid=f"{floor:.2f}"), floor + 0.20, 1200, self.settings)
+        self.assertIsNone(action)
+
+    def test_t_clips_ten_percent_when_gap_is_gone(self):
+        floor = lock_exit_price(self.cost.cost, 1.0, 0.10)
+        action = self._act(self.position, _market(yes_bid=f"{floor:.2f}"), floor + 0.05, 1200, self.settings)
         self.assertIsNotNone(action)
         self.assertEqual(action.reason, "t_clip")
 
-    def test_no_runner_when_ten_percent_is_already_there(self):
-        clip = lock_exit_price(self.cost.cost, 1.0, 0.10)
-        action = self._act(self.position, _market(yes_bid=f"{clip:.2f}"), clip + 0.20, 1200, self.settings)
+    def test_t_caps_at_fifty_percent_even_if_gap_is_wide(self):
+        cap = lock_exit_price(self.cost.cost, 1.0, 0.50)
+        action = self._act(self.position, _market(yes_bid=f"{cap:.2f}"), cap + 0.20, 1200, self.settings)
         self.assertIsNotNone(action)
         self.assertEqual(action.reason, "t_clip")
+        self.assertGreaterEqual(action.price, cap - 1e-12)
 
     def test_trail_gives_back_from_peak(self):
         clip = lock_exit_price(self.cost.cost, 1.0, 0.10)

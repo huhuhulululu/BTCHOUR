@@ -120,4 +120,5 @@ class SettingsTests(unittest.TestCase):
         self.assertTrue(settings.allow_early_exit)
         self.assertTrue(settings.allow_maker)
         self.assertEqual(settings.swing_target, 0.10)
+        self.assertEqual(settings.swing_max_clip, 0.50)
         self.assertTrue(settings.skip_after_loss)

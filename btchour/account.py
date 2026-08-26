@@ -123,10 +123,10 @@ def summarize_fills(client: KalshiClient, settings: Settings | None = None, hour
     bands = Counter()
     for clip in clips:
         roi = clip["roi"]
-        if roi >= 0.30:
-            bands["ge30"] += 1
+        if roi >= 0.50:
+            bands["ge50"] += 1
         elif roi >= 0.10:
-            bands["10to30"] += 1
+            bands["10to50"] += 1
         elif roi >= 0:
             bands["0to10"] += 1
         else:
@@ -142,6 +142,6 @@ def summarize_fills(client: KalshiClient, settings: Settings | None = None, hour
         "roi_bands": dict(bands),
         "maker_round_clips": sum(1 for clip in clips if clip["maker_round"]),
         "wrote": str(Path("data") / dest.name),
-        "note": "Same-side buy→sell only. 10–30% maker clips are the rule; flips and strike hops are not.",
+        "note": "Same-side buy→sell only. 10–50% is the normal clip band; flips and strike hops are not.",
         "clips": clips[:24],
     }

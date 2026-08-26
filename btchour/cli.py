@@ -160,7 +160,8 @@ def main(argv: list[str] | None = None) -> int:
                 "note": (
                     f"Playbook={settings.playbook}. flex = lock_hold first, then swing_t 做T, then lock_wait. "
                     f"Lock still needs EV=p*b-(1-p) >= {settings.min_ev:.0%}, σ>={settings.min_sigma}, "
-                    f"p>={settings.lock_min_p:.1%}, ask<=$0.82. 做T clips {settings.swing_target:.0%} and runs; "
+                    f"p>={settings.lock_min_p:.1%}, ask<=$0.82. 做T band "
+                    f"{settings.swing_target:.0%}-{settings.swing_max_clip:.0%}; "
                     "it is not a locked 20%."
                 ),
             }

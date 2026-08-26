@@ -93,7 +93,7 @@ class ManualDisciplineTests(unittest.TestCase):
         report = replay_bars("KXBTCD-26AUG2520", bars, {78599.99: "no"}, maturity, settings)
         self.assertEqual(len(report["takes"]), 1)
         self.assertEqual(report["takes"][0]["side"], "no")
-        self.assertIn(report["takes"][0]["exit_reason"], {"t_clip", "lock_on_book"})
+        self.assertIn(report["takes"][0]["exit_reason"], {"t_clip", "t_trail", "t_fade", "t_stop"})
         self.assertGreater(report["takes"][0]["pnl"], 0)
 
 

@@ -100,7 +100,7 @@ class SwingReplayTests(unittest.TestCase):
         maturity = datetime(2026, 8, 25, 20, 0, tzinfo=timezone.utc).timestamp()
         bars = [
             ReplayBar(int(maturity - 1800), 79600, 0.55, {79199.99: {"yes_ask": 0.62, "yes_bid": 0.61}}),
-            ReplayBar(int(maturity - 1740), 79400, 0.55, {79199.99: {"yes_ask": 0.74, "yes_bid": 0.73}}),
+            ReplayBar(int(maturity - 1740), 79400, 0.55, {79199.99: {"yes_ask": 0.96, "yes_bid": 0.95}}),
             ReplayBar(int(maturity - 1680), 78800, 0.55, {79199.99: {"yes_ask": 0.32, "yes_bid": 0.31}}),
         ]
         report = replay_bars("KXBTCD-26AUG2516", bars, {79199.99: "no"}, maturity, settings)

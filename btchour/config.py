@@ -64,8 +64,9 @@ class Settings:
     swing_max_ask: float = 0.72
     swing_min_seconds: float = 180.0
     swing_target: float = 0.10
+    swing_max_clip: float = 0.50
     swing_trail: float = 0.04
-    swing_runner_gap: float = 1.0
+    swing_runner_gap: float = 0.12
     swing_max_distance: float = 600.0
     swing_fade: float = 0.12
     swing_stop: float = 0.12
@@ -147,8 +148,9 @@ def load_settings() -> Settings:
         swing_max_ask=_env_float("BTCHOUR_SWING_MAX_ASK", 0.72),
         swing_min_seconds=_env_float("BTCHOUR_SWING_MIN_SECONDS", 180.0),
         swing_target=_env_float("BTCHOUR_SWING_TARGET", 0.10),
+        swing_max_clip=_env_float("BTCHOUR_SWING_MAX_CLIP", 0.50),
         swing_trail=_env_float("BTCHOUR_SWING_TRAIL", 0.04),
-        swing_runner_gap=_env_float("BTCHOUR_SWING_RUNNER_GAP", 1.0),
+        swing_runner_gap=_env_float("BTCHOUR_SWING_RUNNER_GAP", 0.12),
         swing_max_distance=_env_float("BTCHOUR_SWING_MAX_DISTANCE", 600.0),
         swing_fade=_env_float("BTCHOUR_SWING_FADE", 0.12),
         swing_stop=_env_float("BTCHOUR_SWING_STOP", 0.12),

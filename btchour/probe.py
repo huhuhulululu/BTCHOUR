@@ -78,6 +78,7 @@ def probe_book(client: KalshiClient | None = None, settings: Settings | None = N
             "swing_min_p": settings.swing_min_p,
             "swing_min_gap": settings.swing_min_gap,
             "swing_target": settings.swing_target,
+            "swing_max_clip": settings.swing_max_clip,
             "impulse_min": settings.impulse_min,
         },
         "scored": len(scores),

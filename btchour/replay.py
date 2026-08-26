@@ -402,6 +402,7 @@ def replay_recent_hours(hours: int = 8, settings: Settings | None = None) -> dic
             "swing_min_ask": settings.swing_min_ask,
             "swing_max_ask": settings.swing_max_ask,
             "swing_target": settings.swing_target,
+            "swing_max_clip": settings.swing_max_clip,
             "swing_trail": settings.swing_trail,
             "swing_fade": settings.swing_fade,
             "skip_after_loss": settings.skip_after_loss,

@@ -397,7 +397,7 @@ def evaluate_swing_market(
             play="swing_t",
             reason=(
                 f"swing_t {side.upper()} 做T gap={model_p - ask:.1%} p={model_p:.1%} "
-                f"ask={ask:.2f} clip>={clip:.2f} pocket={settings.swing_target:.0%} "
+                f"ask={ask:.2f} clip>={clip:.2f} band={settings.swing_target:.0%}-{settings.swing_max_clip:.0%} "
                 f"holdEV={edge.ev:.1%}; strike {market.strike:.2f} / spot {spot.price:.2f}"
             ),
         )

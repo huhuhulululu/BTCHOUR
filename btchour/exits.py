@@ -60,7 +60,7 @@ def evaluate_exit(
     do_t = (play in {"swing_t", "impulse_t"} or settings.playbook == "swing") and not locked
 
     lock20 = lock_exit_price(position.cost, position.count, settings.target_profit)
-    if bid is not None and lock20 is not None and bid + 1e-12 >= lock20:
+    if (not do_t) and bid is not None and lock20 is not None and bid + 1e-12 >= lock20:
         return ExitDecision(
             ExitAction(
                 reason="lock_on_book",
@@ -85,22 +85,40 @@ def evaluate_exit(
                 peak,
             )
 
-    clip = lock_exit_price(position.cost, position.count, settings.swing_target) if do_t else None
-    if do_t and bid is not None and clip is not None and bid + 1e-12 >= clip:
+    floor = lock_exit_price(position.cost, position.count, settings.swing_target) if do_t else None
+    cap = lock_exit_price(position.cost, position.count, settings.swing_max_clip) if do_t else None
+    if do_t and bid is not None and cap is not None and bid + 1e-12 >= cap:
         roi = round_trip_roi(position.cost, bid, position.count)
         return ExitDecision(
             ExitAction(
                 reason="t_clip",
                 price=bid,
                 note=(
-                    f"做T clip {roi:.1%} at bid {bid:.2f} (target {settings.swing_target:.0%}); "
-                    "落袋为安, no runner"
+                    f"做T cap {roi:.1%} at bid {bid:.2f} "
+                    f"(band {settings.swing_target:.0%}-{settings.swing_max_clip:.0%})"
                 ),
             ),
             peak,
         )
 
-    if do_t and bid is not None and peak is not None and clip is not None and peak + 1e-12 >= clip:
+    if do_t and bid is not None and floor is not None and bid + 1e-12 >= floor:
+        gap = model_p - bid
+        if gap + 1e-12 < settings.swing_runner_gap:
+            roi = round_trip_roi(position.cost, bid, position.count)
+            return ExitDecision(
+                ExitAction(
+                    reason="t_clip",
+                    price=bid,
+                    note=(
+                        f"做T clip {roi:.1%} at bid {bid:.2f} "
+                        f"(band {settings.swing_target:.0%}-{settings.swing_max_clip:.0%}); "
+                        f"gap {gap:.1%} gone, 落袋"
+                    ),
+                ),
+                peak,
+            )
+
+    if do_t and bid is not None and peak is not None and floor is not None and peak + 1e-12 >= floor:
         if peak - bid + 1e-12 >= settings.swing_trail:
             roi = round_trip_roi(position.cost, bid, position.count)
             return ExitDecision(

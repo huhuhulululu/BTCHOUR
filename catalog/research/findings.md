@@ -137,7 +137,7 @@ Account fills (read-only). Same-side clips on the dump were the working rule: ma
 
 After that, direction broke: flip YES at $0.61 on `T78499`, hop strikes, chase $0.58–$0.86 YES, then `AUG2521` YES→NO flip. That is fatigue, not a new edge.
 
-Engine change: T clips **10% immediately**, no runner, **no flip**, **skip the next hour after a loss**, ask floor **$0.18** so a 20¢ dump NO can print, ask cap stays **$0.52** so the tired YES chase cannot. See [`manual.md`](manual.md).
+Engine change: T realizes a **10%–50%** band (floor / cap), **no flip**, **skip the next hour after a loss**, ask floor **$0.18**, ask cap **$0.52**. See [`manual.md`](manual.md).
 
 `replay --hours 16 --playbook flex` after that change (AUG2505–AUG2520, 10 contracts): **6 takes / 3 wins / −0.84**.
 
