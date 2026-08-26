@@ -390,6 +390,24 @@ New window (AUG2607–AUG2516 / AUG2607–AUG2508):
 
 16h fell because `AUG2606` replay taker −0.75 rolled in. Coupon still beats nowait. `AUG2520` still +41.5%. Cheap still red. Paper completed **4 / 0 / −5.4829**. `AUG2608` is the next live coupon rest. Replay green is not 达成.
 
+## AUG2608 mid-hour — first paper dump-coupon clip (2026-08-26 ~11:45 UTC)
+
+Live coupon hour (`skip_next=False`). The dump printed and the coupon clipped in the human band.
+
+| Time | Event |
+| --- | --- |
+| 11:38:00Z | Impulse ≤−$100. `T78399` ask **0.49** stayed `blocked` (p 41–49% < 52%) |
+| 11:38:29Z | Nearest strike became `T78299` ask **0.46**, then **0.43**. Taker still blocked (p 36–44%) |
+| 11:39:40Z | Rest `T78299` NO **0.25** under ask **0.34**, impulse **−$226**, spot 78350, p 42.7%, ~$50 from spot. One wait. No YES. No hop |
+| 11:40:08Z | Filled during dump (28s), impulse still **−$191**. Dump-only fill held |
+| shortly after | `t_clip` at bid **0.31**, **+18.0%**, pnl **+0.4502**. Band 10%–50%. Not a locked 20% |
+
+`raw.peak_bid=0.23` is below entry 0.25 while the exit note is clip 18% @ 0.31 — a mark quirk, not a failed peak. After the fill, journal diagnosed `T78399` ask 0.49 p 56% (`open`) and did not take a second T. The win cleared session memory (`last_loss_event=None`, `skip_next=False`).
+
+This is the first paper human-style dump NO clip: 32–42¢ book, rest 25¢, fill while the dump is on, clip in 10–50%. Do not switch. Do not loosen taker p. Do not rest YES. Hour still open until 12:00 UTC — sweep after the close. Leftover `lock_wait` (stale 15m id 19, far OTM `T83499`) is not dump coupon.
+
+Paper completed **5 / 1 / −5.0327**. Replay green is not 达成.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.
