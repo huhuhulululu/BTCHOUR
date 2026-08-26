@@ -12,7 +12,7 @@ from btchour.catalog import sync_catalog
 from btchour.config import ROOT, Settings, load_settings
 from btchour.exits import OpenPosition, evaluate_exit
 from btchour.fees import fill_cost
-from btchour.kalshi import KalshiClient, Market, market_from_api
+from btchour.kalshi import KalshiClient, Market, market_from_api, read_exchange_status
 from btchour.model import SpotQuote, digital_prob, effective_vol, sigma_cushion
 from btchour.paper import paper_close, paper_fill, paper_settle
 from btchour.score import score_market
@@ -158,7 +158,15 @@ def scan_once(client: KalshiClient, settings: Settings | None = None, persist: b
     return payload
 
 
-def _execute(opportunity: Opportunity, client: KalshiClient, settings: Settings, store: Store) -> dict:
+def _execute(
+    opportunity: Opportunity,
+    client: KalshiClient,
+    settings: Settings,
+    store: Store,
+    can_trade: bool = True,
+) -> dict:
+    if not can_trade:
+        return {"skipped": True, "reason": "exchange_not_trading", "ticker": opportunity.ticker}
     if store.has_open(opportunity.ticker, opportunity.side):
         return {"skipped": True, "reason": "already open", "ticker": opportunity.ticker}
     if store.open_trades() and opportunity.taker:
@@ -216,13 +224,22 @@ def _lookup_market(client: KalshiClient, trade: dict, markets: list[Market]) -> 
     return next((item for item in found if item.ticker == trade["ticker"]), None)
 
 
-def _close_position(row, action, client: KalshiClient, settings: Settings, store: Store) -> dict:
+def _close_position(
+    row,
+    action,
+    client: KalshiClient,
+    settings: Settings,
+    store: Store,
+    can_trade: bool = True,
+) -> dict:
     trade = dict(row)
     raw = {}
     try:
         raw = json.loads(row["raw"] or "{}")
     except Exception:
         raw = {}
+    if not can_trade:
+        return {"id": row["id"], "ticker": trade["ticker"], "skipped": True, "reason": "exchange_not_trading"}
     if settings.live:
         if not settings.can_sign:
             raise RuntimeError("live mode needs KALSHI_API_KEY_ID and a private key")
@@ -259,6 +276,7 @@ def refresh_working(
     markets: list[Market],
     spot: SpotQuote,
     now: datetime | None = None,
+    can_trade: bool = True,
 ) -> list[dict]:
     now = now or datetime.now(timezone.utc)
     by_ticker = {item.ticker: item for item in markets}
@@ -267,12 +285,14 @@ def refresh_working(
         market = by_ticker.get(row["ticker"])
         if market is None or market.strike is None:
             continue
+        if settings.live and not can_trade:
+            continue
         play = _row_play(row)
         rest = float(row["price"])
         ask = market.yes_ask_effective if row["side"] == "yes" else market.no_ask_effective
         seconds = _seconds_left(market.close_time, now)
         if play == "impulse_wait":
-            if wait_book_crossed(
+            if can_trade and wait_book_crossed(
                 row["side"],
                 rest,
                 ask,
@@ -306,7 +326,7 @@ def refresh_working(
                     {"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": "wait_invalid"}
                 )
             continue
-        if ask is not None and ask <= rest + 1e-12:
+        if can_trade and ask is not None and ask <= rest + 1e-12:
             filled = fill_cost(ask, float(row["count"]), taker=True)
             store.promote_working(row["id"], ask, filled.fee, filled.cost, filled.if_win_roi)
             updates.append({"id": row["id"], "ticker": row["ticker"], "status": "open", "price": ask, "reason": "wait_crossed"})
@@ -328,8 +348,9 @@ def manage_open(
     markets: list[Market],
     spot: SpotQuote,
     now: datetime | None = None,
+    can_trade: bool = True,
 ) -> list[dict]:
-    if not settings.allow_early_exit:
+    if not settings.allow_early_exit or not can_trade:
         return []
     now = now or datetime.now(timezone.utc)
     updates = []
@@ -406,6 +427,8 @@ def run_cycle(client: KalshiClient | None = None, settings: Settings | None = No
     settings = settings or load_settings()
     client = client or make_client(settings)
     store = Store()
+    exchange = read_exchange_status(client)
+    can_trade = bool(exchange.get("can_trade"))
     settlements = settle_open(client, store)
     scan = scan_once(client, settings, persist=True)
     spot_info = scan["spot"]
@@ -418,22 +441,31 @@ def run_cycle(client: KalshiClient | None = None, settings: Settings | None = No
         impulse=float(spot_info.get("impulse") or 0.0),
     )
     markets = _markets_from_snapshot(scan.get("snapshot") or {})
-    waits = refresh_working(store, settings, markets, spot)
-    exits = manage_open(client, store, settings, markets, spot)
+    waits = refresh_working(store, settings, markets, spot, can_trade=can_trade)
+    exits = manage_open(client, store, settings, markets, spot, can_trade=can_trade)
     taken = []
     event_ticker = (scan.get("event") or {}).get("event_ticker")
-    if not store.open_trades():
+    if can_trade and not store.open_trades():
         # Scan ran before fills/exits. A same-cycle coupon clip must stay
         # dead — AUG2618 T78699 t_clip then hopped the same ticker 34s later.
         chosen = _entries_after_exits(store, scan.get("opportunities") or [], event_ticker)
         for item in chosen:
-            taken.append(_execute(item if isinstance(item, Opportunity) else Opportunity(**item), client, settings, store))
+            taken.append(
+                _execute(
+                    item if isinstance(item, Opportunity) else Opportunity(**item),
+                    client,
+                    settings,
+                    store,
+                    can_trade=can_trade,
+                )
+            )
             if store.open_trades():
                 break
     scan.pop("snapshot", None)
     return {
         "mode": settings.mode,
         "playbook": settings.playbook,
+        "exchange": exchange,
         "scan": scan,
         "taken": taken,
         "waits": waits,
@@ -478,14 +510,24 @@ def run_loop(settings: Settings | None = None) -> None:
         n = len(cycle["scan"]["opportunities"])
         spot = cycle["scan"]["spot"]
         diagnosis = cycle["scan"].get("diagnosis") or {}
+        exchange = cycle.get("exchange") or {}
         print(
             f"{format_et()} mode={settings.mode} playbook={settings.playbook} "
+            f"trading={1 if exchange.get('can_trade') else 0} "
             f"event={event} spot={spot['price']:.2f} impulse={float(spot.get('impulse') or 0):+.0f} "
             f"tape={float(spot.get('tape_impulse') or 0):+.0f} diag={diagnosis.get('status')} "
             f"opps={n} taken={len(cycle['taken'])} exits={len(cycle['exits'])} "
             f"settled_now={len(cycle['settlements'])} pnl={cycle['summary']['realized_pnl']:.4f}",
             flush=True,
         )
+        if not exchange.get("can_trade"):
+            print(
+                f"  exchange_hold active={exchange.get('exchange_active')} "
+                f"trading={exchange.get('trading_active')} "
+                f"index={exchange.get('description')} "
+                f"{exchange.get('error') or exchange.get('resume_time') or ''}",
+                flush=True,
+            )
         for opp in cycle["scan"]["opportunities"][:5]:
             print(f"  {opp['reason']}", flush=True)
         if diagnosis.get("status") == "wait":

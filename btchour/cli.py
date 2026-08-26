@@ -191,8 +191,16 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "status":
+        from btchour.kalshi import read_exchange_status
+
         store = Store()
-        _print_json({"summary": store.summary(), "open": [dict(row) for row in store.open_trades()]})
+        _print_json(
+            {
+                "exchange": read_exchange_status(client),
+                "summary": store.summary(),
+                "open": [dict(row) for row in store.open_trades()],
+            }
+        )
         return 0
 
     if args.cmd == "learn":

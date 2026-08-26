@@ -278,3 +278,54 @@ class KalshiClient:
             {"min_ts": min_ts, "ticker": ticker},
             signed=True,
         )
+
+
+CRYPTO_EXCHANGE_INDEX = 2
+
+
+def _select_index_status(payload: dict) -> dict | None:
+    """BTC lives on the Crypto index when Kalshi publishes the breakdown."""
+    rows = payload.get("exchange_index_statuses") or []
+    for row in rows:
+        if str(row.get("description") or "").strip().lower() == "crypto":
+            return row
+    for row in rows:
+        if row.get("exchange_index") == CRYPTO_EXCHANGE_INDEX:
+            return row
+    return None
+
+
+def parse_exchange_status(payload: dict | None) -> dict:
+    """Normalize GET /exchange/status. can_trade needs both flags on Crypto."""
+    payload = payload or {}
+    chosen = _select_index_status(payload)
+    source = chosen if chosen is not None else payload
+    exchange_active = bool(source.get("exchange_active"))
+    trading_active = bool(source.get("trading_active"))
+    return {
+        "exchange_active": exchange_active,
+        "trading_active": trading_active,
+        "can_trade": exchange_active and trading_active,
+        "resume_time": payload.get("exchange_estimated_resume_time"),
+        "index": source.get("exchange_index") if chosen is not None else 0,
+        "description": (chosen or {}).get("description") or "default",
+    }
+
+
+def read_exchange_status(client: KalshiClient) -> dict:
+    """Fail closed on 5xx / timeout. A pause is not permission to go live."""
+    try:
+        parsed = parse_exchange_status(client.exchange_status())
+        parsed["ok"] = True
+        return parsed
+    except KalshiError as exc:
+        return {
+            "ok": False,
+            "exchange_active": False,
+            "trading_active": False,
+            "can_trade": False,
+            "resume_time": None,
+            "index": None,
+            "description": "unreachable",
+            "error": str(exc)[:200],
+        }

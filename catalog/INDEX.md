@@ -28,4 +28,4 @@ python3 -m btchour sync
 - `KXBTC`：同一 BRTI 结算的区间盘（between / less / greater）
 - `KXBTC15M`：15 分钟涨跌
 
-公开 API 根：`https://external-api.kalshi.com/trade-api/v2`
+公开 API 根：`https://external-api.kalshi.com/trade-api/v2`。每轮先读 `GET /exchange/status`；`exchange_active` 或 Crypto 的 `trading_active` 为假时不挂单、不成交。这不是切 live 的许可。
