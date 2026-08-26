@@ -65,6 +65,53 @@ class ImpulseWaitTests(unittest.TestCase):
         opps = scan_markets([_market(), other], self.spot, self.settings, self.now)
         waits = [row for row in opps if row.play == "impulse_wait"]
         self.assertEqual(len(waits), 1)
+        self.assertEqual(waits[0].ticker, "KXBTCD-26AUG2520-T78699.99")
+
+    def test_scan_rests_the_near_atm_strike_not_the_cheapest_ask(self):
+        # Live AUG2602 05:06Z: T78499 ask 0.29 beat T78599 ask 0.42 because
+        # scan sorted by (ask - rest). Spot 78689 → T78499 is ~$190 away;
+        # bounce crushed that NO to 0.03. Human rests the dump ATM.
+        now = datetime(2026, 8, 26, 5, 6, tzinfo=timezone.utc)
+        far = _market(
+            ticker="KXBTCD-26AUG2602-T78499.99",
+            event_ticker="KXBTCD-26AUG2602",
+            floor_strike=78499.99,
+            yes_bid_dollars="0.70",
+            yes_ask_dollars="0.71",
+            no_bid_dollars="0.28",
+            no_ask_dollars="0.29",
+            open_time="2026-08-26T05:00:00Z",
+            close_time="2026-08-26T06:00:00Z",
+        )
+        near = _market(
+            ticker="KXBTCD-26AUG2602-T78599.99",
+            event_ticker="KXBTCD-26AUG2602",
+            floor_strike=78599.99,
+            yes_bid_dollars="0.57",
+            yes_ask_dollars="0.58",
+            no_bid_dollars="0.41",
+            no_ask_dollars="0.42",
+            open_time="2026-08-26T05:00:00Z",
+            close_time="2026-08-26T06:00:00Z",
+        )
+        atm = _market(
+            ticker="KXBTCD-26AUG2602-T78699.99",
+            event_ticker="KXBTCD-26AUG2602",
+            floor_strike=78699.99,
+            yes_bid_dollars="0.39",
+            yes_ask_dollars="0.40",
+            no_bid_dollars="0.59",
+            no_ask_dollars="0.60",
+            open_time="2026-08-26T05:00:00Z",
+            close_time="2026-08-26T06:00:00Z",
+        )
+        spot = SpotQuote(78689.70, "test", annual_vol=0.55, impulse=-104)
+        opps = scan_markets([far, near, atm], spot, self.settings, now)
+        waits = [row for row in opps if row.play == "impulse_wait"]
+        self.assertEqual(len(waits), 1)
+        self.assertEqual(waits[0].ticker, "KXBTCD-26AUG2602-T78599.99")
+        self.assertAlmostEqual(waits[0].ask, 0.42)
+        self.assertAlmostEqual(waits[0].limit_price, 0.25)
 
     def test_dump_rests_under_a_forty_cent_no(self):
         opps = evaluate_impulse_wait_market(_market(), self.spot, self.settings, self.now)

@@ -648,6 +648,19 @@ def allow_swing(opportunity: Opportunity, memory: SwingMemory | None) -> bool:
     return opportunity.ticker == memory.ticker and opportunity.side != memory.side
 
 
+def pick_dump_wait(waits: list[Opportunity], spot: SpotQuote) -> list[Opportunity]:
+    """One dump rest: nearest strike to spot, not the cheapest ask above 25¢."""
+    chosen = list(waits)
+    chosen.sort(
+        key=lambda row: (
+            abs((row.strike or 0.0) - spot.price),
+            row.ask - row.limit_price,
+            -row.ev,
+        )
+    )
+    return chosen[:1]
+
+
 def allow_session(opportunity: Opportunity, session: SessionMemory | None) -> bool:
     if opportunity.play not in T_PLAYS:
         return True
@@ -703,8 +716,7 @@ def scan_markets(markets: list[Market], spot: SpotQuote, settings: Settings, now
             if settings.playbook == "swing":
                 swings.extend(evaluate_swing_market(market, spot, settings, now))
         impulses.sort(key=lambda row: (abs(spot.impulse), row.ev, -row.seconds_left), reverse=True)
-        waits.sort(key=lambda row: (row.ask - row.limit_price, -row.ev, -row.seconds_left))
-        waits = waits[:1]
+        waits = pick_dump_wait(waits, spot)
         swings.sort(key=lambda row: ((row.model_p - row.ask), row.ev, -row.seconds_left), reverse=True)
         swings = impulses + waits + swings
     if settings.playbook == "hold":

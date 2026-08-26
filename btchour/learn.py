@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from btchour.config import Settings
 from btchour.kalshi import Market
 from btchour.model import SpotQuote, digital_prob, effective_vol
-from btchour.strategy import _seconds_left, evaluate_impulse_wait_market, is_fast_window
+from btchour.strategy import _seconds_left, evaluate_impulse_wait_market, is_fast_window, pick_dump_wait
 
 
 @dataclass(frozen=True)
@@ -109,6 +109,8 @@ def diagnose_impulse(
     if move < 0:
         for market in markets:
             waits.extend(evaluate_impulse_wait_market(market, spot, settings, now))
+    wait_count = len(waits)
+    waits = pick_dump_wait(waits, spot)
     if ok:
         report["status"] = "open"
     elif waits:
@@ -117,7 +119,7 @@ def diagnose_impulse(
     else:
         report["status"] = "blocked"
     report["open"] = ok
-    report["wait_count"] = len(waits)
+    report["wait_count"] = wait_count
     report["candidates"] = [
         {"ticker": row.ticker, "side": row.side, "ask": row.ask, "p": row.model_p, "reasons": row.reasons}
         for row in rejects[:8]

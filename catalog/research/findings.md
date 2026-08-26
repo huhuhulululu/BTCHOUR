@@ -249,7 +249,19 @@ Official current window (`--hours 16`, AUG2508–AUG2523 / AUG2500–AUG2523, 10
 | flex cheap p30/ask35 16h | 15 | 11 | +2.85 |
 | flex cheap p30/ask35 24h | 23 | 13 | −1.89 |
 
-`AUG2520` / `AUG2521` (`T78399` @ 00:38, the live dump the old paper loop only logged as taker `blocked`) now clip. Leftover: `AUG2507` wait stop −81%. Cheap taker 24h is still red — do not lower `impulse_min_p`. This is replay, not paper. Paper completed PnL is still **0**.
+`AUG2520` / `AUG2521` (`T78399` @ 00:38, the live dump the old paper loop only logged as taker `blocked`) now clip. Leftover: `AUG2507` wait stop −81%. Cheap taker 24h is still red — do not lower `impulse_min_p`. This is replay, not paper.
+
+## First paper wait (2026-08-26 ~05:06 UTC) — wrong strike
+
+Paper finally filled a dump wait. It was not a 10–50% clip.
+
+`AUG2602` `T78499` NO @ **0.25 maker**, 10 contracts, cost 2.5. Rest at 05:06:18Z, impulse −$104, then-ask **0.29**, spot **78689.70**, model p 33.3%. Promoted. Bounce marked bid 0.12 then 0.03. `t_wait_stop` **−88.8%**, realized **−2.2204**. Peak bid 0.23. The 80% stop did what it was told.
+
+Same scan also wanted `T78599` rest 0.25 under ask **0.42** (p 42.0%, ~$90 from spot). Sort was `(ask − rest)`, so the **cheapest ask just above 25¢** won. Human rests the dump ATM. `T78499` is ~$190 below spot — further OTM NO / deeper ITM YES. The 05:20 dump that could have saved the nearer strike could not revive T78499.
+
+Fix: one wait, **nearest strike to spot**, then ask−rest. Do not loosen taker p=0.30. Do not rest YES on the later rally (p still <52%). After this loss, skip wait on `AUG2603`; same-direction taker still allowed.
+
+Paper completed: **1 / 0 / −2.2204**. Replay +7.98 is not 达成.
 
 ## Order book
 
