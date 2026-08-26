@@ -460,6 +460,35 @@ Paper completed **6 / 1 / −5.6825**. Hour still open. Do not switch.
 
 After the patch, same AUG2608 window: coupon 16h **7 / 4 / +0.15** vs nowait **−3.49**; 24h **+2.72** vs **−3.18**. `AUG2608` minute close still takes the 0.52 taker (the live 0.34 coupon is not on the 1-minute bar). `AUG2518` no longer takes the losing taker. Coupon still beats nowait. `AUG2520` still +41.5%.
 
+## AUG2609 close — coupon rested, taker stole the third dump (2026-08-26 ~13:00 UTC)
+
+Live coupon hour. It dumped. Do not treat this as coupon failure. The switch trigger is a closed live coupon hour that dumped and still could not print a human-style clip. This hour rested the human book twice; the third dump’s 0.36 coupon was stolen by taker priority. That is patched. `AUG2608` already clipped. Do not switch.
+
+| Time | Event |
+| --- | --- |
+| 12:06:29Z | Rest `T78299` NO **0.25** under ask **0.41**, impulse −$100, spot 78414 (~$115). One wait. Dump ask printed 0.37, not 0.25 — no fill |
+| 12:22:52Z | Impulse **+$102** → `wait_invalid`. Flip rule, not fade. Rally YES `T78499` / `T78599` / `T78699` stayed `blocked` |
+| 12:31:27Z | Second rest `T78199` NO **0.25** under ask **0.37**, impulse **−$281**, spot 78335 (~$135), p 33.6% |
+| 12:34 | Impulse **+$115** cancelled the second rest (flip) |
+| 12:38:31Z | Third dump: journal saw `T78099` ask **0.36** (human coupon, p ~0.30). Engine `takers[:1]` took `T78299` NO @ **0.51** p 61% |
+| 12:39:03Z | Fill. Peak bid 0.59 missed fee-on 10% clip at 0.60. `t_stop` **−0.6498** (−12.3%) |
+| after | No more T (last_loss hour). Coupon-first patch shipped 12:45 — too late for this fill |
+
+981 scans. Impulse floor **−$327**, ceiling +$157. Spot 78219–78648. Journal: 70 wait / 123 blocked / 11 open. No YES rest. No strike hop.
+
+Minute replay this hour is `incomplete data` at the close print. Sweep window now starts at AUG2609:
+
+| Run | 16h | 24h |
+| --- | ---: | ---: |
+| dump coupon (default) | 7 / 4 / **+0.15** | 12 / 8 / **+2.72** |
+| flex_nowait | 4 / 0 / −3.49 | 8 / 3 / −2.44 |
+| flex_wait_loose | 8 / 6 / +7.13 | 12 / 8 / +7.25 |
+| flex cheap p30/ask35 | 15 / 3 / −9.09 | 21 / 8 / −6.61 |
+
+16h matches the post-patch AUG2608 window (this hour replayed 0). 24h nowait moved −3.18 → −2.44 because a losing taker rolled out, not because coupon earned here. Coupon still beats nowait. `AUG2608` minute close still takes the 0.52 taker. Cheap still red. Do not switch on the 29¢ knife. Do not chase YES.
+
+Paper completed **6 / 1 / −5.6825**. Session: `last_loss_event=AUG2609`, `skip_next=True`, `skipped_event=AUG2610`. **`AUG2610` is skip-wait** (consecutive losses do not stack). Replay green is not 达成.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.

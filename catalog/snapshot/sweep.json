@@ -1,11 +1,12 @@
 {
-  "swept_at": "2026-08-26T12:51:07.496223+00:00",
+  "swept_at": "2026-08-26T13:00:44.257856+00:00",
   "hours": 24,
   "windows": [
     16,
     24
   ],
   "events": [
+    "KXBTCD-26AUG2609",
     "KXBTCD-26AUG2608",
     "KXBTCD-26AUG2607",
     "KXBTCD-26AUG2606",
@@ -28,8 +29,7 @@
     "KXBTCD-26AUG2513",
     "KXBTCD-26AUG2512",
     "KXBTCD-26AUG2511",
-    "KXBTCD-26AUG2510",
-    "KXBTCD-26AUG2509"
+    "KXBTCD-26AUG2510"
   ],
   "formula": "EV = p * b - (1 - p)",
   "runs": [
@@ -499,11 +499,11 @@
       "impulse_min_p": 0.3,
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
-      "take_count": 16,
+      "take_count": 15,
       "wins": 4,
-      "realized_pnl": -9.3789,
+      "realized_pnl": -8.6424,
       "exit_reasons": {
-        "t_stop": 12,
+        "t_stop": 11,
         "t_clip": 3,
         "invalidate": 1
       },
@@ -627,12 +627,12 @@
         },
         {
           "event": "KXBTCD-26AUG2519",
-          "side": "yes",
-          "ask": 0.26,
+          "side": "no",
+          "ask": 0.25,
           "play": "impulse_t",
           "exit": "t_stop",
-          "roi": -0.20430028887995025,
-          "pnl": -0.5587
+          "roi": -0.2095922167749781,
+          "pnl": -0.5514999999999999
         },
         {
           "event": "KXBTCD-26AUG2518",
@@ -642,15 +642,6 @@
           "exit": "invalidate",
           "roi": 0.018796692632866412,
           "pnl": 0.07070000000000043
-        },
-        {
-          "event": "KXBTCD-26AUG2517",
-          "side": "no",
-          "ask": 0.4,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.17497600767754326,
-          "pnl": -0.7293000000000003
         }
       ]
     },
@@ -662,13 +653,13 @@
       "impulse_min_p": 0.52,
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
-      "take_count": 8,
-      "wins": 3,
-      "realized_pnl": -2.337700000000001,
+      "take_count": 7,
+      "wins": 2,
+      "realized_pnl": -2.400300000000001,
       "exit_reasons": {
         "t_stop": 4,
         "t_fade": 1,
-        "t_clip": 3
+        "t_clip": 2
       },
       "takes": [
         {
@@ -726,22 +717,13 @@
           "pnl": 1.1731999999999996
         },
         {
-          "event": "KXBTCD-26AUG2519",
-          "side": "yes",
-          "ask": 0.49,
+          "event": "KXBTCD-26AUG2518",
+          "side": "no",
+          "ask": 0.46,
           "play": "impulse_t",
-          "exit": "t_clip",
-          "roi": 0.16914285714285707,
-          "pnl": 0.8583999999999996
-        },
-        {
-          "event": "KXBTCD-26AUG2517",
-          "side": "yes",
-          "ask": 0.64,
-          "play": "swing_t",
           "exit": "t_stop",
-          "roi": -0.2798683187782908,
-          "pnl": -1.8362999999999996
+          "roi": -0.2179559689143048,
+          "pnl": -1.0404999999999998
         }
       ]
     },
@@ -893,11 +875,11 @@
       "impulse_min_p": 0.52,
       "impulse_max_ask": 0.52,
       "impulse_wait": false,
-      "take_count": 9,
+      "take_count": 8,
       "wins": 3,
-      "realized_pnl": -3.1846999999999994,
+      "realized_pnl": -2.436399999999999,
       "exit_reasons": {
-        "t_stop": 6,
+        "t_stop": 5,
         "t_clip": 3
       },
       "takes": [
@@ -972,15 +954,6 @@
           "exit": "t_clip",
           "roi": 0.18585507246376817,
           "pnl": 0.9618000000000002
-        },
-        {
-          "event": "KXBTCD-26AUG2509",
-          "side": "no",
-          "ask": 0.49,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.14744827586206904,
-          "pnl": -0.7483000000000004
         }
       ]
     },
@@ -1244,12 +1217,12 @@
       "impulse_min_p": 0.3,
       "impulse_max_ask": 0.35,
       "impulse_wait": true,
-      "take_count": 22,
-      "wins": 9,
-      "realized_pnl": -6.293300000000001,
+      "take_count": 21,
+      "wins": 8,
+      "realized_pnl": -6.612200000000001,
       "exit_reasons": {
         "t_stop": 13,
-        "t_clip": 9
+        "t_clip": 8
       },
       "takes": [
         {
@@ -1440,15 +1413,6 @@
           "exit": "t_stop",
           "roi": -0.2851980815977925,
           "pnl": -0.8681999999999999
-        },
-        {
-          "event": "KXBTCD-26AUG2509",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_t",
-          "exit": "t_clip",
-          "roi": 0.12119484665374537,
-          "pnl": 0.3189000000000002
         }
       ]
     },
@@ -1460,12 +1424,12 @@
       "impulse_min_p": 0.3,
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
-      "take_count": 23,
-      "wins": 9,
-      "realized_pnl": -7.325300000000001,
+      "take_count": 22,
+      "wins": 8,
+      "realized_pnl": -7.644200000000001,
       "exit_reasons": {
         "t_stop": 13,
-        "t_clip": 8,
+        "t_clip": 7,
         "invalidate": 2
       },
       "takes": [
@@ -1666,15 +1630,6 @@
           "exit": "t_clip",
           "roi": 0.18585507246376817,
           "pnl": 0.9618000000000002
-        },
-        {
-          "event": "KXBTCD-26AUG2509",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_t",
-          "exit": "t_clip",
-          "roi": 0.12119484665374537,
-          "pnl": 0.3189000000000002
         }
       ]
     },
@@ -1686,11 +1641,11 @@
       "impulse_min_p": 0.52,
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
-      "take_count": 15,
+      "take_count": 14,
       "wins": 7,
-      "realized_pnl": -1.118600000000002,
+      "realized_pnl": -0.37030000000000163,
       "exit_reasons": {
-        "t_stop": 7,
+        "t_stop": 6,
         "t_fade": 1,
         "t_clip": 7
       },
@@ -1820,15 +1775,6 @@
           "exit": "t_clip",
           "roi": 0.18585507246376817,
           "pnl": 0.9618000000000002
-        },
-        {
-          "event": "KXBTCD-26AUG2509",
-          "side": "no",
-          "ask": 0.49,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.14744827586206904,
-          "pnl": -0.7483000000000004
         }
       ]
     },
