@@ -127,6 +127,33 @@ class FlexReplayTests(unittest.TestCase):
         self.assertGreaterEqual(take["roi"], 0.20)
         self.assertGreater(take["pnl"], 0)
 
+    def test_lock_clip_does_not_open_a_t_in_the_same_hour(self):
+        settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
+        maturity = datetime(2026, 8, 25, 18, 0, tzinfo=timezone.utc).timestamp()
+        bars = [
+            ReplayBar(
+                int(maturity - 1800),
+                79200,
+                0.55,
+                {78000.0: {"yes_ask": 0.81, "yes_bid": 0.80}},
+                impulse=0,
+            ),
+            ReplayBar(
+                int(maturity - 1740),
+                79380,
+                0.55,
+                {
+                    78000.0: {"yes_ask": 0.96, "yes_bid": 0.95},
+                    79199.99: {"yes_ask": 0.50, "yes_bid": 0.49},
+                },
+                impulse=180,
+            ),
+        ]
+        report = replay_bars("KXBTCD-26AUG2514", bars, {78000.0: "yes", 79199.99: "yes"}, maturity, settings)
+        self.assertEqual(len(report["takes"]), 1)
+        self.assertTrue(str(report["takes"][0]["play"]).startswith("lock"))
+        self.assertNotEqual(report["takes"][0]["play"], "impulse_t")
+
     def test_invalidate_cuts_a_losing_scalp(self):
         settings = Settings(playbook="scalp", max_contracts=1, max_notional=10, allow_early_exit=True)
         maturity = datetime(2026, 8, 25, 18, 0, tzinfo=timezone.utc).timestamp()

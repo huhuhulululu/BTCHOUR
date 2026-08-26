@@ -194,14 +194,14 @@ def replay_bars(
                     )
                     just_closed = (position["ticker"], position["side"])
                     play = (position.get("entry") or {}).get("play") or ""
-                    if play in {"swing_t", "impulse_t"}:
+                    if play in {"swing_t", "impulse_t"} or play.startswith("lock"):
                         swing_mem = remember_swing_exit(
                             swing_mem, position["ticker"], position["side"], action.reason, play
                         )
-                        if settings.skip_after_loss:
-                            session = remember_session_exit(
-                                session, event_ticker, action.reason, closed["pnl"]
-                            )
+                    if play in {"swing_t", "impulse_t"} and settings.skip_after_loss:
+                        session = remember_session_exit(
+                            session, event_ticker, action.reason, closed["pnl"], position["side"]
+                        )
                     position = None
 
         if position is None:
@@ -494,6 +494,7 @@ def _session_public(mem) -> dict | None:
     if hasattr(mem, "last_loss_event"):
         return {
             "last_loss_event": mem.last_loss_event,
+            "last_side": getattr(mem, "last_side", None),
             "skip_next": mem.skip_next,
             "skipped_event": mem.skipped_event,
         }

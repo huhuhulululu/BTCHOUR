@@ -5,14 +5,14 @@
 | Play | 何时进 | 何时出 |
 | --- | --- | --- |
 | `lock_hold` | σ≥3.2、p≥99.8%、ask≤$0.82、费后 b 和 EV 都 ≥20% | 拿到结算；盘口若已锁 20% 也可以提前走。**不做 T、不在 TWAP 前 flatten** |
-| `impulse_t` | 3 分钟 BRTI 至少动 **$100**，只做动量方向，ask $0.18–$0.52 | **10%–50%** 兑现带；**不翻仓**；亏了下一小时空仓 |
+| `impulse_t` | 3 分钟 BRTI 至少动 **$100**，只做动量方向，ask $0.18–$0.52 | **10%–50%** 兑现带；**不翻仓**；亏了下一小时只空**反方向**（同向可以续） |
 | `swing_t` | 小时/15m、距行权价 ≤$600、ask $0.18–$0.72、p≥55%、p−ask≥8% | 同一条 10%–50% 带 / 4¢ 回撤 / p 淡化 12 点；同一小时一张合约，不翻面 |
 | `lock_wait` | 已经决定但卖一还贵：在 $0.83 挂等 | **不成交不算入账** |
 | `hold_edge` / `markout_scalp` | 旧玩法，设 `BTCHOUR_PLAYBOOK=hold` 或 `scalp` | 见下 |
 
 单独只用短线：`BTCHOUR_PLAYBOOK=swing`。单独只用锁仓：`BTCHOUR_PLAYBOOK=lock`（见 [`lock.md`](lock.md)）。做T细则见 [`swing.md`](swing.md)。
 
-反复对照：`python3 -m btchour sweep --hours 16`。每个小时的 K 线只拉一次（缓存在 `data/replay-cache/`），再在同一段带子上跑 flex / swing / lock，以及「亏了下一小时空仓」开/关。`--hours 16` 也会拉满 24 小时并同时报告两个窗口。
+反复对照：`python3 -m btchour sweep --hours 16`。每个小时的 K 线只拉一次（缓存在 `data/replay-cache/`），再在同一段带子上跑 flex / swing / lock，以及「亏了下一小时只空反方向」开/关。`--hours 16` 也会拉满 24 小时并同时报告两个窗口。
 
 ## 盘口锁定 / clip
 
@@ -33,4 +33,4 @@ round_trip_roi = (P − exit_fee − C) / C
 - 收盘前：`FLATTEN_SECONDS=40`
 - `ALLOW_EARLY_EXIT=1`
 
-灵活的意思是：**能锁 20% 就锁；有明确动量就做一笔 T；10%–50% 都算正常兑现；模型塌了就砍；不翻面。** 不是每笔保证 20%。没有票就空仓。
+灵活的意思是：**能锁 20% 就锁；有明确动量就做一笔 T；锁过这小时不再开 T；10%–50% 都算正常兑现；模型塌了就砍；不翻面。** 不是每笔保证 20%。没有票就空仓。

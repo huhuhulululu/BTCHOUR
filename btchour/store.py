@@ -207,13 +207,20 @@ class Store:
                 raw = json.loads(row["raw"] or "{}")
             except Exception:
                 raw = {}
-            if raw.get("play") not in {"swing_t", "impulse_t"}:
-                continue
+            play = raw.get("play") or ""
             event = row["event_ticker"]
             current = memories.get(event) or SwingMemory()
+            if play.startswith("lock"):
+                if row["status"] in {"closed", "settled"}:
+                    memories[event] = remember_swing_exit(
+                        current, row["ticker"], row["side"], row["result"] or "", play
+                    )
+                continue
+            if play not in {"swing_t", "impulse_t"}:
+                continue
             if row["status"] in {"closed", "settled"}:
                 memories[event] = remember_swing_exit(
-                    current, row["ticker"], row["side"], row["result"] or "", raw.get("play") or ""
+                    current, row["ticker"], row["side"], row["result"] or "", play
                 )
             elif row["status"] in {"open", "working"}:
                 memories[event] = SwingMemory(ticker=row["ticker"], side=row["side"], dead=current.dead)
@@ -224,7 +231,7 @@ class Store:
 
         mem = SessionMemory()
         rows = self.conn.execute(
-            "SELECT event_ticker, status, result, pnl, raw FROM trades ORDER BY id"
+            "SELECT event_ticker, side, status, result, pnl, raw FROM trades ORDER BY id"
         ).fetchall()
         for row in rows:
             raw = {}
@@ -235,7 +242,9 @@ class Store:
             if raw.get("play") not in {"swing_t", "impulse_t"}:
                 continue
             if row["status"] in {"closed", "settled"}:
-                mem = remember_session_exit(mem, row["event_ticker"], row["result"] or "", row["pnl"])
+                mem = remember_session_exit(
+                    mem, row["event_ticker"], row["result"] or "", row["pnl"], row["side"]
+                )
         return mem
 
     def summary(self) -> dict:

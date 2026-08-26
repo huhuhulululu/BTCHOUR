@@ -476,9 +476,10 @@ class SwingMemory:
 
 @dataclass
 class SessionMemory:
-    """After a losing T, skip the next hourly event. Tired direction is the failure mode."""
+    """After a losing T, skip the opposite side next hour. Same-direction continuation is allowed."""
 
     last_loss_event: str | None = None
+    last_side: str | None = None
     skip_next: bool = False
     skipped_event: str | None = None
 
@@ -490,11 +491,15 @@ def remember_swing_exit(
 
 
 def remember_session_exit(
-    session: SessionMemory | None, event_ticker: str, reason: str, pnl: float | None
+    session: SessionMemory | None,
+    event_ticker: str,
+    reason: str,
+    pnl: float | None,
+    side: str | None = None,
 ) -> SessionMemory:
     lost = (pnl is not None and pnl < 0) or reason in {"t_stop", "t_fade", "invalidate", "flatten_time"}
     if lost:
-        return SessionMemory(last_loss_event=event_ticker, skip_next=True)
+        return SessionMemory(last_loss_event=event_ticker, last_side=side, skip_next=True)
     return SessionMemory()
 
 
@@ -507,6 +512,7 @@ def refresh_session(session: SessionMemory | None, current_event: str | None) ->
     if session.skipped_event is None:
         return SessionMemory(
             last_loss_event=session.last_loss_event,
+            last_side=session.last_side,
             skip_next=True,
             skipped_event=current_event,
         )
@@ -533,6 +539,8 @@ def allow_session(opportunity: Opportunity, session: SessionMemory | None) -> bo
     if opportunity.event_ticker == session.last_loss_event:
         return False
     if session.skipped_event is None or opportunity.event_ticker == session.skipped_event:
+        if session.last_side and opportunity.side == session.last_side:
+            return True
         return False
     return True
 

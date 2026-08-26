@@ -64,21 +64,41 @@ class ManualDisciplineTests(unittest.TestCase):
         )
         self.assertEqual(evaluate_impulse_market(market, spot, self.settings, self.now), [])
 
-    def test_loss_skips_the_next_hour(self):
-        session = remember_session_exit(SessionMemory(), "KXBTCD-26AUG2520", "t_stop", -1.2)
+    def test_loss_skips_the_opposite_side_next_hour(self):
+        session = remember_session_exit(SessionMemory(), "KXBTCD-26AUG2520", "t_stop", -1.2, "no")
         session = refresh_session(session, "KXBTCD-26AUG2521")
-        spot = SpotQuote(78480, "test", annual_vol=0.55, impulse=-160)
-        later = _market(
+        now = datetime(2026, 8, 26, 0, 20, tzinfo=timezone.utc)
+        dump = _market(
             ticker="KXBTCD-26AUG2521-T78599.99",
             event_ticker="KXBTCD-26AUG2521",
             floor_strike=78599.99,
             open_time="2026-08-26T00:00:00Z",
             close_time="2026-08-26T01:00:00Z",
         )
-        opps = scan_markets([later], spot, self.settings, datetime(2026, 8, 26, 0, 20, tzinfo=timezone.utc))
-        kept = apply_swing_memory(opps, None, session)
-        self.assertTrue(opps)
-        self.assertEqual(kept, [])
+        chase = _market(
+            ticker="KXBTCD-26AUG2521-T78499.99",
+            event_ticker="KXBTCD-26AUG2521",
+            floor_strike=78499.99,
+            yes_bid_dollars="0.48",
+            yes_ask_dollars="0.49",
+            no_bid_dollars="0.51",
+            no_ask_dollars="0.52",
+            open_time="2026-08-26T00:00:00Z",
+            close_time="2026-08-26T01:00:00Z",
+        )
+        dump_opps = apply_swing_memory(
+            scan_markets([dump], SpotQuote(78480, "test", annual_vol=0.55, impulse=-160), self.settings, now),
+            None,
+            session,
+        )
+        chase_opps = apply_swing_memory(
+            scan_markets([chase], SpotQuote(78680, "test", annual_vol=0.55, impulse=160), self.settings, now),
+            None,
+            session,
+        )
+        self.assertTrue(dump_opps)
+        self.assertEqual(dump_opps[0].side, "no")
+        self.assertEqual(chase_opps, [])
         cleared = refresh_session(session, "KXBTCD-26AUG2522")
         self.assertFalse(cleared.skip_next)
 

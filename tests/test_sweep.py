@@ -134,11 +134,11 @@ class SweepTests(unittest.TestCase):
             ReplayBar(int(maturity_a - 1740), 78940, 0.55, {strike: {"yes_ask": 0.85, "yes_bid": 0.84}}),
         ]
         win_bars = [
-            ReplayBar(int(maturity_b - 1980), 78920, 0.55, {strike: {"yes_ask": 0.75, "yes_bid": 0.74}}),
-            ReplayBar(int(maturity_b - 1920), 78880, 0.55, {strike: {"yes_ask": 0.75, "yes_bid": 0.74}}),
-            ReplayBar(int(maturity_b - 1860), 78840, 0.55, {strike: {"yes_ask": 0.75, "yes_bid": 0.74}}),
-            ReplayBar(int(maturity_b - 1800), 78680, 0.55, {strike: {"yes_ask": 0.75, "yes_bid": 0.74}}),
-            ReplayBar(int(maturity_b - 1740), 78580, 0.55, {strike: {"yes_ask": 0.62, "yes_bid": 0.61}}),
+            ReplayBar(int(maturity_b - 1980), 78680, 0.55, {strike: {"yes_ask": 0.48, "yes_bid": 0.47}}),
+            ReplayBar(int(maturity_b - 1920), 78720, 0.55, {strike: {"yes_ask": 0.48, "yes_bid": 0.47}}),
+            ReplayBar(int(maturity_b - 1860), 78760, 0.55, {strike: {"yes_ask": 0.48, "yes_bid": 0.47}}),
+            ReplayBar(int(maturity_b - 1800), 78900, 0.55, {strike: {"yes_ask": 0.48, "yes_bid": 0.47}}),
+            ReplayBar(int(maturity_b - 1740), 79020, 0.55, {strike: {"yes_ask": 0.62, "yes_bid": 0.61}}),
         ]
         tapes = [
             tape_from_bars("KXBTCD-26AUG2511", win_bars, {strike: "no"}, maturity_b, (78699.99, 78799.99)),

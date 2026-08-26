@@ -137,7 +137,7 @@ Account fills (read-only). Same-side clips on the dump were the working rule: ma
 
 After that, direction broke: flip YES at $0.61 on `T78499`, hop strikes, chase $0.58–$0.86 YES, then `AUG2521` YES→NO flip. That is fatigue, not a new edge.
 
-Engine change: T realizes a **10%–50%** band (floor / cap), **no flip**, **skip the next hour after a loss**, ask floor **$0.18**, ask cap **$0.52**. See [`manual.md`](manual.md).
+Engine change: T realizes a **10%–50%** band (floor / cap), **no flip**, **skip the opposite side next hour after a loss**, ask floor **$0.18**, ask cap **$0.52**. See [`manual.md`](manual.md).
 
 `replay --hours 16 --playbook flex` after that change (AUG2505–AUG2520, 10 contracts): **6 takes / 3 wins / −0.84**.
 
@@ -150,7 +150,40 @@ Engine change: T realizes a **10%–50%** band (floor / cap), **no flip**, **ski
 | `AUG2508` | NO | `t_clip` | +16% |
 | `AUG2518` | NO | `t_stop` | −22% |
 
-Clips and the 20% lock are still green. `AUG2520` (the manual dump hour) is **0 takes** on minute closes — the 20–25¢ maker NO prints do not show up as candle closes. `AUG2510` is skipped because `AUG2509` stopped; that is the tired-direction rule, not a missed lock. Leftover loss is still **1-minute stop gaps**. This is not “10% every hour.”
+Clips and the 20% lock are still green. `AUG2520` (the manual dump hour) is **0 takes** on minute closes — the 20–25¢ maker NO prints do not show up as candle closes. Leftover loss is still **1-minute stop gaps**. This is not “10% every hour.”
+
+## Repeated sweep (2026-08-26 ~01:17 UTC)
+
+`python3 -m btchour sweep --hours 16` caches each hour once, then replays flex / swing / lock with skip on/off, on both 16h and 24h.
+
+First pass (skip the **whole** next hour, lock then T still allowed):
+
+| Run | Takes | Wins | PnL |
+| --- | ---: | ---: | ---: |
+| flex skip 16h | 6 | 3 | **−0.84** |
+| flex no-skip 16h | 8 | 5 | **+0.98** |
+| swing skip 16h | 11 | 6 | +0.37 |
+| lock 16h | 0 | 0 | 0 |
+| flex skip 24h | 11 | 5 | −1.20 |
+| lock 24h | 1 | 1 | +1.89 |
+
+The two hours the blunt skip dropped were clips: `AUG2510` same-direction NO +19%, and `AUG2519` opposite YES +17%. 24h flex also took `AUG2423` lock_hold +20% and then an ATM impulse T that stopped **−43%**. That second bite is a bug.
+
+After the fix (lock closes the hour for T; skip only the **opposite** side):
+
+| Run | Takes | Wins | PnL |
+| --- | ---: | ---: | ---: |
+| flex skip 16h | 7 | 4 | **+0.12** |
+| flex no-skip 16h | 8 | 5 | +0.98 |
+| swing skip 16h | 12 | 6 | −1.07 |
+| lock 16h | 0 | 0 | 0 |
+| flex skip 24h | 11 | 6 | **+2.18** |
+| flex no-skip 24h | 13 | 7 | +2.09 |
+| lock 24h | 1 | 1 | +1.89 |
+
+`AUG2510` NO after `AUG2509` NO stop is now taken. `AUG2519` YES after `AUG2518` NO stop stays skipped (tired flip). `AUG2423` keeps the lock and does not open the −43% T. Value-gap `swing` still overtrades. Ask cap stays **$0.52** — loosening it is how the 16h losers appeared.
+
+Live `AUG2522` at ~01:15 UTC: BRTI ≈ 78725, impulse ≈ −$56, **0 lock / 0 T**. Paper ledger still **0 completed fills** (two $0.83 waits only). This is not “every hour prints 10–50%.”
 
 ## Order book
 
