@@ -7,7 +7,7 @@ from btchour.config import Settings
 from btchour.fees import fill_cost, lock_exit_price, max_entry_price
 from btchour.kalshi import Market
 from btchour.model import SpotQuote, digital_prob, effective_vol, sigma_cushion
-from btchour.tickers import is_hourly_window, next_event_ticker
+from btchour.tickers import is_hourly_window, next_event_ticker, next_session_event_ticker, parse_event_ticker
 
 T_PLAYS = frozenset({"swing_t", "impulse_t", "impulse_wait"})
 WAIT_PLAYS = frozenset({"lock_wait", "impulse_wait"})
@@ -148,6 +148,29 @@ def _window_seconds(open_time: str | None, close_time: str | None) -> float:
 def is_fast_window(open_time: str | None, close_time: str | None) -> bool:
     seconds = _window_seconds(open_time, close_time)
     return 8 * 60 <= seconds <= 70 * 60
+
+
+def is_kxbtcd_event(event_ticker: str) -> bool:
+    try:
+        parse_event_ticker(event_ticker)
+        return True
+    except ValueError:
+        return False
+
+
+def is_next_session_book(market: Market, now: datetime) -> bool:
+    """Coupon only on the book that closes at the next whole hour."""
+    ticker = market.event_ticker or ""
+    return bool(ticker) and is_kxbtcd_event(ticker) and ticker == next_session_event_ticker(now)
+
+
+def is_coupon_window(seconds_left: float, settings: Settings) -> bool:
+    """Use time left to the next close, not the contract's lifetime.
+
+    The 5pm book is often tagged daily and has been open ~25 hours. At 16:13
+    ET it still has ~47 minutes left — that is the hourly we trade.
+    """
+    return settings.swing_min_seconds - 1e-12 <= seconds_left <= 70 * 60 + 1e-12
 
 
 def _eligible_market(market: Market, settings: Settings, now: datetime) -> float | None:
@@ -540,16 +563,24 @@ def evaluate_impulse_wait_market(
     settings: Settings,
     now: datetime | None = None,
 ) -> list[Opportunity]:
-    """Rest a maker NO under a visible 32–42¢ coupon. Dump is the fill filter."""
+    """Rest a maker NO under a visible 32–42¢ coupon on the next hourly close.
+
+    One-hour tape: volume sits on the near-ATM rung of the next whole-hour
+    book; trend is the −$100 dump fill; cheap is 32–42¢ vs a 25¢ rest.
+    Clip 10–50%. If the move will not come back, scratch or stop — do not
+    hope for a retrace into a smashed ask.
+    """
     now = now or datetime.now(timezone.utc)
     if not settings.impulse_wait or not settings.allow_maker:
         return []
     if settings.playbook != "flex":
         return []
-    if not is_fast_window(market.open_time, market.close_time):
+    if not is_next_session_book(market, now):
         return []
-    seconds = _eligible_market(market, settings, now)
-    if seconds is None or seconds + 1e-12 < settings.swing_min_seconds:
+    if market.strike is None or market.strike_type not in {"greater", "greater_or_equal"}:
+        return []
+    seconds = _seconds_left(market.close_time, now)
+    if not is_coupon_window(seconds, settings):
         return []
     move = spot.impulse
     if not dump_wait_rest_ready(move, settings):

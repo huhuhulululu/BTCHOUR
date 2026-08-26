@@ -13,6 +13,7 @@ from btchour.kalshi import market_from_api
 from btchour.model import SpotQuote, digital_prob
 from btchour.paper import paper_fill
 from btchour.replay import ReplayBar, replay_bars
+from btchour.tickers import parse_event_ticker
 from btchour.strategy import (
     SessionMemory,
     SwingMemory,
@@ -21,6 +22,8 @@ from btchour.strategy import (
     dump_wait_rest_ready,
     evaluate_impulse_wait_market,
     impulse_wait_flipped,
+    is_coupon_window,
+    is_fast_window,
     pick_flex_entries,
     remember_session_exit,
     remember_swing_exit,
@@ -50,6 +53,11 @@ def _market(**overrides):
     }
     base.update(overrides)
     return market_from_api(base)
+
+
+def _close_ts(event_ticker: str) -> float:
+    """Replay maturity must be that hour's close, or next-session gating misses."""
+    return parse_event_ticker(event_ticker)["close_utc"].timestamp()
 
 
 class ImpulseWaitTests(unittest.TestCase):
@@ -786,6 +794,83 @@ class ImpulseWaitTests(unittest.TestCase):
             wait_book_crossed("no", 0.25, 0.32, yes_bid_high=0.76, impulse=-40, min_impulse=100)
         )
 
+    def test_five_pm_daily_label_is_the_hourly_when_47_minutes_left(self):
+        # 16:13 ET → next close is 17:00. Kalshi tags that print daily / ~25h life.
+        now = datetime(2026, 8, 26, 20, 13, tzinfo=timezone.utc)
+        coupon = _market(
+            ticker="KXBTCD-26AUG2617-T78499.99",
+            event_ticker="KXBTCD-26AUG2617",
+            floor_strike=78499.99,
+            yes_bid_dollars="0.63",
+            yes_ask_dollars="0.64",
+            no_bid_dollars="0.35",
+            no_ask_dollars="0.36",
+            open_time="2026-08-25T20:00:00Z",
+            close_time="2026-08-26T21:00:00Z",
+        )
+        self.assertFalse(is_fast_window(coupon.open_time, coupon.close_time))
+        self.assertTrue(is_coupon_window(47 * 60, self.settings))
+        spot = SpotQuote(78468, "test", annual_vol=0.55, impulse=-20)
+        opps = evaluate_impulse_wait_market(coupon, spot, self.settings, now)
+        self.assertTrue(opps)
+        self.assertEqual(opps[0].play, "impulse_wait")
+        self.assertAlmostEqual(opps[0].limit_price, 0.25)
+        self.assertAlmostEqual(opps[0].ask, 0.36)
+
+    def test_same_daily_book_does_not_rest_with_three_hours_left(self):
+        now = datetime(2026, 8, 26, 18, 0, tzinfo=timezone.utc)
+        coupon = _market(
+            ticker="KXBTCD-26AUG2617-T78499.99",
+            event_ticker="KXBTCD-26AUG2617",
+            floor_strike=78499.99,
+            yes_bid_dollars="0.63",
+            yes_ask_dollars="0.64",
+            no_bid_dollars="0.35",
+            no_ask_dollars="0.36",
+            open_time="2026-08-25T20:00:00Z",
+            close_time="2026-08-26T21:00:00Z",
+        )
+        spot = SpotQuote(78468, "test", annual_vol=0.55, impulse=-20)
+        self.assertEqual(evaluate_impulse_wait_market(coupon, spot, self.settings, now), [])
+
+    def test_fifteen_minute_book_is_not_the_hourly(self):
+        now = datetime(2026, 8, 26, 20, 13, tzinfo=timezone.utc)
+        market = _market(
+            ticker="KXBTC15M-26AUG261615-T78455.56",
+            event_ticker="KXBTC15M-26AUG261615",
+            floor_strike=78455.56,
+            yes_bid_dollars="0.61",
+            yes_ask_dollars="0.62",
+            no_bid_dollars="0.37",
+            no_ask_dollars="0.38",
+            open_time="2026-08-26T20:00:00Z",
+            close_time="2026-08-26T20:15:00Z",
+        )
+        spot = SpotQuote(78468, "test", annual_vol=0.55, impulse=-20)
+        self.assertTrue(is_fast_window(market.open_time, market.close_time))
+        self.assertEqual(evaluate_impulse_wait_market(market, spot, self.settings, now), [])
+
+    def test_daily_rung_218_away_rests_under_the_250_cap(self):
+        now = datetime(2026, 8, 26, 20, 13, tzinfo=timezone.utc)
+        coupon = _market(
+            ticker="KXBTCD-26AUG2617-T78249.99",
+            event_ticker="KXBTCD-26AUG2617",
+            floor_strike=78249.99,
+            yes_bid_dollars="0.63",
+            yes_ask_dollars="0.64",
+            no_bid_dollars="0.35",
+            no_ask_dollars="0.36",
+            open_time="2026-08-25T20:00:00Z",
+            close_time="2026-08-26T21:00:00Z",
+        )
+        spot = SpotQuote(78468, "test", annual_vol=0.55, impulse=-20)
+        self.assertAlmostEqual(abs(78249.99 - 78468), 218.01)
+        tight = Settings(playbook="flex", max_contracts=1, allow_maker=True, impulse_wait_max_distance=150)
+        self.assertEqual(evaluate_impulse_wait_market(coupon, spot, tight, now), [])
+        opps = evaluate_impulse_wait_market(coupon, spot, self.settings, now)
+        self.assertTrue(opps)
+        self.assertAlmostEqual(opps[0].limit_price, 0.25)
+
 
 class ImpulseWaitEngineTests(unittest.TestCase):
     def setUp(self):
@@ -1018,7 +1103,7 @@ class ImpulseWaitReplayTests(unittest.TestCase):
 
     def test_coupon_rest_beats_a_fifty_one_taker_on_the_same_dump(self):
         settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
-        maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
+        maturity = _close_ts("KXBTCD-26AUG2609")
         coupon = 78599.99
         taker = 78799.99
         bars = [
@@ -1059,7 +1144,7 @@ class ImpulseWaitReplayTests(unittest.TestCase):
             allow_early_exit=True,
             impulse_taker=True,
         )
-        maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
+        maturity = _close_ts("KXBTCD-26AUG2611")
         taker = 78799.99
         coupon = 78599.99
         bars = [
@@ -1113,7 +1198,7 @@ class ImpulseWaitReplayTests(unittest.TestCase):
             allow_early_exit=True,
             impulse_taker=True,
         )
-        maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
+        maturity = _close_ts("KXBTCD-26AUG2614")
         taker = 78799.99
         coupon = 78599.99
         bars = [

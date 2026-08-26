@@ -10,6 +10,8 @@ from btchour.tickers import (
     format_event_ticker,
     is_hourly_window,
     next_event_ticker,
+    next_hourly_close,
+    next_session_event_ticker,
     parse_event_ticker,
     parse_market_ticker,
 )
@@ -38,6 +40,14 @@ class TickerTests(unittest.TestCase):
         self.assertEqual(next_event_ticker("KXBTCD-26AUG2602"), "KXBTCD-26AUG2603")
         self.assertEqual(next_event_ticker("KXBTCD-26AUG2523"), "KXBTCD-26AUG2600")
 
+    def test_next_session_is_the_next_whole_hour_close(self):
+        et = ZoneInfo("America/New_York")
+        at_416 = datetime(2026, 8, 26, 16, 13, tzinfo=et)
+        self.assertEqual(next_hourly_close(at_416).hour, 17)
+        self.assertEqual(next_session_event_ticker(at_416), "KXBTCD-26AUG2617")
+        after_close = datetime(2026, 8, 26, 17, 0, 1, tzinfo=et)
+        self.assertEqual(next_session_event_ticker(after_close), "KXBTCD-26AUG2618")
+
     def test_hourly_window(self):
         self.assertTrue(is_hourly_window("2026-08-25T17:00:00Z", "2026-08-25T18:00:00Z"))
         self.assertFalse(is_hourly_window("2026-08-25T17:00:00Z", "2026-08-25T21:00:00Z"))
@@ -58,3 +68,22 @@ class TickerTests(unittest.TestCase):
         events = [{"event_ticker": "KXBTCD-26AUG2602"}]
         focus = current_hourly_events(events, now)
         self.assertEqual(focus[0]["event_ticker"], "KXBTCD-26AUG2602")
+
+    def test_focus_is_the_5pm_book_at_416_even_among_later_dailies(self):
+        now = datetime(2026, 8, 26, 16, 13, tzinfo=ZoneInfo("America/New_York"))
+        events = [
+            {"event_ticker": "KXBTCD-26AUG2617"},
+            {"event_ticker": "KXBTCD-26AUG2717"},
+            {"event_ticker": "KXBTCD-26AUG2817"},
+        ]
+        focus = current_hourly_events(events, now)
+        self.assertEqual(focus[0]["event_ticker"], "KXBTCD-26AUG2617")
+
+    def test_focus_rolls_to_6pm_after_the_5pm_close(self):
+        now = datetime(2026, 8, 26, 17, 0, 1, tzinfo=ZoneInfo("America/New_York"))
+        events = [
+            {"event_ticker": "KXBTCD-26AUG2617"},
+            {"event_ticker": "KXBTCD-26AUG2618"},
+        ]
+        focus = current_hourly_events(events, now)
+        self.assertEqual(focus[0]["event_ticker"], "KXBTCD-26AUG2618")

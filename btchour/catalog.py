@@ -7,7 +7,7 @@ from pathlib import Path
 from btchour.config import CATALOG_DIR, DATA_DIR, Settings
 from btchour.kalshi import KalshiClient, Market
 from btchour.spot import fetch_spot
-from btchour.tickers import is_hourly_window, parse_event_ticker
+from btchour.tickers import is_hourly_window, next_session_event_ticker, parse_event_ticker
 
 
 RELATED_SERIES = ("KXBTCD", "KXBTC", "KXBTC15M")
@@ -58,14 +58,22 @@ def _event_summary(event: dict) -> dict:
 
 
 def current_hourly_events(events: list[dict], now: datetime | None = None) -> list[dict]:
-    """Prefer the still-open hour. A just-closed event stays 'open' on Kalshi through TWAP
-    and would otherwise win abs(close-now) for ~30 minutes into the next hour."""
+    """Prefer the next whole-hour close. 16:13 ET → the 17:00 ET book.
+
+    Kalshi may tag that 5pm print `cadence=daily` and keep a just-closed
+    event `open` through TWAP. Neither changes which book we trade.
+    """
     now = now or datetime.now(timezone.utc)
+    target = next_session_event_ticker(now)
     live: list[tuple[datetime, dict]] = []
     closed: list[tuple[datetime, dict]] = []
+    by_ticker: dict[str, dict] = {}
     for event in events:
+        ticker = event.get("event_ticker") or ""
+        if ticker:
+            by_ticker[ticker] = event
         try:
-            parsed = parse_event_ticker(event["event_ticker"])
+            parsed = parse_event_ticker(ticker)
         except (KeyError, ValueError):
             continue
         close = parsed["close_utc"]
@@ -74,10 +82,26 @@ def current_hourly_events(events: list[dict], now: datetime | None = None) -> li
         else:
             closed.append((close, event))
     live.sort(key=lambda row: row[0])
+    if target in by_ticker:
+        rest = [event for _, event in live if event.get("event_ticker") != target]
+        return [by_ticker[target]] + rest
     if live:
         return [event for _, event in live]
     closed.sort(key=lambda row: row[0], reverse=True)
     return [event for _, event in closed]
+
+
+def _event_from_payload(payload: dict | None, ticker: str) -> dict | None:
+    if not payload:
+        return None
+    event = payload.get("event") if isinstance(payload.get("event"), dict) else payload
+    if not isinstance(event, dict):
+        return None
+    if event.get("event_ticker"):
+        return event
+    if payload.get("event_ticker"):
+        return payload
+    return {"event_ticker": ticker, "title": event.get("title"), "status": event.get("status"), "product_metadata": event.get("product_metadata") or {}}
 
 
 def sync_catalog(client: KalshiClient, settings: Settings, *, light: bool = False) -> dict:
@@ -95,6 +119,7 @@ def sync_catalog(client: KalshiClient, settings: Settings, *, light: bool = Fals
     for market in open_markets:
         by_event.setdefault(market.event_ticker, []).append(market)
 
+    target = next_session_event_ticker(now)
     hourly_open = []
     for event in open_events:
         markets = by_event.get(event["event_ticker"], [])
@@ -103,19 +128,49 @@ def sync_catalog(client: KalshiClient, settings: Settings, *, light: bool = Fals
         hourly = cadence == "hourly" if cadence else True
         if sample and cadence is None:
             hourly = is_hourly_window(sample.open_time, sample.close_time)
+        if event.get("event_ticker") == target:
+            hourly_open.append(event)
+            continue
         if settings.hourly_only and not hourly:
             continue
         hourly_open.append(event)
 
-    focus = current_hourly_events(hourly_open or open_events, now)
-    focus_event = focus[0] if focus else None
+    focus_pool = list(hourly_open or open_events)
+    if target not in {event.get("event_ticker") for event in focus_pool}:
+        for event in unopened_events:
+            if event.get("event_ticker") == target:
+                focus_pool.append(event)
+                break
+    if target not in {event.get("event_ticker") for event in focus_pool}:
+        try:
+            fetched_event = _event_from_payload(client.get(f"/events/{target}"), target)
+            if fetched_event:
+                focus_pool.append(fetched_event)
+        except Exception:
+            pass
+    if target not in by_event:
+        try:
+            fetched_markets = client.markets_by_event(target)
+            if fetched_markets:
+                by_event[target] = fetched_markets
+        except Exception:
+            pass
+
+    focus = current_hourly_events(focus_pool, now)
+    focus_event = next((event for event in focus_pool if event.get("event_ticker") == target), None)
+    if focus_event is None:
+        focus_event = focus[0] if focus else None
     focus_markets = by_event.get(focus_event["event_ticker"], []) if focus_event else []
     spot = fetch_spot(client, focus_event["event_ticker"] if focus_event else None)
 
     tradable = []
+    tradable_tickers: set[str] = set()
     for event in open_events:
         cadence = (event.get("product_metadata") or {}).get("cadence")
-        if cadence == "hourly":
+        ticker = event.get("event_ticker") or ""
+        if ticker == target:
+            include = True
+        elif cadence == "hourly":
             include = True
         elif cadence == "daily":
             include = settings.scan_daily
@@ -125,13 +180,25 @@ def sync_catalog(client: KalshiClient, settings: Settings, *, light: bool = Fals
             include = not settings.hourly_only
         if not include:
             continue
-        markets = by_event.get(event["event_ticker"], [])
+        markets = by_event.get(ticker, [])
+        tradable_tickers.add(ticker)
         tradable.append(
             {
                 "event": _event_summary(event),
                 "market_count": len(markets),
                 "markets": [_compact_market(m) for m in sorted(markets, key=lambda m: m.strike or 0)],
             }
+        )
+    if focus_event and focus_event.get("event_ticker") not in tradable_tickers:
+        ticker = focus_event["event_ticker"]
+        markets = by_event.get(ticker, [])
+        tradable.insert(
+            0,
+            {
+                "event": _event_summary(focus_event),
+                "market_count": len(markets),
+                "markets": [_compact_market(m) for m in sorted(markets, key=lambda m: m.strike or 0)],
+            },
         )
     if settings.scan_15m and not light:
         try:

@@ -21,7 +21,7 @@ python3 -m btchour sync
 | `catalog/research/manual.md` | 账户成交里守规矩的 10%–50% 和累了选错方向 |
 | `data/catalog/latest.json` | 运行时副本（不入库） |
 
-同一 `KXBTCD` 系列里还有 daily / weekly 场次（例如 5pm EDT）。小时盘以 `product_metadata.cadence=hourly` 为准。
+小时盘 = 下一个整点收盘的 `KXBTCD-{YY}{MON}{DD}{HH}`。4:13 ET 做 5 点截止的盘。Kalshi 可能把这场标成 `cadence=daily`；不要因此改做 15 分钟盘或跳到下一张未开的 hourly。
 
 相关但不作为小时盘主路径的系列：
 

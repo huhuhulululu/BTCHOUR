@@ -74,6 +74,24 @@ def next_event_ticker(event_ticker: str) -> str:
     return format_event_ticker(parsed["close_et"] + timedelta(hours=1), parsed["series"])
 
 
+def next_hourly_close(now: datetime | None = None) -> datetime:
+    """Next whole hour in America/New_York. 16:13 ET → 17:00 ET."""
+    local = now.astimezone(ET) if now is not None else datetime.now(ET)
+    close = local.replace(minute=0, second=0, microsecond=0)
+    if local >= close:
+        close = close + timedelta(hours=1)
+    return close
+
+
+def next_session_event_ticker(now: datetime | None = None, series: str = "KXBTCD") -> str:
+    """The book that closes at the next whole hour. That is the hourly.
+
+    16:13 ET → KXBTCD-…17 (5pm close), even when Kalshi tags that print daily.
+    17:00:01 ET → the 6pm book. Not the 15-minute series.
+    """
+    return format_event_ticker(next_hourly_close(now), series)
+
+
 def is_hourly_window(open_time: str | None, close_time: str | None) -> bool:
     if not open_time or not close_time:
         return False
