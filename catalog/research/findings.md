@@ -371,6 +371,25 @@ Minute replay this hour is `incomplete data` (TWAP / live_data not published at 
 
 16h unchanged (this hour replayed 0). 24h fell because `AUG2506` +3.33 rolled out. Coupon still beats nowait. `AUG2520` still +41.5%. Cheap still red. Paper completed **4 / 0 / −5.4829**. `AUG2607` is live coupon. Replay green is not 达成.
 
+## AUG2607 close — live coupon hour, no dump (2026-08-26 ~11:00 UTC)
+
+`skip_next=False`. 450 scans, **0 wait journals**, 0 T fills. Impulse floor **−$87**, never ≤−$100, so no 32–42¢ coupon book to rest. Rally YES to +$117 stayed `blocked` (`T78899` p 31¢ / `T78799` ask 0.59). `lock_wait` YES `T77399` 0.83 `wait_invalid`.
+
+Empty coupon is **no dump**, not coupon failure. Do not switch. The switch trigger is a live hour that actually dumped and still could not print a human-style clip.
+
+`AUG2606` minute tape is now complete: band 78399.99–78499.99, replay same-dir NO @ 0.51 `t_stop` −0.75 (paper was 0.46 / −0.6455). `AUG2607` tape still `incomplete data` at the close print.
+
+New window (AUG2607–AUG2516 / AUG2607–AUG2508):
+
+| Run | 16h | 24h |
+| --- | ---: | ---: |
+| dump coupon (default) | 7 / 4 / **+0.06** | 13 / 8 / **+1.02** |
+| flex_nowait | 4 / 1 / −1.68 | 9 / 4 / −1.27 |
+| flex_wait_loose | 8 / 6 / +5.46 | 13 / 9 / +5.87 |
+| flex cheap p30/ask35 | 15 / 5 / −6.54 | 22 / 8 / −7.88 |
+
+16h fell because `AUG2606` replay taker −0.75 rolled in. Coupon still beats nowait. `AUG2520` still +41.5%. Cheap still red. Paper completed **4 / 0 / −5.4829**. `AUG2608` is the next live coupon rest. Replay green is not 达成.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.
