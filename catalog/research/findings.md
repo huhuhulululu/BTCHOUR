@@ -272,6 +272,17 @@ Do not loosen taker p=0.30. Do not rest YES on rallies. After this loss, skip wa
 
 Paper completed: **1 / 0 / −2.2204**. Replay green is not 达成.
 
+Cache sweep after the switch (AUG2601–AUG2502, 10 contracts):
+
+| Run | 16h | 24h |
+| --- | ---: | ---: |
+| dump coupon (new default) | 10 / 7 / **+1.03** (1 scratch) | 15 / 10 / **+2.97** |
+| flex_nowait | 5 / 3 / +0.01 | 8 / 4 / −0.53 |
+| flex_wait_loose (old 26–48¢) | 10 / 8 / +5.51 | 17 / 13 / +8.24 |
+| flex cheap p30/ask35 | 14 / 6 / −3.94 | 22 / 9 / −7.92 |
+
+`AUG2520` still clips +41.5% under the new default. Loose wait is greener on 1-minute bars because it still eats 29¢ knives. Paper already proved that path. Default stays dump coupon while it beats nowait. Cheap taker still red.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.

@@ -1,11 +1,13 @@
 {
-  "swept_at": "2026-08-26T03:27:18.545464+00:00",
+  "swept_at": "2026-08-26T05:50:50.837749+00:00",
   "hours": 24,
   "windows": [
     16,
     24
   ],
   "events": [
+    "KXBTCD-26AUG2601",
+    "KXBTCD-26AUG2600",
     "KXBTCD-26AUG2523",
     "KXBTCD-26AUG2522",
     "KXBTCD-26AUG2521",
@@ -27,9 +29,7 @@
     "KXBTCD-26AUG2505",
     "KXBTCD-26AUG2504",
     "KXBTCD-26AUG2503",
-    "KXBTCD-26AUG2502",
-    "KXBTCD-26AUG2501",
-    "KXBTCD-26AUG2500"
+    "KXBTCD-26AUG2502"
   ],
   "formula": "EV = p * b - (1 - p)",
   "runs": [
@@ -41,22 +41,23 @@
       "impulse_min_p": 0.52,
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
-      "take_count": 14,
-      "wins": 13,
-      "realized_pnl": 9.8946,
+      "take_count": 10,
+      "wins": 7,
+      "realized_pnl": 1.0294000000000028,
       "exit_reasons": {
-        "t_clip": 13,
-        "t_stop": 1
+        "t_scratch": 1,
+        "t_clip": 7,
+        "t_stop": 2
       },
       "takes": [
         {
-          "event": "KXBTCD-26AUG2522",
+          "event": "KXBTCD-26AUG2600",
           "side": "no",
           "ask": 0.25,
           "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.18008000000000007,
-          "pnl": 0.45020000000000016
+          "exit": "t_scratch",
+          "roi": -0.6252,
+          "pnl": -1.563
         },
         {
           "event": "KXBTCD-26AUG2521",
@@ -64,8 +65,8 @@
           "ask": 0.25,
           "play": "impulse_wait",
           "exit": "t_clip",
-          "roi": 0.8500799999999998,
-          "pnl": 2.1251999999999995
+          "roi": 0.18008000000000007,
+          "pnl": 0.45020000000000016
         },
         {
           "event": "KXBTCD-26AUG2520",
@@ -77,22 +78,13 @@
           "pnl": 1.0368000000000004
         },
         {
-          "event": "KXBTCD-26AUG2519",
-          "side": "yes",
-          "ask": 0.49,
-          "play": "impulse_t",
-          "exit": "t_clip",
-          "roi": 0.16914285714285707,
-          "pnl": 0.8583999999999996
-        },
-        {
           "event": "KXBTCD-26AUG2518",
           "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.2580800000000002,
-          "pnl": 0.6452000000000004
+          "ask": 0.46,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.2179559689143048,
+          "pnl": -1.0404999999999998
         },
         {
           "event": "KXBTCD-26AUG2517",
@@ -113,22 +105,13 @@
           "pnl": 0.7584
         },
         {
-          "event": "KXBTCD-26AUG2514",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.21904000000000004,
-          "pnl": 0.5476000000000001
-        },
-        {
           "event": "KXBTCD-26AUG2513",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.10231999999999992,
-          "pnl": 0.2557999999999998
+          "side": "yes",
+          "ask": 0.5,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.3733526570048308,
+          "pnl": -1.9320999999999993
         },
         {
           "event": "KXBTCD-26AUG2512",
@@ -136,8 +119,8 @@
           "ask": 0.25,
           "play": "impulse_wait",
           "exit": "t_clip",
-          "roi": 0.14120000000000008,
-          "pnl": 0.3530000000000002
+          "roi": 0.18008000000000007,
+          "pnl": 0.45020000000000016
         },
         {
           "event": "KXBTCD-26AUG2511",
@@ -156,24 +139,6 @@
           "exit": "t_clip",
           "roi": 0.18585507246376817,
           "pnl": 0.9618000000000002
-        },
-        {
-          "event": "KXBTCD-26AUG2509",
-          "side": "no",
-          "ask": 0.49,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.14744827586206904,
-          "pnl": -0.7483000000000004
-        },
-        {
-          "event": "KXBTCD-26AUG2508",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.2971600000000002,
-          "pnl": 0.7429000000000006
         }
       ]
     },
@@ -185,12 +150,12 @@
       "impulse_min_p": 0.52,
       "impulse_max_ask": 0.52,
       "impulse_wait": false,
-      "take_count": 7,
-      "wins": 4,
-      "realized_pnl": 0.12350000000000172,
+      "take_count": 5,
+      "wins": 3,
+      "realized_pnl": 0.010000000000001563,
       "exit_reasons": {
-        "t_stop": 3,
-        "t_clip": 4
+        "t_stop": 2,
+        "t_clip": 3
       },
       "takes": [
         {
@@ -237,51 +202,34 @@
           "exit": "t_clip",
           "roi": 0.18585507246376817,
           "pnl": 0.9618000000000002
-        },
-        {
-          "event": "KXBTCD-26AUG2509",
-          "side": "no",
-          "ask": 0.49,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.14744827586206904,
-          "pnl": -0.7483000000000004
-        },
-        {
-          "event": "KXBTCD-26AUG2508",
-          "side": "no",
-          "ask": 0.51,
-          "play": "impulse_t",
-          "exit": "t_clip",
-          "roi": 0.1633744075829385,
-          "pnl": 0.8618000000000006
         }
       ]
     },
     {
-      "name": "flex_noskip_16h",
+      "name": "flex_wait_loose_16h",
       "hours": 16,
       "playbook": "flex",
-      "skip_after_loss": false,
+      "skip_after_loss": true,
       "impulse_min_p": 0.52,
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
-      "take_count": 14,
-      "wins": 13,
-      "realized_pnl": 9.188600000000001,
+      "take_count": 10,
+      "wins": 8,
+      "realized_pnl": 5.509500000000001,
       "exit_reasons": {
-        "t_clip": 13,
+        "t_wait_stop": 1,
+        "t_clip": 8,
         "t_stop": 1
       },
       "takes": [
         {
-          "event": "KXBTCD-26AUG2522",
+          "event": "KXBTCD-26AUG2600",
           "side": "no",
           "ask": 0.25,
           "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.18008000000000007,
-          "pnl": 0.45020000000000016
+          "exit": "t_wait_stop",
+          "roi": -0.81332,
+          "pnl": -2.0333
         },
         {
           "event": "KXBTCD-26AUG2521",
@@ -316,8 +264,8 @@
           "ask": 0.25,
           "play": "impulse_wait",
           "exit": "t_clip",
-          "roi": 0.2580800000000002,
-          "pnl": 0.6452000000000004
+          "roi": 0.7306799999999999,
+          "pnl": 1.8266999999999998
         },
         {
           "event": "KXBTCD-26AUG2517",
@@ -338,31 +286,13 @@
           "pnl": 0.7584
         },
         {
-          "event": "KXBTCD-26AUG2514",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.21904000000000004,
-          "pnl": 0.5476000000000001
-        },
-        {
           "event": "KXBTCD-26AUG2513",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.10231999999999992,
-          "pnl": 0.2557999999999998
-        },
-        {
-          "event": "KXBTCD-26AUG2512",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.14120000000000008,
-          "pnl": 0.3530000000000002
+          "side": "yes",
+          "ask": 0.5,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.3733526570048308,
+          "pnl": -1.9320999999999993
         },
         {
           "event": "KXBTCD-26AUG2511",
@@ -376,6 +306,34 @@
         {
           "event": "KXBTCD-26AUG2510",
           "side": "no",
+          "ask": 0.5,
+          "play": "impulse_t",
+          "exit": "t_clip",
+          "roi": 0.18585507246376817,
+          "pnl": 0.9618000000000002
+        }
+      ]
+    },
+    {
+      "name": "flex_noskip_16h",
+      "hours": 16,
+      "playbook": "flex",
+      "skip_after_loss": false,
+      "impulse_min_p": 0.52,
+      "impulse_max_ask": 0.52,
+      "impulse_wait": true,
+      "take_count": 12,
+      "wins": 9,
+      "realized_pnl": 2.143600000000002,
+      "exit_reasons": {
+        "t_clip": 9,
+        "t_scratch": 1,
+        "t_stop": 2
+      },
+      "takes": [
+        {
+          "event": "KXBTCD-26AUG2601",
+          "side": "no",
           "ask": 0.25,
           "play": "impulse_wait",
           "exit": "t_clip",
@@ -383,22 +341,103 @@
           "pnl": 0.2557999999999998
         },
         {
-          "event": "KXBTCD-26AUG2509",
+          "event": "KXBTCD-26AUG2600",
           "side": "no",
-          "ask": 0.49,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.14744827586206904,
-          "pnl": -0.7483000000000004
+          "ask": 0.25,
+          "play": "impulse_wait",
+          "exit": "t_scratch",
+          "roi": -0.6252,
+          "pnl": -1.563
         },
         {
-          "event": "KXBTCD-26AUG2508",
+          "event": "KXBTCD-26AUG2521",
           "side": "no",
           "ask": 0.25,
           "play": "impulse_wait",
           "exit": "t_clip",
-          "roi": 0.2971600000000002,
-          "pnl": 0.7429000000000006
+          "roi": 0.18008000000000007,
+          "pnl": 0.45020000000000016
+        },
+        {
+          "event": "KXBTCD-26AUG2520",
+          "side": "no",
+          "ask": 0.25,
+          "play": "impulse_wait",
+          "exit": "t_clip",
+          "roi": 0.41472000000000014,
+          "pnl": 1.0368000000000004
+        },
+        {
+          "event": "KXBTCD-26AUG2519",
+          "side": "yes",
+          "ask": 0.49,
+          "play": "impulse_t",
+          "exit": "t_clip",
+          "roi": 0.16914285714285707,
+          "pnl": 0.8583999999999996
+        },
+        {
+          "event": "KXBTCD-26AUG2518",
+          "side": "no",
+          "ask": 0.46,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.2179559689143048,
+          "pnl": -1.0404999999999998
+        },
+        {
+          "event": "KXBTCD-26AUG2517",
+          "side": "no",
+          "ask": 0.25,
+          "play": "impulse_wait",
+          "exit": "t_clip",
+          "roi": 0.2580800000000002,
+          "pnl": 0.6452000000000004
+        },
+        {
+          "event": "KXBTCD-26AUG2516",
+          "side": "no",
+          "ask": 0.5,
+          "play": "impulse_t",
+          "exit": "t_clip",
+          "roi": 0.14655072463768115,
+          "pnl": 0.7584
+        },
+        {
+          "event": "KXBTCD-26AUG2513",
+          "side": "yes",
+          "ask": 0.5,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.3733526570048308,
+          "pnl": -1.9320999999999993
+        },
+        {
+          "event": "KXBTCD-26AUG2512",
+          "side": "no",
+          "ask": 0.25,
+          "play": "impulse_wait",
+          "exit": "t_clip",
+          "roi": 0.18008000000000007,
+          "pnl": 0.45020000000000016
+        },
+        {
+          "event": "KXBTCD-26AUG2511",
+          "side": "yes",
+          "ask": 0.47,
+          "play": "impulse_t",
+          "exit": "t_clip",
+          "roi": 0.2589857213195471,
+          "pnl": 1.2624000000000004
+        },
+        {
+          "event": "KXBTCD-26AUG2510",
+          "side": "no",
+          "ask": 0.5,
+          "play": "impulse_t",
+          "exit": "t_clip",
+          "roi": 0.18585507246376817,
+          "pnl": 0.9618000000000002
         }
       ]
     },
@@ -410,14 +449,23 @@
       "impulse_min_p": 0.3,
       "impulse_max_ask": 0.35,
       "impulse_wait": true,
-      "take_count": 15,
-      "wins": 11,
-      "realized_pnl": 2.8461,
+      "take_count": 14,
+      "wins": 6,
+      "realized_pnl": -3.9391,
       "exit_reasons": {
-        "t_stop": 4,
-        "t_clip": 11
+        "t_stop": 8,
+        "t_clip": 6
       },
       "takes": [
+        {
+          "event": "KXBTCD-26AUG2600",
+          "side": "yes",
+          "ask": 0.18,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.5077230219607018,
+          "pnl": -0.9663999999999997
+        },
         {
           "event": "KXBTCD-26AUG2523",
           "side": "yes",
@@ -438,39 +486,39 @@
         },
         {
           "event": "KXBTCD-26AUG2521",
-          "side": "yes",
-          "ask": 0.33,
+          "side": "no",
+          "ask": 0.34,
           "play": "impulse_t",
           "exit": "t_clip",
-          "roi": 0.19497510709737176,
-          "pnl": 0.6736
+          "roi": 0.10500126507548269,
+          "pnl": 0.3734999999999995
         },
         {
           "event": "KXBTCD-26AUG2520",
-          "side": "yes",
-          "ask": 0.26,
+          "side": "no",
+          "ask": 0.27,
           "play": "impulse_t",
           "exit": "t_stop",
-          "roi": -0.20430028887995025,
-          "pnl": -0.5587
+          "roi": -0.5698379140239606,
+          "pnl": -1.6172
         },
         {
           "event": "KXBTCD-26AUG2519",
-          "side": "yes",
-          "ask": 0.26,
+          "side": "no",
+          "ask": 0.25,
           "play": "impulse_t",
           "exit": "t_stop",
-          "roi": -0.20430028887995025,
-          "pnl": -0.5587
+          "roi": -0.2095922167749781,
+          "pnl": -0.5514999999999999
         },
         {
           "event": "KXBTCD-26AUG2518",
           "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.2580800000000002,
-          "pnl": 0.6452000000000004
+          "ask": 0.29,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.2851980815977925,
+          "pnl": -0.8681999999999999
         },
         {
           "event": "KXBTCD-26AUG2517",
@@ -493,20 +541,20 @@
         {
           "event": "KXBTCD-26AUG2514",
           "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.21904000000000004,
-          "pnl": 0.5476000000000001
+          "ask": 0.28,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.12892696858425132,
+          "pnl": -0.3792
         },
         {
           "event": "KXBTCD-26AUG2513",
           "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.10231999999999992,
-          "pnl": 0.2557999999999998
+          "ask": 0.28,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.29287365701074397,
+          "pnl": -0.8614000000000002
         },
         {
           "event": "KXBTCD-26AUG2512",
@@ -514,8 +562,8 @@
           "ask": 0.25,
           "play": "impulse_wait",
           "exit": "t_clip",
-          "roi": 0.14120000000000008,
-          "pnl": 0.3530000000000002
+          "roi": 0.18008000000000007,
+          "pnl": 0.45020000000000016
         },
         {
           "event": "KXBTCD-26AUG2511",
@@ -528,30 +576,12 @@
         },
         {
           "event": "KXBTCD-26AUG2510",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.10231999999999992,
-          "pnl": 0.2557999999999998
-        },
-        {
-          "event": "KXBTCD-26AUG2509",
           "side": "yes",
-          "ask": 0.33,
-          "play": "impulse_t",
-          "exit": "t_clip",
-          "roi": 0.10918142873682984,
-          "pnl": 0.37719999999999976
-        },
-        {
-          "event": "KXBTCD-26AUG2508",
-          "side": "yes",
-          "ask": 0.31,
+          "ask": 0.29,
           "play": "impulse_t",
           "exit": "t_stop",
-          "roi": -0.15200935442181063,
-          "pnl": -0.4940000000000002
+          "roi": -0.2851980815977925,
+          "pnl": -0.8681999999999999
         }
       ]
     },
@@ -563,15 +593,24 @@
       "impulse_min_p": 0.3,
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
-      "take_count": 15,
-      "wins": 10,
-      "realized_pnl": -0.4543000000000015,
+      "take_count": 14,
+      "wins": 7,
+      "realized_pnl": -2.1656000000000013,
       "exit_reasons": {
-        "t_stop": 5,
-        "t_clip": 9,
-        "invalidate": 1
+        "t_stop": 6,
+        "t_clip": 6,
+        "invalidate": 2
       },
       "takes": [
+        {
+          "event": "KXBTCD-26AUG2600",
+          "side": "yes",
+          "ask": 0.18,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.5077230219607018,
+          "pnl": -0.9663999999999997
+        },
         {
           "event": "KXBTCD-26AUG2523",
           "side": "yes",
@@ -647,29 +686,29 @@
         {
           "event": "KXBTCD-26AUG2514",
           "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.21904000000000004,
-          "pnl": 0.5476000000000001
+          "ask": 0.28,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.12892696858425132,
+          "pnl": -0.3792
         },
         {
           "event": "KXBTCD-26AUG2513",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
+          "side": "yes",
+          "ask": 0.28,
+          "play": "impulse_t",
           "exit": "t_clip",
-          "roi": 0.10231999999999992,
-          "pnl": 0.2557999999999998
+          "roi": 0.13582891336869296,
+          "pnl": 0.39949999999999974
         },
         {
           "event": "KXBTCD-26AUG2512",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.14120000000000008,
-          "pnl": 0.3530000000000002
+          "side": "yes",
+          "ask": 0.39,
+          "play": "impulse_t",
+          "exit": "invalidate",
+          "roi": -0.1061328874243841,
+          "pnl": -0.4316000000000004
         },
         {
           "event": "KXBTCD-26AUG2511",
@@ -683,29 +722,11 @@
         {
           "event": "KXBTCD-26AUG2510",
           "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.10231999999999992,
-          "pnl": 0.2557999999999998
-        },
-        {
-          "event": "KXBTCD-26AUG2509",
-          "side": "yes",
-          "ask": 0.33,
+          "ask": 0.5,
           "play": "impulse_t",
           "exit": "t_clip",
-          "roi": 0.10918142873682984,
-          "pnl": 0.37719999999999976
-        },
-        {
-          "event": "KXBTCD-26AUG2508",
-          "side": "yes",
-          "ask": 0.31,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.15200935442181063,
-          "pnl": -0.4940000000000002
+          "roi": 0.18585507246376817,
+          "pnl": 0.9618000000000002
         }
       ]
     },
@@ -717,12 +738,12 @@
       "impulse_min_p": 0.52,
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
-      "take_count": 11,
-      "wins": 6,
-      "realized_pnl": -0.032399999999999984,
+      "take_count": 9,
+      "wins": 5,
+      "realized_pnl": -0.14590000000000014,
       "exit_reasons": {
-        "t_stop": 5,
-        "t_clip": 6
+        "t_stop": 4,
+        "t_clip": 5
       },
       "takes": [
         {
@@ -805,24 +826,6 @@
           "exit": "t_clip",
           "roi": 0.18585507246376817,
           "pnl": 0.9618000000000002
-        },
-        {
-          "event": "KXBTCD-26AUG2509",
-          "side": "no",
-          "ask": 0.49,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.14744827586206904,
-          "pnl": -0.7483000000000004
-        },
-        {
-          "event": "KXBTCD-26AUG2508",
-          "side": "no",
-          "ask": 0.51,
-          "play": "impulse_t",
-          "exit": "t_clip",
-          "roi": 0.1633744075829385,
-          "pnl": 0.8618000000000006
         }
       ]
     },
@@ -848,23 +851,23 @@
       "impulse_min_p": 0.52,
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
-      "take_count": 20,
-      "wins": 17,
-      "realized_pnl": 11.977900000000002,
+      "take_count": 15,
+      "wins": 10,
+      "realized_pnl": 2.969800000000003,
       "exit_reasons": {
-        "t_clip": 17,
-        "t_stop": 2,
-        "t_wait_stop": 1
+        "t_scratch": 1,
+        "t_clip": 10,
+        "t_stop": 4
       },
       "takes": [
         {
-          "event": "KXBTCD-26AUG2522",
+          "event": "KXBTCD-26AUG2600",
           "side": "no",
           "ask": 0.25,
           "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.18008000000000007,
-          "pnl": 0.45020000000000016
+          "exit": "t_scratch",
+          "roi": -0.6252,
+          "pnl": -1.563
         },
         {
           "event": "KXBTCD-26AUG2521",
@@ -872,8 +875,8 @@
           "ask": 0.25,
           "play": "impulse_wait",
           "exit": "t_clip",
-          "roi": 0.8500799999999998,
-          "pnl": 2.1251999999999995
+          "roi": 0.18008000000000007,
+          "pnl": 0.45020000000000016
         },
         {
           "event": "KXBTCD-26AUG2520",
@@ -885,22 +888,13 @@
           "pnl": 1.0368000000000004
         },
         {
-          "event": "KXBTCD-26AUG2519",
-          "side": "yes",
-          "ask": 0.49,
-          "play": "impulse_t",
-          "exit": "t_clip",
-          "roi": 0.16914285714285707,
-          "pnl": 0.8583999999999996
-        },
-        {
           "event": "KXBTCD-26AUG2518",
           "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.2580800000000002,
-          "pnl": 0.6452000000000004
+          "ask": 0.46,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.2179559689143048,
+          "pnl": -1.0404999999999998
         },
         {
           "event": "KXBTCD-26AUG2517",
@@ -921,22 +915,13 @@
           "pnl": 0.7584
         },
         {
-          "event": "KXBTCD-26AUG2514",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.21904000000000004,
-          "pnl": 0.5476000000000001
-        },
-        {
           "event": "KXBTCD-26AUG2513",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.10231999999999992,
-          "pnl": 0.2557999999999998
+          "side": "yes",
+          "ask": 0.5,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.3733526570048308,
+          "pnl": -1.9320999999999993
         },
         {
           "event": "KXBTCD-26AUG2512",
@@ -944,8 +929,8 @@
           "ask": 0.25,
           "play": "impulse_wait",
           "exit": "t_clip",
-          "roi": 0.14120000000000008,
-          "pnl": 0.3530000000000002
+          "roi": 0.18008000000000007,
+          "pnl": 0.45020000000000016
         },
         {
           "event": "KXBTCD-26AUG2511",
@@ -984,15 +969,6 @@
           "pnl": 0.8618000000000006
         },
         {
-          "event": "KXBTCD-26AUG2507",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_wait_stop",
-          "roi": -0.81332,
-          "pnl": -2.0333
-        },
-        {
           "event": "KXBTCD-26AUG2506",
           "side": "no",
           "ask": 0.25,
@@ -1002,22 +978,13 @@
           "pnl": 0.45020000000000016
         },
         {
-          "event": "KXBTCD-26AUG2505",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.4933600000000002,
-          "pnl": 1.2334000000000005
-        },
-        {
           "event": "KXBTCD-26AUG2504",
           "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.41472000000000014,
-          "pnl": 1.0368000000000004
+          "ask": 0.49,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.1278620689655171,
+          "pnl": -0.6488999999999994
         },
         {
           "event": "KXBTCD-26AUG2503",
@@ -1027,15 +994,6 @@
           "exit": "t_clip",
           "roi": 0.8102399999999996,
           "pnl": 2.025599999999999
-        },
-        {
-          "event": "KXBTCD-26AUG2500",
-          "side": "yes",
-          "ask": 0.49,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.14744827586206904,
-          "pnl": -0.7483000000000004
         }
       ]
     },
@@ -1047,11 +1005,11 @@
       "impulse_min_p": 0.52,
       "impulse_max_ask": 0.52,
       "impulse_wait": false,
-      "take_count": 9,
+      "take_count": 8,
       "wins": 4,
-      "realized_pnl": -1.273699999999998,
+      "realized_pnl": -0.5253999999999976,
       "exit_reasons": {
-        "t_stop": 5,
+        "t_stop": 4,
         "t_clip": 4
       },
       "takes": [
@@ -1126,43 +1084,34 @@
           "exit": "t_stop",
           "roi": -0.1278620689655171,
           "pnl": -0.6488999999999994
-        },
-        {
-          "event": "KXBTCD-26AUG2500",
-          "side": "yes",
-          "ask": 0.49,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.14744827586206904,
-          "pnl": -0.7483000000000004
         }
       ]
     },
     {
-      "name": "flex_noskip_24h",
+      "name": "flex_wait_loose_24h",
       "hours": 24,
       "playbook": "flex",
-      "skip_after_loss": false,
+      "skip_after_loss": true,
       "impulse_min_p": 0.52,
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
-      "take_count": 21,
-      "wins": 17,
-      "realized_pnl": 10.2076,
+      "take_count": 17,
+      "wins": 13,
+      "realized_pnl": 8.2421,
       "exit_reasons": {
-        "t_clip": 17,
-        "t_stop": 3,
-        "t_wait_stop": 1
+        "t_wait_stop": 2,
+        "t_clip": 13,
+        "t_stop": 2
       },
       "takes": [
         {
-          "event": "KXBTCD-26AUG2522",
+          "event": "KXBTCD-26AUG2600",
           "side": "no",
           "ask": 0.25,
           "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.18008000000000007,
-          "pnl": 0.45020000000000016
+          "exit": "t_wait_stop",
+          "roi": -0.81332,
+          "pnl": -2.0333
         },
         {
           "event": "KXBTCD-26AUG2521",
@@ -1197,8 +1146,8 @@
           "ask": 0.25,
           "play": "impulse_wait",
           "exit": "t_clip",
-          "roi": 0.2580800000000002,
-          "pnl": 0.6452000000000004
+          "roi": 0.7306799999999999,
+          "pnl": 1.8266999999999998
         },
         {
           "event": "KXBTCD-26AUG2517",
@@ -1219,31 +1168,13 @@
           "pnl": 0.7584
         },
         {
-          "event": "KXBTCD-26AUG2514",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.21904000000000004,
-          "pnl": 0.5476000000000001
-        },
-        {
           "event": "KXBTCD-26AUG2513",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.10231999999999992,
-          "pnl": 0.2557999999999998
-        },
-        {
-          "event": "KXBTCD-26AUG2512",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.14120000000000008,
-          "pnl": 0.3530000000000002
+          "side": "yes",
+          "ask": 0.5,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.3733526570048308,
+          "pnl": -1.9320999999999993
         },
         {
           "event": "KXBTCD-26AUG2511",
@@ -1257,11 +1188,11 @@
         {
           "event": "KXBTCD-26AUG2510",
           "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
+          "ask": 0.5,
+          "play": "impulse_t",
           "exit": "t_clip",
-          "roi": 0.10231999999999992,
-          "pnl": 0.2557999999999998
+          "roi": 0.18585507246376817,
+          "pnl": 0.9618000000000002
         },
         {
           "event": "KXBTCD-26AUG2509",
@@ -1275,11 +1206,11 @@
         {
           "event": "KXBTCD-26AUG2508",
           "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
+          "ask": 0.51,
+          "play": "impulse_t",
           "exit": "t_clip",
-          "roi": 0.2971600000000002,
-          "pnl": 0.7429000000000006
+          "roi": 0.1633744075829385,
+          "pnl": 0.8618000000000006
         },
         {
           "event": "KXBTCD-26AUG2507",
@@ -1287,8 +1218,8 @@
           "ask": 0.25,
           "play": "impulse_wait",
           "exit": "t_wait_stop",
-          "roi": -0.81332,
-          "pnl": -2.0333
+          "roi": -0.85076,
+          "pnl": -2.1269
         },
         {
           "event": "KXBTCD-26AUG2506",
@@ -1325,24 +1256,187 @@
           "exit": "t_clip",
           "roi": 0.8102399999999996,
           "pnl": 2.025599999999999
+        }
+      ]
+    },
+    {
+      "name": "flex_noskip_24h",
+      "hours": 24,
+      "playbook": "flex",
+      "skip_after_loss": false,
+      "impulse_min_p": 0.52,
+      "impulse_max_ask": 0.52,
+      "impulse_wait": true,
+      "take_count": 18,
+      "wins": 13,
+      "realized_pnl": 5.317400000000003,
+      "exit_reasons": {
+        "t_clip": 13,
+        "t_scratch": 1,
+        "t_stop": 4
+      },
+      "takes": [
+        {
+          "event": "KXBTCD-26AUG2601",
+          "side": "no",
+          "ask": 0.25,
+          "play": "impulse_wait",
+          "exit": "t_clip",
+          "roi": 0.10231999999999992,
+          "pnl": 0.2557999999999998
         },
         {
-          "event": "KXBTCD-26AUG2501",
+          "event": "KXBTCD-26AUG2600",
           "side": "no",
-          "ask": 0.48,
+          "ask": 0.25,
+          "play": "impulse_wait",
+          "exit": "t_scratch",
+          "roi": -0.6252,
+          "pnl": -1.563
+        },
+        {
+          "event": "KXBTCD-26AUG2521",
+          "side": "no",
+          "ask": 0.25,
+          "play": "impulse_wait",
+          "exit": "t_clip",
+          "roi": 0.18008000000000007,
+          "pnl": 0.45020000000000016
+        },
+        {
+          "event": "KXBTCD-26AUG2520",
+          "side": "no",
+          "ask": 0.25,
+          "play": "impulse_wait",
+          "exit": "t_clip",
+          "roi": 0.41472000000000014,
+          "pnl": 1.0368000000000004
+        },
+        {
+          "event": "KXBTCD-26AUG2519",
+          "side": "yes",
+          "ask": 0.49,
+          "play": "impulse_t",
+          "exit": "t_clip",
+          "roi": 0.16914285714285707,
+          "pnl": 0.8583999999999996
+        },
+        {
+          "event": "KXBTCD-26AUG2518",
+          "side": "no",
+          "ask": 0.46,
           "play": "impulse_t",
           "exit": "t_stop",
-          "roi": -0.1900377904639383,
-          "pnl": -0.9454000000000002
+          "roi": -0.2179559689143048,
+          "pnl": -1.0404999999999998
         },
         {
-          "event": "KXBTCD-26AUG2500",
+          "event": "KXBTCD-26AUG2517",
+          "side": "no",
+          "ask": 0.25,
+          "play": "impulse_wait",
+          "exit": "t_clip",
+          "roi": 0.2580800000000002,
+          "pnl": 0.6452000000000004
+        },
+        {
+          "event": "KXBTCD-26AUG2516",
+          "side": "no",
+          "ask": 0.5,
+          "play": "impulse_t",
+          "exit": "t_clip",
+          "roi": 0.14655072463768115,
+          "pnl": 0.7584
+        },
+        {
+          "event": "KXBTCD-26AUG2513",
           "side": "yes",
+          "ask": 0.5,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.3733526570048308,
+          "pnl": -1.9320999999999993
+        },
+        {
+          "event": "KXBTCD-26AUG2512",
+          "side": "no",
+          "ask": 0.25,
+          "play": "impulse_wait",
+          "exit": "t_clip",
+          "roi": 0.18008000000000007,
+          "pnl": 0.45020000000000016
+        },
+        {
+          "event": "KXBTCD-26AUG2511",
+          "side": "yes",
+          "ask": 0.47,
+          "play": "impulse_t",
+          "exit": "t_clip",
+          "roi": 0.2589857213195471,
+          "pnl": 1.2624000000000004
+        },
+        {
+          "event": "KXBTCD-26AUG2510",
+          "side": "no",
+          "ask": 0.5,
+          "play": "impulse_t",
+          "exit": "t_clip",
+          "roi": 0.18585507246376817,
+          "pnl": 0.9618000000000002
+        },
+        {
+          "event": "KXBTCD-26AUG2509",
+          "side": "no",
           "ask": 0.49,
           "play": "impulse_t",
           "exit": "t_stop",
           "roi": -0.14744827586206904,
           "pnl": -0.7483000000000004
+        },
+        {
+          "event": "KXBTCD-26AUG2508",
+          "side": "no",
+          "ask": 0.51,
+          "play": "impulse_t",
+          "exit": "t_clip",
+          "roi": 0.1633744075829385,
+          "pnl": 0.8618000000000006
+        },
+        {
+          "event": "KXBTCD-26AUG2506",
+          "side": "no",
+          "ask": 0.25,
+          "play": "impulse_wait",
+          "exit": "t_clip",
+          "roi": 0.18008000000000007,
+          "pnl": 0.45020000000000016
+        },
+        {
+          "event": "KXBTCD-26AUG2505",
+          "side": "no",
+          "ask": 0.25,
+          "play": "impulse_wait",
+          "exit": "t_clip",
+          "roi": 0.4933600000000002,
+          "pnl": 1.2334000000000005
+        },
+        {
+          "event": "KXBTCD-26AUG2504",
+          "side": "no",
+          "ask": 0.49,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.1278620689655171,
+          "pnl": -0.6488999999999994
+        },
+        {
+          "event": "KXBTCD-26AUG2503",
+          "side": "no",
+          "ask": 0.25,
+          "play": "impulse_wait",
+          "exit": "t_clip",
+          "roi": 0.8102399999999996,
+          "pnl": 2.025599999999999
         }
       ]
     },
@@ -1354,14 +1448,23 @@
       "impulse_min_p": 0.3,
       "impulse_max_ask": 0.35,
       "impulse_wait": true,
-      "take_count": 23,
-      "wins": 13,
-      "realized_pnl": -1.8894999999999986,
+      "take_count": 22,
+      "wins": 9,
+      "realized_pnl": -7.918399999999999,
       "exit_reasons": {
-        "t_stop": 10,
-        "t_clip": 13
+        "t_stop": 13,
+        "t_clip": 9
       },
       "takes": [
+        {
+          "event": "KXBTCD-26AUG2600",
+          "side": "yes",
+          "ask": 0.18,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.5077230219607018,
+          "pnl": -0.9663999999999997
+        },
         {
           "event": "KXBTCD-26AUG2523",
           "side": "yes",
@@ -1382,39 +1485,39 @@
         },
         {
           "event": "KXBTCD-26AUG2521",
-          "side": "yes",
-          "ask": 0.33,
+          "side": "no",
+          "ask": 0.34,
           "play": "impulse_t",
           "exit": "t_clip",
-          "roi": 0.19497510709737176,
-          "pnl": 0.6736
+          "roi": 0.10500126507548269,
+          "pnl": 0.3734999999999995
         },
         {
           "event": "KXBTCD-26AUG2520",
-          "side": "yes",
-          "ask": 0.26,
+          "side": "no",
+          "ask": 0.27,
           "play": "impulse_t",
           "exit": "t_stop",
-          "roi": -0.20430028887995025,
-          "pnl": -0.5587
+          "roi": -0.5698379140239606,
+          "pnl": -1.6172
         },
         {
           "event": "KXBTCD-26AUG2519",
-          "side": "yes",
-          "ask": 0.26,
+          "side": "no",
+          "ask": 0.25,
           "play": "impulse_t",
           "exit": "t_stop",
-          "roi": -0.20430028887995025,
-          "pnl": -0.5587
+          "roi": -0.2095922167749781,
+          "pnl": -0.5514999999999999
         },
         {
           "event": "KXBTCD-26AUG2518",
           "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.2580800000000002,
-          "pnl": 0.6452000000000004
+          "ask": 0.29,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.2851980815977925,
+          "pnl": -0.8681999999999999
         },
         {
           "event": "KXBTCD-26AUG2517",
@@ -1437,20 +1540,20 @@
         {
           "event": "KXBTCD-26AUG2514",
           "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.21904000000000004,
-          "pnl": 0.5476000000000001
+          "ask": 0.28,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.12892696858425132,
+          "pnl": -0.3792
         },
         {
           "event": "KXBTCD-26AUG2513",
           "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.10231999999999992,
-          "pnl": 0.2557999999999998
+          "ask": 0.28,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.29287365701074397,
+          "pnl": -0.8614000000000002
         },
         {
           "event": "KXBTCD-26AUG2512",
@@ -1458,8 +1561,8 @@
           "ask": 0.25,
           "play": "impulse_wait",
           "exit": "t_clip",
-          "roi": 0.14120000000000008,
-          "pnl": 0.3530000000000002
+          "roi": 0.18008000000000007,
+          "pnl": 0.45020000000000016
         },
         {
           "event": "KXBTCD-26AUG2511",
@@ -1472,12 +1575,12 @@
         },
         {
           "event": "KXBTCD-26AUG2510",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.10231999999999992,
-          "pnl": 0.2557999999999998
+          "side": "yes",
+          "ask": 0.29,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.2851980815977925,
+          "pnl": -0.8681999999999999
         },
         {
           "event": "KXBTCD-26AUG2509",
@@ -1550,24 +1653,6 @@
           "exit": "t_clip",
           "roi": 0.18633619319987313,
           "pnl": 0.5864000000000007
-        },
-        {
-          "event": "KXBTCD-26AUG2501",
-          "side": "yes",
-          "ask": 0.35,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.1404913508047986,
-          "pnl": -0.5140999999999996
-        },
-        {
-          "event": "KXBTCD-26AUG2500",
-          "side": "yes",
-          "ask": 0.25,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.1364344620529776,
-          "pnl": -0.359
         }
       ]
     },
@@ -1579,15 +1664,24 @@
       "impulse_min_p": 0.3,
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
-      "take_count": 23,
-      "wins": 12,
-      "realized_pnl": -5.227699999999999,
+      "take_count": 22,
+      "wins": 10,
+      "realized_pnl": -6.1827,
       "exit_reasons": {
         "t_stop": 11,
-        "t_clip": 11,
-        "invalidate": 1
+        "t_clip": 9,
+        "invalidate": 2
       },
       "takes": [
+        {
+          "event": "KXBTCD-26AUG2600",
+          "side": "yes",
+          "ask": 0.18,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.5077230219607018,
+          "pnl": -0.9663999999999997
+        },
         {
           "event": "KXBTCD-26AUG2523",
           "side": "yes",
@@ -1663,29 +1757,29 @@
         {
           "event": "KXBTCD-26AUG2514",
           "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.21904000000000004,
-          "pnl": 0.5476000000000001
+          "ask": 0.28,
+          "play": "impulse_t",
+          "exit": "t_stop",
+          "roi": -0.12892696858425132,
+          "pnl": -0.3792
         },
         {
           "event": "KXBTCD-26AUG2513",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
+          "side": "yes",
+          "ask": 0.28,
+          "play": "impulse_t",
           "exit": "t_clip",
-          "roi": 0.10231999999999992,
-          "pnl": 0.2557999999999998
+          "roi": 0.13582891336869296,
+          "pnl": 0.39949999999999974
         },
         {
           "event": "KXBTCD-26AUG2512",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.14120000000000008,
-          "pnl": 0.3530000000000002
+          "side": "yes",
+          "ask": 0.39,
+          "play": "impulse_t",
+          "exit": "invalidate",
+          "roi": -0.1061328874243841,
+          "pnl": -0.4316000000000004
         },
         {
           "event": "KXBTCD-26AUG2511",
@@ -1699,11 +1793,11 @@
         {
           "event": "KXBTCD-26AUG2510",
           "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
+          "ask": 0.5,
+          "play": "impulse_t",
           "exit": "t_clip",
-          "roi": 0.10231999999999992,
-          "pnl": 0.2557999999999998
+          "roi": 0.18585507246376817,
+          "pnl": 0.9618000000000002
         },
         {
           "event": "KXBTCD-26AUG2509",
@@ -1776,24 +1870,6 @@
           "exit": "t_clip",
           "roi": 0.18633619319987313,
           "pnl": 0.5864000000000007
-        },
-        {
-          "event": "KXBTCD-26AUG2501",
-          "side": "yes",
-          "ask": 0.35,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.1404913508047986,
-          "pnl": -0.5140999999999996
-        },
-        {
-          "event": "KXBTCD-26AUG2500",
-          "side": "yes",
-          "ask": 0.25,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.1364344620529776,
-          "pnl": -0.359
         }
       ]
     },
@@ -1805,11 +1881,11 @@
       "impulse_min_p": 0.52,
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
-      "take_count": 16,
+      "take_count": 15,
       "wins": 6,
-      "realized_pnl": -5.9969,
+      "realized_pnl": -5.2486,
       "exit_reasons": {
-        "t_stop": 10,
+        "t_stop": 9,
         "t_clip": 6
       },
       "takes": [
@@ -1947,15 +2023,6 @@
           "exit": "t_stop",
           "roi": -0.5625954812253758,
           "pnl": -2.7988
-        },
-        {
-          "event": "KXBTCD-26AUG2500",
-          "side": "yes",
-          "ask": 0.49,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.14744827586206904,
-          "pnl": -0.7483000000000004
         }
       ]
     },
