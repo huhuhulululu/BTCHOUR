@@ -73,7 +73,7 @@ def _coupon_ladder_rejects(
     """Nearest session rungs and why they are not a coupon."""
     reach = settings.impulse_wait_max_distance or settings.swing_max_distance
     sides = coupon_sides(spot.impulse, settings)
-    rejects: list[ImpulseReject] = []
+    rejects: list[tuple[float, ImpulseReject]] = []
     for market in markets:
         if not is_next_session_book(market, now) or market.strike is None:
             continue
@@ -81,14 +81,14 @@ def _coupon_ladder_rejects(
         if not is_coupon_window(seconds, settings):
             continue
         dist = abs(market.strike - spot.price)
+        if dist > reach + 1e-9:
+            continue
         vol = effective_vol(spot.annual_vol, settings.annual_vol)
         p_yes = digital_prob(spot.price, market.strike, seconds, vol)
         for side in sides:
             ask = market.yes_ask_effective if side == "yes" else market.no_ask_effective
             model_p = p_yes if side == "yes" else 1.0 - p_yes
             reasons: list[str] = []
-            if dist > reach + 1e-9:
-                reasons.append(f"dist {dist:.0f}>{reach:.0f}")
             if ask is None or ask <= 0 or ask >= 1.0:
                 reasons.append("no_ask")
             else:
@@ -103,9 +103,9 @@ def _coupon_ladder_rejects(
                 if model_p + 1e-12 < rest:
                     reasons.append(f"p {model_p:.2f}<{rest:.2f}")
             if reasons:
-                rejects.append(ImpulseReject(market.ticker, side, ask, model_p, reasons))
-    rejects.sort(key=lambda row: abs((row.ask or 1.0) - 0.35))
-    return rejects
+                rejects.append((dist, ImpulseReject(market.ticker, side, ask, model_p, reasons)))
+    rejects.sort(key=lambda row: (row[0], abs((row[1].ask or 1.0) - 0.35)))
+    return [row[1] for row in rejects]
 
 
 def diagnose_impulse(

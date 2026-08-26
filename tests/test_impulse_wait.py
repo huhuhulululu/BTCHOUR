@@ -66,7 +66,7 @@ class ImpulseWaitTests(unittest.TestCase):
         self.settings = Settings(playbook="flex", max_contracts=1, allow_maker=True)
         self.spot = SpotQuote(78800, "test", annual_vol=0.55, impulse=-160)
 
-    def test_scan_rests_only_one_dump_wait(self):
+    def test_scan_rests_two_in_band_dump_waits_nearest_first(self):
         other = _market(
             ticker="KXBTCD-26AUG2520-T78599.99",
             floor_strike=78599.99,
@@ -77,8 +77,45 @@ class ImpulseWaitTests(unittest.TestCase):
         )
         opps = scan_markets([_market(), other], self.spot, self.settings, self.now)
         waits = [row for row in opps if row.play == "impulse_wait"]
-        self.assertEqual(len(waits), 1)
-        self.assertEqual(waits[0].ticker, "KXBTCD-26AUG2520-T78699.99")
+        self.assertEqual(len(waits), 2)
+        self.assertEqual(
+            [row.ticker for row in waits],
+            ["KXBTCD-26AUG2520-T78699.99", "KXBTCD-26AUG2520-T78599.99"],
+        )
+
+    def test_scan_rests_three_aug2520_in_band_dump_waits(self):
+        # Human AUG2520: T78699 / T78599 / T78799 in one hour.
+        t78599 = _market(
+            ticker="KXBTCD-26AUG2520-T78599.99",
+            floor_strike=78599.99,
+            yes_bid_dollars="0.62",
+            yes_ask_dollars="0.63",
+            no_bid_dollars="0.37",
+            no_ask_dollars="0.38",
+        )
+        t78799 = _market(
+            ticker="KXBTCD-26AUG2520-T78799.99",
+            floor_strike=78799.99,
+            yes_bid_dollars="0.59",
+            yes_ask_dollars="0.60",
+            no_bid_dollars="0.39",
+            no_ask_dollars="0.40",
+        )
+        opps = scan_markets([_market(), t78599, t78799], self.spot, self.settings, self.now)
+        waits = [row for row in opps if row.play == "impulse_wait"]
+        self.assertEqual(len(waits), 3)
+        self.assertEqual(
+            [row.ticker for row in waits],
+            [
+                "KXBTCD-26AUG2520-T78799.99",
+                "KXBTCD-26AUG2520-T78699.99",
+                "KXBTCD-26AUG2520-T78599.99",
+            ],
+        )
+        chosen = pick_flex_entries(opps)
+        self.assertEqual(len(chosen), 3)
+        self.assertEqual([row.play for row in chosen], ["impulse_wait"] * 3)
+        self.assertEqual([row.ticker for row in chosen], [row.ticker for row in waits])
 
     def test_scan_rests_the_near_atm_strike_not_the_cheapest_ask(self):
         # Live AUG2602 05:06Z: T78499 ask 0.29 beat T78599 ask 0.42 because
@@ -565,7 +602,26 @@ class ImpulseWaitTests(unittest.TestCase):
         dump = SpotQuote(78680, "test", annual_vol=0.55, impulse=-160)
         opps = scan_markets([coupon, atm], dump, self.settings, self.now)
         chosen = pick_flex_entries(opps, working_plays={"impulse_wait"})
-        self.assertEqual([row.play for row in chosen], [])
+        self.assertEqual([row.play for row in chosen], ["impulse_wait"])
+        self.assertEqual(chosen[0].ticker, coupon.ticker)
+
+    def test_flex_still_adds_dump_waits_while_one_is_working(self):
+        other = _market(
+            ticker="KXBTCD-26AUG2520-T78599.99",
+            floor_strike=78599.99,
+            yes_bid_dollars="0.62",
+            yes_ask_dollars="0.63",
+            no_bid_dollars="0.37",
+            no_ask_dollars="0.38",
+        )
+        opps = scan_markets([_market(), other], self.spot, self.settings, self.now)
+        chosen = pick_flex_entries(opps, working_plays={"impulse_wait"})
+        self.assertEqual(len(chosen), 2)
+        self.assertEqual([row.play for row in chosen], ["impulse_wait"] * 2)
+        self.assertEqual(
+            [row.ticker for row in chosen],
+            ["KXBTCD-26AUG2520-T78699.99", "KXBTCD-26AUG2520-T78599.99"],
+        )
 
     def test_flag_off_disables_the_rest(self):
         settings = Settings(playbook="flex", max_contracts=1, allow_maker=True, impulse_wait=False)

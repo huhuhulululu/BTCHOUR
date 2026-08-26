@@ -185,6 +185,43 @@ class LearnTests(unittest.TestCase):
         self.assertEqual(report["status"], "no_coupon")
         self.assertTrue(report["candidates"])
 
+    def test_diagnose_no_coupon_prefers_nearest_atm_not_far_otm_penny(self):
+        now = datetime(2026, 8, 26, 20, 47, tzinfo=timezone.utc)
+        far = market_from_api(
+            {
+                "ticker": "KXBTCD-26AUG2617-T76399.99",
+                "event_ticker": "KXBTCD-26AUG2617",
+                "floor_strike": 76399.99,
+                "strike_type": "greater",
+                "yes_bid_dollars": "0.98",
+                "yes_ask_dollars": "0.99",
+                "no_bid_dollars": "0.00",
+                "no_ask_dollars": "0.01",
+                "open_time": "2026-08-25T20:00:00Z",
+                "close_time": "2026-08-26T21:00:00Z",
+            }
+        )
+        near = market_from_api(
+            {
+                "ticker": "KXBTCD-26AUG2617-T78499.99",
+                "event_ticker": "KXBTCD-26AUG2617",
+                "floor_strike": 78499.99,
+                "strike_type": "greater",
+                "yes_bid_dollars": "0.16",
+                "yes_ask_dollars": "0.17",
+                "no_bid_dollars": "0.83",
+                "no_ask_dollars": "0.84",
+                "open_time": "2026-08-25T20:00:00Z",
+                "close_time": "2026-08-26T21:00:00Z",
+            }
+        )
+        spot = SpotQuote(78399.99, "test", annual_vol=0.55, impulse=-10)
+        report = diagnose_impulse([far, near], spot, Settings(playbook="flex"), now)
+        self.assertEqual(report["status"], "no_coupon")
+        self.assertTrue(report["candidates"])
+        self.assertEqual(report["candidates"][0]["ticker"], "KXBTCD-26AUG2617-T78499.99")
+        self.assertNotIn("KXBTCD-26AUG2617-T76399.99", [row["ticker"] for row in report["candidates"]])
+
     def test_diagnose_ignores_the_fifteen_minute_book(self):
         now = datetime(2026, 8, 26, 20, 13, tzinfo=timezone.utc)
         fifteen = market_from_api(

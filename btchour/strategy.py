@@ -787,7 +787,7 @@ def allow_swing(opportunity: Opportunity, memory: SwingMemory | None) -> bool:
 
 
 def pick_dump_wait(waits: list[Opportunity], spot: SpotQuote) -> list[Opportunity]:
-    """One dump rest: nearest strike to spot, not the cheapest ask above 25¢."""
+    """Up to three nearby in-band rests, nearest ATM first."""
     chosen = list(waits)
     chosen.sort(
         key=lambda row: (
@@ -796,7 +796,16 @@ def pick_dump_wait(waits: list[Opportunity], spot: SpotQuote) -> list[Opportunit
             -row.ev,
         )
     )
-    return chosen[:1]
+    unique: list[Opportunity] = []
+    seen: set[str] = set()
+    for row in chosen:
+        if row.ticker in seen:
+            continue
+        seen.add(row.ticker)
+        unique.append(row)
+        if len(unique) >= 3:
+            break
+    return unique
 
 
 def _entry_play(item) -> str:
@@ -821,12 +830,11 @@ def pick_flex_entries(opps: list, *, working_plays: set[str] | None = None) -> l
     ]
     locks = [row for row in opps if _entry_play(row) == "lock_wait"]
     if "impulse_wait" in working_plays:
-        dump_waits = []
         impulse_takes = []
     if lock_takes:
         return lock_takes[:1]
     if dump_waits:
-        return dump_waits[:1]
+        return dump_waits[:3]
     if impulse_takes:
         return impulse_takes[:1]
     if locks:

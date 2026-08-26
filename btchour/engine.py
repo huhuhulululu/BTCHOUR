@@ -173,8 +173,11 @@ def _execute(opportunity: Opportunity, client: KalshiClient, settings: Settings,
             }
         working = store.working_trades()
         if opportunity.play == "impulse_wait":
-            if any(_row_play(row) == "impulse_wait" for row in working):
-                return {"skipped": True, "reason": "coupon already working", "ticker": opportunity.ticker}
+            coupons = [row for row in working if _row_play(row) == "impulse_wait"]
+            if len(coupons) >= 3:
+                return {"skipped": True, "reason": "enough working coupons", "ticker": opportunity.ticker}
+            if any(row["ticker"] == opportunity.ticker for row in working):
+                return {"skipped": True, "reason": "ticker already working", "ticker": opportunity.ticker}
         elif len(working) >= 3:
             return {"skipped": True, "reason": "enough working waits"}
         if settings.live:

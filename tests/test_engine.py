@@ -231,14 +231,24 @@ class ExecuteWaitTests(unittest.TestCase):
                 self.assertEqual(plays.count("lock_wait"), 3)
                 self.assertEqual(plays.count("impulse_wait"), 1)
 
-    def test_second_dump_coupon_still_blocked_while_one_is_working(self):
+    def test_second_and_third_dump_coupons_can_work(self):
         coupon = self._coupon()
         later = Opportunity(**{**coupon.__dict__, "ticker": "KXBTCD-26AUG2617-T78399.99"})
+        third = Opportunity(**{**coupon.__dict__, "ticker": "KXBTCD-26AUG2617-T78199.99"})
+        fourth = Opportunity(**{**coupon.__dict__, "ticker": "KXBTCD-26AUG2617-T78099.99"})
         with tempfile.TemporaryDirectory() as tmp:
             with patch.object(store_mod, "DATA_DIR", Path(tmp)):
                 db = store_mod.Store(Path(tmp) / "t.sqlite")
                 first = engine_mod._execute(coupon, object(), Settings(playbook="flex"), db)
                 self.assertFalse(first.get("skipped"))
                 second = engine_mod._execute(later, object(), Settings(playbook="flex"), db)
-                self.assertTrue(second.get("skipped"))
-                self.assertEqual(second.get("reason"), "coupon already working")
+                self.assertFalse(second.get("skipped"))
+                self.assertEqual(second["status"], "working")
+                again = engine_mod._execute(later, object(), Settings(playbook="flex"), db)
+                self.assertTrue(again.get("skipped"))
+                self.assertIn(again.get("reason"), {"already open", "ticker already working"})
+                third_fill = engine_mod._execute(third, object(), Settings(playbook="flex"), db)
+                self.assertFalse(third_fill.get("skipped"))
+                fourth_fill = engine_mod._execute(fourth, object(), Settings(playbook="flex"), db)
+                self.assertTrue(fourth_fill.get("skipped"))
+                self.assertEqual(fourth_fill.get("reason"), "enough working coupons")
