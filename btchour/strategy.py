@@ -14,20 +14,38 @@ WAIT_PLAYS = frozenset({"lock_wait", "impulse_wait"})
 
 
 def dump_wait_rest_ready(impulse: float, settings: Settings) -> bool:
-    """Hang the 25¢ coupon when the 32–42¢ book is visible.
+    """NO coupon rest: hang unless the tape has already flipped to a rally."""
+    return coupon_rest_ready("no", impulse, settings)
 
-    Cached 42/42 hours show a nearby 32–42¢ NO. Most of those minutes do not
-    yet have a −$40 dump. Humans rest when they SEE the coupon; public maker
-    research (Whelan; favorite-longshot fade; optimism-tax) does the same.
-    Dump is the fill filter, not the rest filter. Refuse only a flipped tape.
-    `impulse_wait_rest_min` stays as an optional tighten (default 0).
-    """
-    if impulse_wait_flipped("no", impulse, settings):
+
+def coupon_sides(impulse: float, settings: Settings) -> list[str]:
+    """Follow the tape. Rally rests YES; dump or quiet rests NO."""
+    if impulse + 1e-9 >= settings.impulse_min:
+        return ["yes"]
+    if impulse - 1e-9 <= -settings.impulse_min:
+        return ["no"]
+    if impulse > 0:
+        return ["yes"]
+    return ["no"]
+
+
+def coupon_rest_ready(side: str, impulse: float, settings: Settings) -> bool:
+    """Hang when the book is visible. Dump/rally is the fill filter, not the rest filter."""
+    if impulse_wait_flipped(side, impulse, settings):
         return False
     need = settings.impulse_wait_rest_min
     if need <= 0:
         return True
-    return impulse < 0 and abs(impulse) + 1e-9 >= need
+    if side == "no":
+        return impulse < 0 and abs(impulse) + 1e-9 >= need
+    return impulse > 0 and abs(impulse) + 1e-9 >= need
+
+
+def coupon_min_ask(side: str, settings: Settings) -> float:
+    """NO keeps the 32¢ knife. YES 0.28 is the live daily mid (T78499 at 16:42 ET)."""
+    if side == "yes":
+        return min(settings.impulse_wait_min_ask, 0.28)
+    return settings.impulse_wait_min_ask
 
 
 def impulse_wait_flipped(side: str, impulse: float, settings: Settings) -> bool:
@@ -563,12 +581,13 @@ def evaluate_impulse_wait_market(
     settings: Settings,
     now: datetime | None = None,
 ) -> list[Opportunity]:
-    """Rest a maker NO under a visible 32–42¢ coupon on the next hourly close.
+    """Rest 25¢ on the next hourly ladder, with the tape.
 
-    One-hour tape: volume sits on the near-ATM rung of the next whole-hour
-    book; trend is the −$100 dump fill; cheap is 32–42¢ vs a 25¢ rest.
-    Clip 10–50%. If the move will not come back, scratch or stop — do not
-    hope for a retrace into a smashed ask.
+    Scan every nearby rung ($600). Rally hangs YES; dump/quiet hangs NO.
+    NO still needs 32–42¢ (29¢ is the knife). YES may hang from 28–42¢ —
+    the 5pm daily $250 ladder often has only that mid. Fill still needs
+    |impulse| ≥ $100 in that direction. One rest, nearest in-band strike.
+    Clip 10–50%. If it will not come back, scratch or stop.
     """
     now = now or datetime.now(timezone.utc)
     if not settings.impulse_wait or not settings.allow_maker:
@@ -583,52 +602,55 @@ def evaluate_impulse_wait_market(
     if not is_coupon_window(seconds, settings):
         return []
     move = spot.impulse
-    if not dump_wait_rest_ready(move, settings):
-        return []
     reach = settings.impulse_wait_max_distance or settings.swing_max_distance
     if abs((market.strike or 0.0) - spot.price) > reach + 1e-9:
         return []
     vol = effective_vol(spot.annual_vol, settings.annual_vol)
     p_yes = digital_prob(spot.price, market.strike, seconds, vol)
-    want_yes = False
-    side = "no"
-    book_side = "ask"
-    model_p = 1.0 - p_yes
-    ask = market.no_ask_effective
     rest = settings.impulse_rest
-    if ask is None or ask <= 0 or ask >= 1.0:
-        return []
-    if ask <= rest + 1e-12:
-        return []
-    if ask + 1e-12 < settings.impulse_wait_min_ask:
-        return []
-    if ask > settings.impulse_wait_max_ask + 1e-12:
-        return []
-    if model_p + 1e-12 < rest:
-        return []
-    cost = fill_cost(rest, 1.0, taker=False)
-    clip = lock_exit_price(cost.cost, 1.0, settings.swing_target)
-    if clip is None or clip > 0.95:
-        return []
-    row = _make_opportunity(
-        market=market,
-        spot=spot,
-        settings=settings,
-        seconds=seconds,
-        side=side,
-        book_side=book_side,
-        model_p=model_p,
-        ask=ask,
-        taker=False,
-        limit=rest,
-        cost=cost,
-        play="impulse_wait",
-        reason=(
-            f"dump_gap {side.upper()} 看见 {ask:.2f} rest {rest:.2f} 动量 {move:+.0f} "
-            f"p={model_p:.1%} clip>={clip:.2f}; strike {market.strike:.2f} / spot {spot.price:.2f}"
-        ),
-    )
-    return [row] if row else []
+    found: list[Opportunity] = []
+    for side in coupon_sides(move, settings):
+        if not coupon_rest_ready(side, move, settings):
+            continue
+        want_yes = side == "yes"
+        book_side = "bid" if want_yes else "ask"
+        model_p = p_yes if want_yes else 1.0 - p_yes
+        ask = market.yes_ask_effective if want_yes else market.no_ask_effective
+        if ask is None or ask <= 0 or ask >= 1.0:
+            continue
+        if ask <= rest + 1e-12:
+            continue
+        if ask + 1e-12 < coupon_min_ask(side, settings):
+            continue
+        if ask > settings.impulse_wait_max_ask + 1e-12:
+            continue
+        if model_p + 1e-12 < rest:
+            continue
+        cost = fill_cost(rest, 1.0, taker=False)
+        clip = lock_exit_price(cost.cost, 1.0, settings.swing_target)
+        if clip is None or clip > 0.95:
+            continue
+        row = _make_opportunity(
+            market=market,
+            spot=spot,
+            settings=settings,
+            seconds=seconds,
+            side=side,
+            book_side=book_side,
+            model_p=model_p,
+            ask=ask,
+            taker=False,
+            limit=rest,
+            cost=cost,
+            play="impulse_wait",
+            reason=(
+                f"dump_gap {side.upper()} 看见 {ask:.2f} rest {rest:.2f} 动量 {move:+.0f} "
+                f"p={model_p:.1%} clip>={clip:.2f}; strike {market.strike:.2f} / spot {spot.price:.2f}"
+            ),
+        )
+        if row:
+            found.append(row)
+    return found
 
 
 @dataclass

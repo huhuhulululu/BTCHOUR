@@ -150,6 +150,41 @@ class LearnTests(unittest.TestCase):
                 self.assertEqual(len(db.recent_journal(5)), 1)
                 self.assertAlmostEqual(tape_impulse(points, now, 78400.0), -300.0, delta=1.0)
 
+    def test_diagnose_reports_the_ladder_when_there_is_no_coupon(self):
+        now = datetime(2026, 8, 26, 20, 42, tzinfo=timezone.utc)
+        cheap = market_from_api(
+            {
+                "ticker": "KXBTCD-26AUG2617-T78249.99",
+                "event_ticker": "KXBTCD-26AUG2617",
+                "floor_strike": 78249.99,
+                "strike_type": "greater",
+                "yes_bid_dollars": "0.94",
+                "yes_ask_dollars": "0.95",
+                "no_bid_dollars": "0.04",
+                "no_ask_dollars": "0.05",
+                "open_time": "2026-08-25T20:00:00Z",
+                "close_time": "2026-08-26T21:00:00Z",
+            }
+        )
+        mid = market_from_api(
+            {
+                "ticker": "KXBTCD-26AUG2617-T78499.99",
+                "event_ticker": "KXBTCD-26AUG2617",
+                "floor_strike": 78499.99,
+                "strike_type": "greater",
+                "yes_bid_dollars": "0.17",
+                "yes_ask_dollars": "0.18",
+                "no_bid_dollars": "0.82",
+                "no_ask_dollars": "0.83",
+                "open_time": "2026-08-25T20:00:00Z",
+                "close_time": "2026-08-26T21:00:00Z",
+            }
+        )
+        spot = SpotQuote(78423, "test", annual_vol=0.55, impulse=20)
+        report = diagnose_impulse([cheap, mid], spot, Settings(playbook="flex"), now)
+        self.assertEqual(report["status"], "no_coupon")
+        self.assertTrue(report["candidates"])
+
     def test_diagnose_ignores_the_fifteen_minute_book(self):
         now = datetime(2026, 8, 26, 20, 13, tzinfo=timezone.utc)
         fifteen = market_from_api(

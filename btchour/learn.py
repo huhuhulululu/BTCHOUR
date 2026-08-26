@@ -8,8 +8,11 @@ from btchour.kalshi import Market
 from btchour.model import SpotQuote, digital_prob, effective_vol
 from btchour.strategy import (
     _seconds_left,
+    coupon_min_ask,
+    coupon_sides,
     dump_wait_rest_ready,
     evaluate_impulse_wait_market,
+    is_coupon_window,
     is_next_session_book,
     pick_dump_wait,
 )
@@ -61,6 +64,50 @@ def merge_impulse(*values: float) -> float:
     return max(values, key=lambda value: abs(value))
 
 
+def _coupon_ladder_rejects(
+    markets: list[Market],
+    spot: SpotQuote,
+    settings: Settings,
+    now: datetime,
+) -> list[ImpulseReject]:
+    """Nearest session rungs and why they are not a coupon."""
+    reach = settings.impulse_wait_max_distance or settings.swing_max_distance
+    sides = coupon_sides(spot.impulse, settings)
+    rejects: list[ImpulseReject] = []
+    for market in markets:
+        if not is_next_session_book(market, now) or market.strike is None:
+            continue
+        seconds = _seconds_left(market.close_time, now)
+        if not is_coupon_window(seconds, settings):
+            continue
+        dist = abs(market.strike - spot.price)
+        vol = effective_vol(spot.annual_vol, settings.annual_vol)
+        p_yes = digital_prob(spot.price, market.strike, seconds, vol)
+        for side in sides:
+            ask = market.yes_ask_effective if side == "yes" else market.no_ask_effective
+            model_p = p_yes if side == "yes" else 1.0 - p_yes
+            reasons: list[str] = []
+            if dist > reach + 1e-9:
+                reasons.append(f"dist {dist:.0f}>{reach:.0f}")
+            if ask is None or ask <= 0 or ask >= 1.0:
+                reasons.append("no_ask")
+            else:
+                rest = settings.impulse_rest
+                lo = coupon_min_ask(side, settings)
+                if ask <= rest + 1e-12:
+                    reasons.append(f"ask {ask:.2f}<=rest")
+                elif ask + 1e-12 < lo:
+                    reasons.append(f"ask {ask:.2f}<{lo:.2f}")
+                elif ask > settings.impulse_wait_max_ask + 1e-12:
+                    reasons.append(f"ask {ask:.2f}>{settings.impulse_wait_max_ask:.2f}")
+                if model_p + 1e-12 < rest:
+                    reasons.append(f"p {model_p:.2f}<{rest:.2f}")
+            if reasons:
+                rejects.append(ImpulseReject(market.ticker, side, ask, model_p, reasons))
+    rejects.sort(key=lambda row: abs((row.ask or 1.0) - 0.35))
+    return rejects
+
+
 def diagnose_impulse(
     markets: list[Market],
     spot: SpotQuote,
@@ -80,7 +127,7 @@ def diagnose_impulse(
     if not dump_on and not forming:
         return report
     waits = []
-    if move < 0:
+    if forming:
         for market in markets:
             waits.extend(evaluate_impulse_wait_market(market, spot, settings, now))
     wait_count = len(waits)
@@ -101,6 +148,17 @@ def diagnose_impulse(
             }
         ]
         return report
+    if forming and not dump_on:
+        rejects = _coupon_ladder_rejects(markets, spot, settings, now)
+        if rejects:
+            report["status"] = "no_coupon"
+            report["open"] = 0
+            report["wait_count"] = 0
+            report["candidates"] = [
+                {"ticker": row.ticker, "side": row.side, "ask": row.ask, "p": row.model_p, "reasons": row.reasons}
+                for row in rejects[:8]
+            ]
+            return report
     if not dump_on:
         report["wait_count"] = 0
         report["open"] = 0

@@ -164,7 +164,8 @@ class ImpulseWaitTests(unittest.TestCase):
         shallow = SpotQuote(78340, "test", annual_vol=0.55, impulse=-20)
         self.assertTrue(evaluate_impulse_wait_market(coupon, shallow, self.settings, now))
         mild_rally = SpotQuote(78340, "test", annual_vol=0.55, impulse=80)
-        self.assertTrue(evaluate_impulse_wait_market(coupon, mild_rally, self.settings, now))
+        # Rally follows YES. This book is a NO coupon; do not hang against the tape.
+        self.assertEqual(evaluate_impulse_wait_market(coupon, mild_rally, self.settings, now), [])
         flipped = SpotQuote(78340, "test", annual_vol=0.55, impulse=160)
         self.assertEqual(evaluate_impulse_wait_market(coupon, flipped, self.settings, now), [])
 
@@ -758,7 +759,7 @@ class ImpulseWaitTests(unittest.TestCase):
         self.assertTrue(live_waits)
         self.assertEqual(live_waits[0].play, "impulse_wait")
 
-    def test_rally_does_not_rest_yes(self):
+    def test_rally_rests_yes_under_the_forty_cent_book(self):
         rally = SpotQuote(78800, "test", annual_vol=0.55, impulse=160)
         market = _market(
             yes_bid_dollars="0.40",
@@ -766,7 +767,12 @@ class ImpulseWaitTests(unittest.TestCase):
             no_bid_dollars="0.59",
             no_ask_dollars="0.60",
         )
-        self.assertEqual(evaluate_impulse_wait_market(market, rally, self.settings, self.now), [])
+        opps = evaluate_impulse_wait_market(market, rally, self.settings, self.now)
+        self.assertTrue(opps)
+        self.assertEqual(opps[0].side, "yes")
+        self.assertAlmostEqual(opps[0].ask, 0.41)
+        self.assertAlmostEqual(opps[0].limit_price, 0.25)
+        self.assertFalse(opps[0].taker)
 
     def test_fade_is_not_a_flip_but_opposite_impulse_is(self):
         self.assertFalse(impulse_wait_flipped("no", -20, self.settings))
@@ -870,6 +876,60 @@ class ImpulseWaitTests(unittest.TestCase):
         opps = evaluate_impulse_wait_market(coupon, spot, self.settings, now)
         self.assertTrue(opps)
         self.assertAlmostEqual(opps[0].limit_price, 0.25)
+
+    def test_daily_second_rung_36_cent_no_is_in_play(self):
+        now = datetime(2026, 8, 26, 20, 13, tzinfo=timezone.utc)
+        coupon = _market(
+            ticker="KXBTCD-26AUG2617-T77999.99",
+            event_ticker="KXBTCD-26AUG2617",
+            floor_strike=77999.99,
+            yes_bid_dollars="0.63",
+            yes_ask_dollars="0.64",
+            no_bid_dollars="0.35",
+            no_ask_dollars="0.36",
+            open_time="2026-08-25T20:00:00Z",
+            close_time="2026-08-26T21:00:00Z",
+        )
+        spot = SpotQuote(78368, "test", annual_vol=0.90, impulse=-20)
+        self.assertGreater(abs(77999.99 - 78368), 250)
+        self.assertLess(abs(77999.99 - 78368), 600)
+        opps = evaluate_impulse_wait_market(coupon, spot, self.settings, now)
+        self.assertTrue(opps)
+        self.assertEqual(opps[0].side, "no")
+
+    def test_five_pm_rally_yes_28_is_the_live_mid(self):
+        # 16:42 ET AUG2617: $250 rungs skip 32-42 NO. Only mid is T78499 YES 0.28.
+        now = datetime(2026, 8, 26, 20, 42, tzinfo=timezone.utc)
+        market = _market(
+            ticker="KXBTCD-26AUG2617-T78499.99",
+            event_ticker="KXBTCD-26AUG2617",
+            floor_strike=78499.99,
+            yes_bid_dollars="0.27",
+            yes_ask_dollars="0.28",
+            no_bid_dollars="0.72",
+            no_ask_dollars="0.73",
+            open_time="2026-08-25T20:00:00Z",
+            close_time="2026-08-26T21:00:00Z",
+        )
+        spot = SpotQuote(78423, "test", annual_vol=0.55, impulse=55)
+        opps = evaluate_impulse_wait_market(market, spot, self.settings, now)
+        self.assertTrue(opps)
+        self.assertEqual(opps[0].side, "yes")
+        self.assertAlmostEqual(opps[0].ask, 0.28)
+        self.assertAlmostEqual(opps[0].limit_price, 0.25)
+        self.assertFalse(opps[0].taker)
+        knife = _market(
+            ticker="KXBTCD-26AUG2617-T78249.99",
+            event_ticker="KXBTCD-26AUG2617",
+            floor_strike=78249.99,
+            yes_bid_dollars="0.94",
+            yes_ask_dollars="0.95",
+            no_bid_dollars="0.04",
+            no_ask_dollars="0.05",
+            open_time="2026-08-25T20:00:00Z",
+            close_time="2026-08-26T21:00:00Z",
+        )
+        self.assertEqual(evaluate_impulse_wait_market(knife, spot, self.settings, now), [])
 
 
 class ImpulseWaitEngineTests(unittest.TestCase):
