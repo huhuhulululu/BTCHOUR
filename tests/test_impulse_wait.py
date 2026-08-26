@@ -18,9 +18,11 @@ from btchour.strategy import (
     apply_swing_memory,
     evaluate_impulse_market,
     evaluate_impulse_wait_market,
+    impulse_wait_flipped,
     remember_session_exit,
     refresh_session,
     scan_markets,
+    wait_book_crossed,
 )
 
 
@@ -136,6 +138,19 @@ class ImpulseWaitTests(unittest.TestCase):
         )
         self.assertEqual(evaluate_impulse_wait_market(market, rally, self.settings, self.now), [])
 
+    def test_fade_is_not_a_flip_but_opposite_impulse_is(self):
+        self.assertFalse(impulse_wait_flipped("no", -20, self.settings))
+        self.assertFalse(impulse_wait_flipped("no", -160, self.settings))
+        self.assertTrue(impulse_wait_flipped("no", 160, self.settings))
+        self.assertFalse(impulse_wait_flipped("yes", 20, self.settings))
+        self.assertTrue(impulse_wait_flipped("yes", -160, self.settings))
+
+    def test_minute_high_counts_as_a_maker_fill(self):
+        self.assertFalse(wait_book_crossed("no", 0.25, 0.32))
+        self.assertTrue(wait_book_crossed("no", 0.25, 0.32, yes_bid_high=0.76))
+        self.assertTrue(wait_book_crossed("no", 0.25, 0.24))
+        self.assertTrue(wait_book_crossed("yes", 0.25, 0.32, yes_ask_low=0.24))
+
 
 class ImpulseWaitEngineTests(unittest.TestCase):
     def setUp(self):
@@ -169,15 +184,27 @@ class ImpulseWaitEngineTests(unittest.TestCase):
                 self.assertAlmostEqual(row["fee"], 0.0)
                 self.assertEqual(still, [])
 
-    def test_cancels_when_the_dump_impulse_dies(self):
+    def test_keeps_the_rest_when_the_dump_impulse_fades(self):
         opp = evaluate_impulse_wait_market(_market(), self.spot, self.settings, self.now)[0]
         fill = paper_fill(opp)
         with tempfile.TemporaryDirectory() as tmp:
             with patch.object(store_mod, "DATA_DIR", Path(tmp)):
                 db = store_mod.Store(Path(tmp) / "t.sqlite")
                 db.record_trade(fill)
-                flat = SpotQuote(78800, "test", annual_vol=0.55, impulse=-20)
-                updates = refresh_working(db, self.settings, [_market()], flat, self.now)
+                faded = SpotQuote(78800, "test", annual_vol=0.55, impulse=-20)
+                updates = refresh_working(db, self.settings, [_market()], faded, self.now)
+                self.assertEqual(updates, [])
+                self.assertEqual(len(db.working_trades()), 1)
+
+    def test_cancels_when_the_tape_flips_to_a_rally(self):
+        opp = evaluate_impulse_wait_market(_market(), self.spot, self.settings, self.now)[0]
+        fill = paper_fill(opp)
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                db.record_trade(fill)
+                rally = SpotQuote(78800, "test", annual_vol=0.55, impulse=160)
+                updates = refresh_working(db, self.settings, [_market()], rally, self.now)
                 self.assertEqual(updates[0]["status"], "cancelled")
                 self.assertEqual(db.working_trades(), [])
 
@@ -202,6 +229,29 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         self.assertEqual(take["exit_reason"], "t_clip")
         self.assertGreater(take["pnl"], 0)
         self.assertGreaterEqual(take["roi"], 0.50)
+
+    def test_fade_keeps_the_bid_then_minute_high_fills(self):
+        settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
+        maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
+        strike = 78699.99
+        bars = [
+            ReplayBar(int(maturity - 1800), 78800, 0.55, {strike: {"yes_ask": 0.74, "yes_bid": 0.73}}, impulse=-112),
+            ReplayBar(int(maturity - 1740), 78800, 0.55, {strike: {"yes_ask": 0.73, "yes_bid": 0.71}}, impulse=-87),
+            ReplayBar(
+                int(maturity - 1680),
+                78800,
+                0.55,
+                {strike: {"yes_ask": 0.66, "yes_bid": 0.65, "yes_bid_high": 0.76}},
+                impulse=-40,
+            ),
+            ReplayBar(int(maturity - 1620), 78800, 0.55, {strike: {"yes_ask": 0.60, "yes_bid": 0.59}}, impulse=-80),
+        ]
+        report = replay_bars("KXBTCD-26AUG2520", bars, {strike: "no"}, maturity, settings)
+        self.assertEqual(len(report["takes"]), 1)
+        self.assertEqual(report["takes"][0]["play"], "impulse_wait")
+        self.assertAlmostEqual(report["takes"][0]["ask"], 0.25)
+        self.assertEqual(report["takes"][0]["exit_reason"], "t_clip")
+        self.assertGreater(report["takes"][0]["pnl"], 0)
 
     def test_lock_close_still_deads_the_wait(self):
         settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)

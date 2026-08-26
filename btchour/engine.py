@@ -20,6 +20,7 @@ from btchour.strategy import (
     Opportunity,
     _seconds_left,
     apply_swing_memory,
+    impulse_wait_flipped,
     refresh_session,
     scan_markets,
 )
@@ -271,12 +272,7 @@ def refresh_working(
                     }
                 )
                 continue
-            want = "yes" if spot.impulse > 0 else "no"
-            if (
-                abs(spot.impulse) + 1e-9 < settings.impulse_min
-                or want != row["side"]
-                or seconds + 1e-12 < settings.swing_min_seconds
-            ):
+            if impulse_wait_flipped(row["side"], spot.impulse, settings) or seconds + 1e-12 < settings.swing_min_seconds:
                 store.cancel_trade(row["id"], "wait_invalid")
                 updates.append(
                     {"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": "wait_invalid"}

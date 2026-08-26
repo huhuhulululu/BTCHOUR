@@ -13,6 +13,33 @@ T_PLAYS = frozenset({"swing_t", "impulse_t", "impulse_wait"})
 WAIT_PLAYS = frozenset({"lock_wait", "impulse_wait"})
 
 
+def impulse_wait_flipped(side: str, impulse: float, settings: Settings) -> bool:
+    """Pull a dump wait only when the tape has flipped, not when the 3-minute print fades."""
+    if side == "no":
+        return impulse + 1e-9 >= settings.impulse_min
+    if side == "yes":
+        return impulse - 1e-9 <= -settings.impulse_min
+    return True
+
+
+def wait_book_crossed(
+    side: str,
+    rest: float,
+    close_ask: float | None,
+    *,
+    yes_bid_high: float | None = None,
+    yes_ask_low: float | None = None,
+) -> bool:
+    """Maker fill at rest if the close crosses, or the minute extreme traded through."""
+    if close_ask is not None and close_ask + 1e-12 <= rest:
+        return True
+    if side == "no" and yes_bid_high is not None:
+        return (1.0 - yes_bid_high) + 1e-12 <= rest
+    if side == "yes" and yes_ask_low is not None:
+        return yes_ask_low + 1e-12 <= rest
+    return False
+
+
 @dataclass(frozen=True)
 class Opportunity:
     ticker: str

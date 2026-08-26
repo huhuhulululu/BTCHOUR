@@ -54,6 +54,28 @@ class LearnTests(unittest.TestCase):
         self.assertTrue(report["candidates"])
         self.assertTrue(any("ask" in reason for reason in report["candidates"][0]["reasons"]))
 
+    def test_diagnose_marks_dump_wait_when_taker_is_blocked(self):
+        now = datetime(2026, 8, 25, 23, 30, tzinfo=timezone.utc)
+        market = market_from_api(
+            {
+                "ticker": "KXBTCD-26AUG2520-T78699.99",
+                "event_ticker": "KXBTCD-26AUG2520",
+                "floor_strike": 78699.99,
+                "strike_type": "greater",
+                "yes_bid_dollars": "0.59",
+                "yes_ask_dollars": "0.60",
+                "no_bid_dollars": "0.40",
+                "no_ask_dollars": "0.41",
+                "open_time": "2026-08-25T23:00:00Z",
+                "close_time": "2026-08-26T00:00:00Z",
+            }
+        )
+        spot = SpotQuote(78800, "test", annual_vol=0.55, impulse=-160)
+        report = diagnose_impulse([market], spot, Settings(playbook="flex"), now)
+        self.assertEqual(report["status"], "wait")
+        self.assertEqual(report["wait"], "KXBTCD-26AUG2520-T78699.99")
+        self.assertGreaterEqual(report["wait_count"], 1)
+
     def test_store_journal_and_tape(self):
         now = datetime.now(timezone.utc)
         with tempfile.TemporaryDirectory() as tmp:

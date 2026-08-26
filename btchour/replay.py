@@ -17,10 +17,12 @@ from btchour.strategy import (
     SessionMemory,
     SwingMemory,
     apply_swing_memory,
+    impulse_wait_flipped,
     remember_session_exit,
     remember_swing_exit,
     refresh_session,
     scan_markets,
+    wait_book_crossed,
 )
 from btchour.tickers import format_event_ticker
 
@@ -254,16 +256,21 @@ def replay_bars(
             ask = None
             if market is not None:
                 ask = market.yes_ask_effective if side == "yes" else market.no_ask_effective
-            want = "yes" if bar.impulse > 0 else "no"
-            if ask is not None and ask + 1e-12 <= rest:
+            quotes = {}
+            strike = (working.get("entry") or {}).get("strike")
+            if strike is not None:
+                quotes = bar.quotes.get(float(strike)) or {}
+            if wait_book_crossed(
+                side,
+                rest,
+                ask,
+                yes_bid_high=quotes.get("yes_bid_high"),
+                yes_ask_low=quotes.get("yes_ask_low"),
+            ):
                 position = _promote_wait(working)
                 working = None
                 continue
-            if (
-                abs(bar.impulse) + 1e-9 < settings.impulse_min
-                or want != side
-                or left + 1e-12 < settings.swing_min_seconds
-            ):
+            if impulse_wait_flipped(side, bar.impulse, settings) or left + 1e-12 < settings.swing_min_seconds:
                 working = None
 
         if position is None:
@@ -476,6 +483,8 @@ def bars_from_tape(tape: EventTape, settings: Settings) -> list[ReplayBar]:
             quotes[float(strike)] = {
                 "yes_ask": _money(stick, "yes_ask", ask_field),
                 "yes_bid": _money(stick, "yes_bid"),
+                "yes_ask_low": _money(stick, "yes_ask", "low_dollars"),
+                "yes_bid_high": _money(stick, "yes_bid", "high_dollars"),
             }
         if not quotes:
             continue
@@ -505,9 +514,16 @@ def tape_from_bars(
         spots[minute_ms] = bar.spot
         for strike, quotes in bar.quotes.items():
             ask = quotes.get("yes_ask")
+            bid = quotes.get("yes_bid")
             candles.setdefault(strike, {})[bar.end_ts] = {
-                "yes_ask": {"close_dollars": ask, "low_dollars": ask},
-                "yes_bid": {"close_dollars": quotes.get("yes_bid")},
+                "yes_ask": {
+                    "close_dollars": ask,
+                    "low_dollars": quotes.get("yes_ask_low", ask),
+                },
+                "yes_bid": {
+                    "close_dollars": bid,
+                    "high_dollars": quotes.get("yes_bid_high", bid),
+                },
             }
     if band is None and results:
         yes = [strike for strike, result in results.items() if result == "yes"]

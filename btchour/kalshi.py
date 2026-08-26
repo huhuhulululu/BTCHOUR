@@ -104,7 +104,7 @@ class KalshiClient:
         user_agent: str = "BTCHOUR/0.1",
         api_key_id: str = "",
         private_key_pem: str = "",
-        timeout: int = 30,
+        timeout: int = 15,
     ):
         self.base = base.rstrip("/")
         self.user_agent = user_agent
@@ -151,6 +151,8 @@ class KalshiClient:
             raise KalshiError(f"{method} {url} -> {exc.code}: {text[:400]}", exc.code, text) from exc
         except urllib.error.URLError as exc:
             raise KalshiError(f"{method} {url} failed: {exc}") from exc
+        except TimeoutError as exc:
+            raise KalshiError(f"{method} {url} timed out: {exc}") from exc
 
     def _sign_headers(self, method: str, path: str) -> dict:
         if not self.api_key_id or not self.private_key_pem:

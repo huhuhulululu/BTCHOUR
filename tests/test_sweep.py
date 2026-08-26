@@ -69,6 +69,24 @@ class JournalLineTests(unittest.TestCase):
         self.assertIn("0.56", line)
         self.assertIn("ask 0.56>0.52", line)
 
+    def test_wait_row_names_the_rest(self):
+        line = journal_line(
+            {
+                "status": "wait",
+                "wait": "KXBTCD-26AUG2520-T78699.99",
+                "candidates": [
+                    {
+                        "ticker": "KXBTCD-26AUG2520-T78699.99",
+                        "ask": 0.41,
+                        "p": 0.43,
+                        "reasons": ["p 0.43<0.52"],
+                    }
+                ],
+            }
+        )
+        self.assertTrue(line.startswith("wait KXBTCD-26AUG2520-T78699.99"))
+        self.assertIn("p 0.43<0.52", line)
+
 
 class TapeTests(unittest.TestCase):
     def test_lock_uses_ask_low_flex_uses_close(self):

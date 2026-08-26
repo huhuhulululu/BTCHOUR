@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from btchour.config import Settings
 from btchour.kalshi import Market
 from btchour.model import SpotQuote, digital_prob, effective_vol
-from btchour.strategy import _seconds_left, is_fast_window
+from btchour.strategy import _seconds_left, evaluate_impulse_wait_market, is_fast_window
 
 
 @dataclass(frozen=True)
@@ -105,8 +105,19 @@ def diagnose_impulse(
             ok += 1
         rejects.append(ImpulseReject(market.ticker, side, ask, model_p, reasons))
     rejects.sort(key=lambda row: abs((row.ask or 1.0) - 0.45))
-    report["status"] = "open" if ok else "blocked"
+    waits = []
+    if move < 0:
+        for market in markets:
+            waits.extend(evaluate_impulse_wait_market(market, spot, settings, now))
+    if ok:
+        report["status"] = "open"
+    elif waits:
+        report["status"] = "wait"
+        report["wait"] = waits[0].ticker
+    else:
+        report["status"] = "blocked"
     report["open"] = ok
+    report["wait_count"] = len(waits)
     report["candidates"] = [
         {"ticker": row.ticker, "side": row.side, "ask": row.ask, "p": row.model_p, "reasons": row.reasons}
         for row in rejects[:8]
@@ -127,4 +138,8 @@ def journal_line(diagnosis: dict) -> str:
     reasons = ",".join(row.get("reasons") or [])
     if not ticker and ask is None and p is None:
         return "blocked_no_hourly_candidates" if status == "blocked" else ""
-    return f"{ticker} ask={ask} p={p} {reasons}".strip()
+    line = f"{ticker} ask={ask} p={p} {reasons}".strip()
+    wait = diagnosis.get("wait")
+    if status == "wait" and wait:
+        return f"wait {wait} | {line}"
+    return line
