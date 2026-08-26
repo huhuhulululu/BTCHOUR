@@ -61,6 +61,7 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--once", action="store_true")
     run.add_argument("--playbook", choices=["flex", "swing", "lock", "hold", "scalp"])
     sub.add_parser("status", help="Local paper/live ledger summary")
+    sub.add_parser("learn", help="Show recent impulse journal: what printed, what was rejected, why")
 
     args = parser.parse_args(argv)
     if args.cmd == "ev":
@@ -181,6 +182,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "status":
         store = Store()
         _print_json({"summary": store.summary(), "open": [dict(row) for row in store.open_trades()]})
+        return 0
+
+    if args.cmd == "learn":
+        store = Store()
+        rows = [dict(row) for row in store.recent_journal(20)]
+        _print_json({"journal": rows, "summary": store.summary()})
         return 0
 
     parser.error(f"unknown command {args.cmd}")

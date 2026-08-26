@@ -5,6 +5,7 @@ import urllib.request
 from statistics import mean
 
 from btchour.kalshi import KalshiClient
+from btchour.learn import series_impulse
 from btchour.model import SpotQuote, realized_annual_vol
 
 
@@ -30,12 +31,7 @@ def _last_from_live(payload: dict) -> SpotQuote | None:
         return None
     closes = [float(c["close"]) for c in candles if c.get("close")]
     vol = realized_annual_vol(closes, 60.0)
-    impulse = 0.0
-    if series and ts_ms is not None:
-        target = ts_ms - 180_000
-        nearest = min(series, key=lambda point: abs(int(point["t"]) - target))
-        if abs(int(nearest["t"]) - target) <= 90_000:
-            impulse = price - float(nearest["v"])
+    impulse = series_impulse(series, price, ts_ms or 0)
     return SpotQuote(
         price=price,
         source="kalshi_brti_live",

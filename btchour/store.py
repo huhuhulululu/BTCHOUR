@@ -37,6 +37,16 @@ CREATE TABLE IF NOT EXISTS scans (
     opportunity_count INTEGER,
     payload TEXT
 );
+CREATE TABLE IF NOT EXISTS journal (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL,
+    event_ticker TEXT,
+    spot REAL,
+    impulse REAL,
+    tape_impulse REAL,
+    status TEXT,
+    reject TEXT
+);
 """
 
 
@@ -60,6 +70,44 @@ class Store:
             ),
         )
         self.conn.commit()
+
+    def tape_points(self, event_ticker: str | None = None, limit: int = 200) -> list[tuple[datetime, float]]:
+        if event_ticker:
+            rows = self.conn.execute(
+                "SELECT created_at, spot FROM scans WHERE event_ticker = ? AND spot IS NOT NULL ORDER BY id DESC LIMIT ?",
+                (event_ticker, limit),
+            ).fetchall()
+        else:
+            rows = self.conn.execute(
+                "SELECT created_at, spot FROM scans WHERE spot IS NOT NULL ORDER BY id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        points = []
+        for row in reversed(rows):
+            try:
+                ts = datetime.fromisoformat(row["created_at"].replace("Z", "+00:00"))
+            except Exception:
+                continue
+            points.append((ts, float(row["spot"])))
+        return points
+
+    def record_journal(self, event_ticker: str | None, spot: float, impulse: float, tape_impulse: float, status: str, reject: str) -> None:
+        self.conn.execute(
+            "INSERT INTO journal (created_at, event_ticker, spot, impulse, tape_impulse, status, reject) VALUES (?,?,?,?,?,?,?)",
+            (
+                datetime.now(timezone.utc).isoformat(),
+                event_ticker,
+                spot,
+                impulse,
+                tape_impulse,
+                status,
+                reject,
+            ),
+        )
+        self.conn.commit()
+
+    def recent_journal(self, limit: int = 12) -> list[sqlite3.Row]:
+        return list(self.conn.execute("SELECT * FROM journal ORDER BY id DESC LIMIT ?", (limit,)))
 
     def record_trade(self, trade: dict) -> int:
         cur = self.conn.execute(

@@ -70,15 +70,16 @@ def current_hourly_events(events: list[dict], now: datetime | None = None) -> li
     return [row[2] for row in ranked]
 
 
-def sync_catalog(client: KalshiClient, settings: Settings) -> dict:
+def sync_catalog(client: KalshiClient, settings: Settings, *, light: bool = False) -> dict:
     now = datetime.now(timezone.utc)
     series_docs = {}
-    for ticker in RELATED_SERIES:
-        series_docs[ticker] = client.series(ticker)
-        _write_json(CATALOG_DIR / "series" / f"{ticker}.json", series_docs[ticker])
+    if not light:
+        for ticker in RELATED_SERIES:
+            series_docs[ticker] = client.series(ticker)
+            _write_json(CATALOG_DIR / "series" / f"{ticker}.json", series_docs[ticker])
 
     open_events = client.events(settings.series_ticker, "open")
-    unopened_events = client.events(settings.series_ticker, "unopened")
+    unopened_events = [] if light else client.events(settings.series_ticker, "unopened")
     open_markets = client.markets(settings.series_ticker, "open")
     by_event: dict[str, list[Market]] = {}
     for market in open_markets:
@@ -122,7 +123,7 @@ def sync_catalog(client: KalshiClient, settings: Settings) -> dict:
                 "markets": [_compact_market(m) for m in sorted(markets, key=lambda m: m.strike or 0)],
             }
         )
-    if settings.scan_15m:
+    if settings.scan_15m and not light:
         try:
             for event in client.events("KXBTC15M", "open"):
                 markets = client.markets_by_event(event["event_ticker"])
@@ -148,6 +149,7 @@ def sync_catalog(client: KalshiClient, settings: Settings) -> dict:
             "ts_ms": spot.ts_ms,
             "impulse": spot.impulse,
         },
+        "light": light,
         "series": {
             ticker: {
                 "ticker": doc.get("ticker"),
@@ -173,18 +175,19 @@ def sync_catalog(client: KalshiClient, settings: Settings) -> dict:
         "rules_primary_sample": focus_markets[0].rules_primary if focus_markets else "",
     }
 
-    _write_json(DATA_DIR / "catalog" / "latest.json", snapshot)
-    _write_json(CATALOG_DIR / "snapshot" / "latest.json", snapshot)
-    _write_json(
-        CATALOG_DIR / "snapshot" / "index.json",
-        {
-            "synced_at": snapshot["synced_at"],
-            "spot": snapshot["spot"],
-            "open_events": snapshot["open_events"],
-            "unopened_hours": snapshot["unopened_hours"],
-            "current_hour": snapshot["current_hour"]["event"],
-            "current_hour_markets": snapshot["current_hour"]["market_count"],
-            "tradable": [block["event"] for block in snapshot.get("tradable") or []],
-        },
-    )
+    if not light:
+        _write_json(DATA_DIR / "catalog" / "latest.json", snapshot)
+        _write_json(CATALOG_DIR / "snapshot" / "latest.json", snapshot)
+        _write_json(
+            CATALOG_DIR / "snapshot" / "index.json",
+            {
+                "synced_at": snapshot["synced_at"],
+                "spot": snapshot["spot"],
+                "open_events": snapshot["open_events"],
+                "unopened_hours": snapshot["unopened_hours"],
+                "current_hour": snapshot["current_hour"]["event"],
+                "current_hour_markets": snapshot["current_hour"]["market_count"],
+                "tradable": [block["event"] for block in snapshot.get("tradable") or []],
+            },
+        )
     return snapshot

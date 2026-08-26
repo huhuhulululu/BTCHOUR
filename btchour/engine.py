@@ -14,7 +14,10 @@ from btchour.model import SpotQuote, digital_prob, effective_vol, sigma_cushion
 from btchour.paper import paper_close, paper_fill, paper_settle
 from btchour.score import score_market
 from btchour.store import Store
+from btchour.learn import diagnose_impulse, merge_impulse, tape_impulse
 from btchour.strategy import Opportunity, _seconds_left, apply_swing_memory, scan_markets
+
+_LAST_FULL_SYNC = 0.0
 
 
 def make_client(settings: Settings) -> KalshiClient:
@@ -64,20 +67,33 @@ def _markets_from_snapshot(snapshot: dict) -> list[Market]:
 
 
 def scan_once(client: KalshiClient, settings: Settings | None = None, persist: bool = True) -> dict:
+    global _LAST_FULL_SYNC
     settings = settings or load_settings()
-    snapshot = sync_catalog(client, settings)
-    spot_info = snapshot["spot"]
+    now_mono = time.time()
+    light = now_mono - _LAST_FULL_SYNC < 45
+    if not light:
+        _LAST_FULL_SYNC = now_mono
+    snapshot = sync_catalog(client, settings, light=light)
+    spot_info = dict(snapshot["spot"])
+    store = Store()
+    now = datetime.now(timezone.utc)
+    event_hint = ((snapshot.get("current_hour") or {}).get("event") or {}).get("event_ticker")
+    tape = tape_impulse(store.tape_points(event_hint), now, float(spot_info["price"]))
+    merged = merge_impulse(float(spot_info.get("impulse") or 0.0), tape)
+    spot_info["impulse"] = merged
+    spot_info["tape_impulse"] = tape
+    snapshot["spot"] = spot_info
     spot = SpotQuote(
         price=spot_info["price"],
         source=spot_info["source"],
         twap60=spot_info.get("twap60"),
         annual_vol=spot_info.get("annual_vol") or settings.annual_vol,
         ts_ms=spot_info.get("ts_ms"),
-        impulse=float(spot_info.get("impulse") or 0.0),
+        impulse=merged,
     )
     markets = _markets_from_snapshot(snapshot)
-    opportunities = apply_swing_memory(scan_markets(markets, spot, settings), Store().swing_memories())
-    now = datetime.now(timezone.utc)
+    opportunities = apply_swing_memory(scan_markets(markets, spot, settings), store.swing_memories())
+    diagnosis = diagnose_impulse(markets, spot, settings, now)
     scored = []
     for market in markets:
         seconds = _seconds_left(market.close_time, now)
@@ -102,12 +118,23 @@ def scan_once(client: KalshiClient, settings: Settings | None = None, persist: b
         "opportunities": [item.as_dict() for item in opportunities],
         "formula": "EV = p * b - (1 - p)",
         "best_ev": [row.as_dict() for row in scored[:8]],
+        "diagnosis": diagnosis,
+        "light": light,
         "snapshot": snapshot,
     }
     if persist:
-        store = Store()
         event_ticker = (payload["event"] or {}).get("event_ticker")
         store.record_scan(event_ticker, spot.price, payload["opportunities"])
+        if abs(merged) >= 40 or diagnosis.get("status") != "no_impulse":
+            top = (diagnosis.get("candidates") or [{}])[:1]
+            reject = ""
+            if top:
+                row = top[0]
+                reject = (
+                    f"{row.get('ticker')} ask={row.get('ask')} p={row.get('p')} "
+                    f"{','.join(row.get('reasons') or [])}"
+                )
+            store.record_journal(event_ticker, spot.price, merged, tape, str(diagnosis.get("status")), reject)
     return payload
 
 
@@ -331,18 +358,29 @@ def run_loop(settings: Settings | None = None) -> None:
     settings = settings or load_settings()
     client = make_client(settings)
     while True:
-        cycle = run_cycle(client, settings)
+        try:
+            cycle = run_cycle(client, settings)
+        except Exception as exc:
+            print(f"{datetime.now(timezone.utc).isoformat()} loop_error {exc}", flush=True)
+            time.sleep(max(2, settings.poll_seconds))
+            continue
         event = (cycle["scan"].get("event") or {}).get("event_ticker")
         n = len(cycle["scan"]["opportunities"])
+        spot = cycle["scan"]["spot"]
+        diagnosis = cycle["scan"].get("diagnosis") or {}
         print(
             f"{datetime.now(timezone.utc).isoformat()} mode={settings.mode} playbook={settings.playbook} "
-            f"event={event} spot={cycle['scan']['spot']['price']:.2f} opps={n} taken={len(cycle['taken'])} "
-            f"exits={len(cycle['exits'])} settled_now={len(cycle['settlements'])} "
-            f"pnl={cycle['summary']['realized_pnl']:.4f}",
+            f"event={event} spot={spot['price']:.2f} impulse={float(spot.get('impulse') or 0):+.0f} "
+            f"tape={float(spot.get('tape_impulse') or 0):+.0f} diag={diagnosis.get('status')} "
+            f"opps={n} taken={len(cycle['taken'])} exits={len(cycle['exits'])} "
+            f"settled_now={len(cycle['settlements'])} pnl={cycle['summary']['realized_pnl']:.4f}",
             flush=True,
         )
         for opp in cycle["scan"]["opportunities"][:5]:
             print(f"  {opp['reason']}", flush=True)
+        if diagnosis.get("status") == "blocked":
+            for row in (diagnosis.get("candidates") or [])[:2]:
+                print(f"  reject {row.get('side')} {row.get('ticker')} ask={row.get('ask')} p={row.get('p')} {row.get('reasons')}", flush=True)
         for item in cycle["exits"]:
             print(f"  exit {item.get('ticker')} {item.get('result')} pnl={item.get('pnl')}", flush=True)
         time.sleep(max(2, settings.poll_seconds))
