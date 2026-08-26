@@ -489,6 +489,10 @@ Minute replay this hour is `incomplete data` at the close print. Sweep window no
 
 Paper completed **6 / 1 / −5.6825**. Session: `last_loss_event=AUG2609`, `skip_next=True`, `skipped_event=AUG2610`. **`AUG2610` is skip-wait** (consecutive losses do not stack). Replay green is not 达成.
 
+## AUG2610 mid-hour — skip-wait held, same-dir taker working (2026-08-26 ~13:05 UTC)
+
+Skip-wait held: journal saw `T78199` / `T78099` ask **0.42** coupon books and did not rest. 13:05:07 same-dir `impulse_t` NO `T78299` @ **0.48**, p 52.2%, impulse −$114 — allowed (AUG2518 / AUG2605 / AUG2606). Peak bid 0.56; fee-on 10% clip needs 0.57. No YES rest. Consecutive losses do not stack, so a stop here still leaves `AUG2611` live.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.
