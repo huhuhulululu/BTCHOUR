@@ -13,7 +13,15 @@ from btchour.kalshi import market_from_api
 from btchour.model import SpotQuote
 from btchour.paper import paper_fill
 from btchour.replay import ReplayBar, replay_bars
-from btchour.strategy import evaluate_impulse_market, evaluate_impulse_wait_market, scan_markets
+from btchour.strategy import (
+    SessionMemory,
+    apply_swing_memory,
+    evaluate_impulse_market,
+    evaluate_impulse_wait_market,
+    remember_session_exit,
+    refresh_session,
+    scan_markets,
+)
 
 
 def _market(**overrides):
@@ -80,6 +88,43 @@ class ImpulseWaitTests(unittest.TestCase):
     def test_flag_off_disables_the_rest(self):
         settings = Settings(playbook="flex", max_contracts=1, allow_maker=True, impulse_wait=False)
         self.assertEqual(evaluate_impulse_wait_market(_market(), self.spot, settings, self.now), [])
+
+    def test_after_a_loss_same_direction_taker_is_ok_but_wait_is_not(self):
+        session = remember_session_exit(SessionMemory(), "KXBTCD-26AUG2518", "t_stop", -1.0, "no")
+        session = refresh_session(session, "KXBTCD-26AUG2519")
+        wait_mkt = _market(
+            ticker="KXBTCD-26AUG2519-T78699.99",
+            event_ticker="KXBTCD-26AUG2519",
+            open_time="2026-08-25T22:00:00Z",
+            close_time="2026-08-25T23:00:00Z",
+        )
+        atm = _market(
+            ticker="KXBTCD-26AUG2519-T78799.99",
+            event_ticker="KXBTCD-26AUG2519",
+            open_time="2026-08-25T22:00:00Z",
+            close_time="2026-08-25T23:00:00Z",
+            floor_strike=78799.99,
+            yes_bid_dollars="0.50",
+            yes_ask_dollars="0.51",
+            no_bid_dollars="0.49",
+            no_ask_dollars="0.50",
+        )
+        dump = SpotQuote(78680, "test", annual_vol=0.55, impulse=-160)
+        now = datetime(2026, 8, 25, 22, 30, tzinfo=timezone.utc)
+        wait_only = apply_swing_memory(
+            scan_markets([wait_mkt], self.spot, self.settings, now),
+            None,
+            session,
+        )
+        self.assertEqual(wait_only, [])
+        taker = apply_swing_memory(
+            scan_markets([atm], dump, self.settings, now),
+            None,
+            session,
+        )
+        self.assertTrue(taker)
+        self.assertEqual(taker[0].play, "impulse_t")
+        self.assertEqual(taker[0].side, "no")
 
     def test_rally_does_not_rest_yes(self):
         rally = SpotQuote(78800, "test", annual_vol=0.55, impulse=160)

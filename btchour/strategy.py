@@ -619,6 +619,8 @@ def allow_session(opportunity: Opportunity, session: SessionMemory | None) -> bo
     if opportunity.event_ticker == session.last_loss_event:
         return False
     if session.skipped_event is None or opportunity.event_ticker == session.skipped_event:
+        if opportunity.play == "impulse_wait":
+            return False
         if session.last_side and opportunity.side == session.last_side:
             return True
         return False
