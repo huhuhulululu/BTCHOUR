@@ -192,3 +192,35 @@
 | flex cheap p30/ask35 | 13 / 4 / −6.33 | 21 / 8 / −7.61 |
 
 coupon 仍赢 nowait。`AUG2520` 仍是 +41.5%。完成成交 **2 / 0 / −3.5944**。回放绿不是达成。
+
+## 09:00 收盘 `AUG2605`：空 wait 守住了，同向 taker 又亏
+
+这小时是 `AUG2604` scratch 之后的 **skip-wait 小时**，不是 dump-only-fill coupon 的实盘测验。不要把「这小时没挂 coupon」当成 coupon 失败。
+
+| 时间 | 事件 |
+| --- | --- |
+| 整小时 | 479 次扫描。动量 −$140 / +$211。现货 79095 → 78622 |
+| 08:53–08:55 | journal 10 条 coupon 盘（`T78799` ask 0.39，随后 `T78699` ask 0.41）。引擎没挂 wait（skip）。对 |
+| 涨势 YES | `blocked`（p&lt;52% / ask&gt;0.52）。没挂 YES |
+| 08:55:59Z | 同向 `impulse_t` NO `T78699` @ **0.49**，p 56.2%，动量 −$139。AUG2518 规矩允许 |
+| 随后 | peak bid 0.55，`t_stop` **−1.243**（−24.5%，买一 0.40） |
+| 08:58 | 15m `lock_wait` `KXBTC15M-26AUG260500` rest 0.83 仍 working。不是 dump coupon，也不挡 hourly wait |
+
+skip 守住了：0 笔 `impulse_wait` 成交。同向 taker 亏完把 `last_loss_event` 写成 `AUG2605`，下一小时 skip 变成 `AUG2606`。这是 **skip 跑步机**：coupon 亏 → 空下一小时 wait → skip 小时里再吃一笔亏的 taker → 再空一小时。AUG2518 就是为了「亏后再挂 wait」设的，所以这轮不改 skip、不关 skip 小时的同向 taker。
+
+`不能实现就换策略` 的开关仍是：**下一小时真正挂上 coupon 并收盘之后**（不是 skip 小时）。现在还没到。`AUG2606` 空 wait；若这小时不再亏一笔 T，`AUG2607` 才是下一小时真挂。
+
+分钟回放这小时 coupon 也是 **0 笔 wait**，只有同一笔 0.49 NO `t_stop`（1 分钟带是 −12.8% / −0.65，纸盘扫到了 0.40）。便宜对照吃了 YES @ 0.24 `t_stop` −25%——不追。
+
+新窗口（AUG2605–AUG2514 / AUG2605–AUG2506），dump-only fill：
+
+| Run | 16h | 24h |
+| --- | ---: | ---: |
+| dump coupon（默认） | 6 / 4 / **+0.81** | 13 / 9 / **+5.10** |
+| flex_nowait | 3 / 1 / −0.93 | 8 / 4 / −0.53 |
+| flex_wait_loose | 7 / 6 / +6.21 | 13 / 10 / +9.95 |
+| flex cheap p30/ask35 | 13 / 4 / −6.11 | 21 / 8 / −8.69 |
+
+16h 从 −0.47 到 +0.81，是窗口滚掉 `AUG2513` YES stop −1.93、滚进这小时 taker −0.65，不是 coupon 这小时赚了。coupon 仍赢 nowait。`AUG2520` 仍是 +41.5%。便宜 taker 仍红。不换 29¢ 刀，不把 p 降到 30%。
+
+完成成交 **3 / 0 / −4.8374**。回放绿不是达成。`AUG2606` 空 wait。

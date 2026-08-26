@@ -323,6 +323,29 @@ New window (AUG2604–AUG2513 / AUG2604–AUG2505) after dump-only fill:
 
 Coupon still beats nowait. `AUG2520` still +41.5%. Paper completed **2 / 0 / −3.5944**. Skip wait on `AUG2605`. Replay green is not 达成.
 
+## AUG2605 close — skip-wait held; same-dir taker re-armed skip (2026-08-26 ~09:00 UTC)
+
+Designed skip-wait hour after the `AUG2604` fade-fill scratch. Not a live dump-coupon test.
+
+Paper: 479 scans, impulse −$140 / +$211. Journal 10 coupon books (`T78799` ask 0.39, then `T78699` ask 0.41). Engine did not rest (skip). Rally YES stayed `blocked`. Same-dir `impulse_t` NO `T78699` @ **0.49** (p 56%, impulse −$139) — allowed by the AUG2518 rule — peaked 0.55 and `t_stop` **−1.243**. That loss set `skipped_event=KXBTCD-26AUG2606`.
+
+Skip treadmill: coupon scratch → skip next wait → losing taker on the skip hour → skip the hour after that. Leave the rule. The switch trigger is still the next **closed live coupon hour**, not a skip hour. `AUG2606` sits wait; `AUG2607` is the next live rest unless this hour also loses a T.
+
+15m `lock_wait` `KXBTC15M-26AUG260500` rest 0.83 is a current 15-minute window, not dump coupon, and does not block hourly wait.
+
+Minute replay this hour: coupon wait **0**. Same 0.49 NO `t_stop` −12.8% on 1-minute bars. Cheap YES @ 0.24 `t_stop` −25% — do not chase.
+
+New window (AUG2605–AUG2514 / AUG2605–AUG2506) after dump-only fill:
+
+| Run | 16h | 24h |
+| --- | ---: | ---: |
+| dump coupon (default) | 6 / 4 / **+0.81** | 13 / 9 / **+5.10** |
+| flex_nowait | 3 / 1 / −0.93 | 8 / 4 / −0.53 |
+| flex_wait_loose | 7 / 6 / +6.21 | 13 / 10 / +9.95 |
+| flex cheap p30/ask35 | 13 / 4 / −6.11 | 21 / 8 / −8.69 |
+
+16h rose because `AUG2513` YES stop −1.93 rolled out, not because this hour printed a clip. Coupon still beats nowait. `AUG2520` still +41.5%. Cheap still red. Paper completed **3 / 0 / −4.8374**. Skip wait on `AUG2606`. Replay green is not 达成.
+
 ## Order book
 
 ATM books are two-sided and deep at 1–4 cents. `yes_ask` on the market object is the real take price; 1-cent bids on both sides are inventory, not the touch for a 20% clip.
