@@ -1,11 +1,12 @@
 {
-  "swept_at": "2026-08-27T03:00:48.417547+00:00",
+  "swept_at": "2026-08-27T04:01:02.104432+00:00",
   "hours": 24,
   "windows": [
     16,
     24
   ],
   "events": [
+    "KXBTCD-26AUG2700",
     "KXBTCD-26AUG2623",
     "KXBTCD-26AUG2622",
     "KXBTCD-26AUG2621",
@@ -28,8 +29,7 @@
     "KXBTCD-26AUG2604",
     "KXBTCD-26AUG2603",
     "KXBTCD-26AUG2602",
-    "KXBTCD-26AUG2601",
-    "KXBTCD-26AUG2600"
+    "KXBTCD-26AUG2601"
   ],
   "formula": "EV = p * b - (1 - p)",
   "runs": [
@@ -97,11 +97,11 @@
       "impulse_wait": false,
       "impulse_taker": true,
       "take_count": 5,
-      "wins": 3,
-      "realized_pnl": -1.985500000000001,
+      "wins": 4,
+      "realized_pnl": -0.38039999999999985,
       "exit_reasons": {
-        "t_stop": 2,
-        "t_clip": 2,
+        "t_stop": 1,
+        "t_clip": 3,
         "t_fade": 1
       },
       "takes": [
@@ -142,13 +142,13 @@
           "pnl": 0.1661999999999999
         },
         {
-          "event": "KXBTCD-26AUG2608",
+          "event": "KXBTCD-26AUG2609",
           "side": "no",
-          "ask": 0.52,
+          "ask": 0.51,
           "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.19500260474808376,
-          "pnl": -1.0481000000000007
+          "exit": "t_clip",
+          "roi": 0.10559241706161146,
+          "pnl": 0.5570000000000004
         }
       ]
     },
@@ -417,11 +417,11 @@
       "impulse_wait": true,
       "impulse_taker": false,
       "take_count": 6,
-      "wins": 4,
-      "realized_pnl": 0.8006000000000038,
+      "wins": 5,
+      "realized_pnl": 2.405700000000005,
       "exit_reasons": {
-        "t_clip": 4,
-        "t_stop": 2
+        "t_clip": 5,
+        "t_stop": 1
       },
       "takes": [
         {
@@ -470,13 +470,13 @@
           "pnl": -1.2463999999999995
         },
         {
-          "event": "KXBTCD-26AUG2608",
+          "event": "KXBTCD-26AUG2609",
           "side": "no",
-          "ask": 0.52,
+          "ask": 0.51,
           "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.19500260474808376,
-          "pnl": -1.0481000000000007
+          "exit": "t_clip",
+          "roi": 0.10559241706161146,
+          "pnl": 0.5570000000000004
         }
       ]
     },
