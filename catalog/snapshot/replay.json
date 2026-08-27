@@ -1,5 +1,5 @@
 {
-  "replayed_at": "2026-08-27T11:01:15.412579+00:00",
+  "replayed_at": "2026-08-27T12:00:59.823508+00:00",
   "hours": 16,
   "playbook": "flex",
   "formula": "EV = p * b - (1 - p)",
@@ -40,9 +40,91 @@
   },
   "events": [
     {
-      "event_ticker": "KXBTCD-26AUG2707",
+      "event_ticker": "KXBTCD-26AUG2708",
       "error": "incomplete data",
       "takes": []
+    },
+    {
+      "event_ticker": "KXBTCD-26AUG2707",
+      "settlement_band": [
+        79599.99,
+        79699.99
+      ],
+      "settle_mid": 79649.99,
+      "candles": {
+        "79599.99": 60,
+        "79699.99": 60,
+        "79799.99": 60,
+        "79499.99": 60,
+        "79899.99": 60,
+        "79399.99": 60,
+        "79999.99": 60,
+        "79299.99": 59,
+        "80099.99": 58,
+        "79199.99": 60,
+        "80199.99": 57,
+        "79099.99": 59,
+        "80299.99": 55,
+        "78999.99": 58,
+        "80399.99": 60,
+        "78899.99": 42,
+        "80499.99": 56,
+        "78799.99": 42,
+        "80599.99": 51,
+        "78699.99": 43,
+        "80699.99": 59,
+        "78599.99": 38,
+        "80799.99": 58,
+        "78499.99": 40
+      },
+      "playbook": "flex",
+      "takes": [
+        {
+          "ts": "2026-08-27T10:13:00+00:00",
+          "event_ticker": "KXBTCD-26AUG2707",
+          "ticker": "KXBTCD-26AUG2707-T79899.99",
+          "strike": 79899.99,
+          "side": "no",
+          "spot": 80026.946,
+          "seconds_left": 2820.0,
+          "ask": 0.25,
+          "model_p": 0.381032399257049,
+          "if_win_roi": 3.0,
+          "ev": 0.5241295970281961,
+          "vol": 0.55,
+          "play": "impulse_wait",
+          "lock_price": 0.32,
+          "filled_ts": "2026-08-27T10:13:00+00:00",
+          "exit_ts": "2026-08-27T10:14:00+00:00",
+          "exit_reason": "t_clip",
+          "exit_price": 0.43,
+          "exit_note": "\u505aT cap 65.1% at bid 0.43 (band 10%-50%)",
+          "pnl": 1.6284,
+          "roi": 0.65136,
+          "result": "t_clip"
+        }
+      ],
+      "best": {
+        "ts": "2026-08-27T10:57:00+00:00",
+        "event_ticker": "KXBTCD-26AUG2707",
+        "strike": 79699.99,
+        "side": "yes",
+        "spot": 79571.30566666665,
+        "seconds_left": 180.0,
+        "ask": 0.01,
+        "model_p": 0.10919056375708958,
+        "if_win_roi": 92.45794392523365,
+        "ev": 9.204725584774726,
+        "vol": 0.55
+      },
+      "hold_candidates": 0,
+      "session": {
+        "last_loss_event": null,
+        "last_side": null,
+        "last_play": "",
+        "skip_next": false,
+        "skipped_event": null
+      }
     },
     {
       "event_ticker": "KXBTCD-26AUG2706",
@@ -626,65 +708,12 @@
         "skip_next": false,
         "skipped_event": null
       }
-    },
-    {
-      "event_ticker": "KXBTCD-26AUG2616",
-      "settlement_band": [
-        78399.99,
-        78499.99
-      ],
-      "settle_mid": 78449.99,
-      "candles": {
-        "77399.99": 22,
-        "77499.99": 27,
-        "77599.99": 38,
-        "77699.99": 44,
-        "77799.99": 60,
-        "77899.99": 60,
-        "77999.99": 60,
-        "78099.99": 60,
-        "78199.99": 60,
-        "78299.99": 60,
-        "78399.99": 60,
-        "78499.99": 60,
-        "78599.99": 60,
-        "78699.99": 59,
-        "78799.99": 60,
-        "78899.99": 60,
-        "78999.99": 60,
-        "79099.99": 56,
-        "79199.99": 48,
-        "79299.99": 31
-      },
-      "playbook": "flex",
-      "takes": [],
-      "best": {
-        "ts": "2026-08-26T19:59:00+00:00",
-        "event_ticker": "KXBTCD-26AUG2616",
-        "strike": 78499.99,
-        "side": "yes",
-        "spot": 78449.14283333327,
-        "seconds_left": 60.0,
-        "ask": 0.01,
-        "model_p": 0.19634199603365654,
-        "if_win_roi": 92.45794392523365,
-        "ev": 17.34971925548192,
-        "vol": 0.55
-      },
-      "hold_candidates": 0,
-      "session": {
-        "last_loss_event": null,
-        "last_side": null,
-        "last_play": "",
-        "skip_next": false,
-        "skipped_event": null
-      }
     }
   ],
-  "take_count": 2,
-  "wins": 2,
+  "take_count": 3,
+  "wins": 3,
   "exit_reasons": {
-    "t_clip": 2
+    "t_clip": 3
   },
-  "realized_pnl": 0.9978000000000002
+  "realized_pnl": 2.6262000000000003
 }
