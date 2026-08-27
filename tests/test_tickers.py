@@ -63,11 +63,22 @@ class TickerTests(unittest.TestCase):
         focus = current_hourly_events(events, now)
         self.assertEqual(focus[0]["event_ticker"], "KXBTCD-26AUG2603")
 
-    def test_focus_falls_back_to_the_just_closed_hour(self):
+    def test_focus_stays_on_the_next_hour_when_it_is_not_listed_yet(self):
         now = datetime(2026, 8, 26, 6, 0, 20, tzinfo=ZoneInfo("UTC"))
         events = [{"event_ticker": "KXBTCD-26AUG2602"}]
         focus = current_hourly_events(events, now)
-        self.assertEqual(focus[0]["event_ticker"], "KXBTCD-26AUG2602")
+        self.assertEqual(focus[0]["event_ticker"], "KXBTCD-26AUG2603")
+
+    def test_focus_does_not_hop_to_the_5pm_daily_overnight(self):
+        now = datetime(2026, 8, 27, 1, 1, tzinfo=ZoneInfo("America/New_York"))
+        events = [
+            {"event_ticker": "KXBTCD-26AUG2701"},
+            {"event_ticker": "KXBTCD-26AUG2717"},
+            {"event_ticker": "KXBTCD-26AUG2817"},
+        ]
+        focus = current_hourly_events(events, now)
+        self.assertEqual(focus[0]["event_ticker"], "KXBTCD-26AUG2702")
+        self.assertNotEqual(focus[0]["event_ticker"], "KXBTCD-26AUG2717")
 
     def test_focus_is_the_5pm_book_at_416_even_among_later_dailies(self):
         now = datetime(2026, 8, 26, 16, 13, tzinfo=ZoneInfo("America/New_York"))

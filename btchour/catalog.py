@@ -85,10 +85,22 @@ def current_hourly_events(events: list[dict], now: datetime | None = None) -> li
     if target in by_ticker:
         rest = [event for _, event in live if event.get("event_ticker") != target]
         return [by_ticker[target]] + rest
-    if live:
-        return [event for _, event in live]
+    # Overnight Kalshi often lists only the 5pm daily. Do not hop 16 hours.
+    # Stay on the next whole-hour close even if that book is not listed yet.
+    stub = {"event_ticker": target}
+    nearby = [
+        event
+        for close, event in live
+        if 0 < (close - now).total_seconds() <= 70 * 60
+    ]
     closed.sort(key=lambda row: row[0], reverse=True)
-    return [event for _, event in closed]
+    just_closed = [
+        event
+        for close, event in closed
+        if 0 <= (now - close).total_seconds() <= 70 * 60
+    ]
+    far = [event for _, event in live if event not in nearby]
+    return [stub] + nearby + just_closed + far
 
 
 def _event_from_payload(payload: dict | None, ticker: str) -> dict | None:
@@ -159,7 +171,9 @@ def sync_catalog(client: KalshiClient, settings: Settings, *, light: bool = Fals
     focus = current_hourly_events(focus_pool, now)
     focus_event = next((event for event in focus_pool if event.get("event_ticker") == target), None)
     if focus_event is None:
-        focus_event = focus[0] if focus else None
+        focus_event = next((event for event in focus if event.get("event_ticker") == target), None)
+    if focus_event is None:
+        focus_event = {"event_ticker": target}
     focus_markets = by_event.get(focus_event["event_ticker"], []) if focus_event else []
     spot = fetch_spot(client, focus_event["event_ticker"] if focus_event else None)
 
