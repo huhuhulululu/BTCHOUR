@@ -1,11 +1,12 @@
 {
-  "swept_at": "2026-08-26T23:04:10.041599+00:00",
+  "swept_at": "2026-08-27T00:01:02.441881+00:00",
   "hours": 24,
   "windows": [
     16,
     24
   ],
   "events": [
+    "KXBTCD-26AUG2620",
     "KXBTCD-26AUG2619",
     "KXBTCD-26AUG2618",
     "KXBTCD-26AUG2617",
@@ -28,8 +29,7 @@
     "KXBTCD-26AUG2600",
     "KXBTCD-26AUG2523",
     "KXBTCD-26AUG2522",
-    "KXBTCD-26AUG2521",
-    "KXBTCD-26AUG2520"
+    "KXBTCD-26AUG2521"
   ],
   "formula": "EV = p * b - (1 - p)",
   "runs": [
@@ -479,11 +479,11 @@
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
       "impulse_taker": false,
-      "take_count": 8,
-      "wins": 5,
-      "realized_pnl": 0.8508000000000027,
+      "take_count": 7,
+      "wins": 4,
+      "realized_pnl": 0.09580000000000277,
       "exit_reasons": {
-        "t_clip": 5,
+        "t_clip": 4,
         "t_stop": 2,
         "t_fade": 1
       },
@@ -550,15 +550,6 @@
           "exit": "t_fade",
           "roi": -0.04830917874396135,
           "pnl": -0.25
-        },
-        {
-          "event": "KXBTCD-26AUG2604",
-          "side": "no",
-          "ask": 0.47,
-          "play": "swing_t",
-          "exit": "t_clip",
-          "roi": 0.1548908583620548,
-          "pnl": 0.7549999999999999
         }
       ]
     },
@@ -586,11 +577,11 @@
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
       "impulse_taker": false,
-      "take_count": 9,
-      "wins": 9,
-      "realized_pnl": 10.058200000000003,
+      "take_count": 8,
+      "wins": 8,
+      "realized_pnl": 9.021400000000002,
       "exit_reasons": {
-        "t_clip": 9
+        "t_clip": 8
       },
       "takes": [
         {
@@ -664,15 +655,6 @@
           "exit": "t_clip",
           "roi": 0.18008000000000007,
           "pnl": 0.45020000000000016
-        },
-        {
-          "event": "KXBTCD-26AUG2520",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.41472000000000014,
-          "pnl": 1.0368000000000004
         }
       ]
     },
@@ -750,12 +732,12 @@
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
       "impulse_taker": false,
-      "take_count": 9,
-      "wins": 8,
-      "realized_pnl": 10.3325,
+      "take_count": 8,
+      "wins": 7,
+      "realized_pnl": 9.2957,
       "exit_reasons": {
         "t_wait_stop": 1,
-        "t_clip": 8
+        "t_clip": 7
       },
       "takes": [
         {
@@ -829,15 +811,6 @@
           "exit": "t_clip",
           "roi": 0.8500799999999998,
           "pnl": 2.1251999999999995
-        },
-        {
-          "event": "KXBTCD-26AUG2520",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.41472000000000014,
-          "pnl": 1.0368000000000004
         }
       ]
     },
@@ -850,11 +823,11 @@
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
       "impulse_taker": false,
-      "take_count": 9,
-      "wins": 9,
-      "realized_pnl": 10.058200000000003,
+      "take_count": 8,
+      "wins": 8,
+      "realized_pnl": 9.021400000000002,
       "exit_reasons": {
-        "t_clip": 9
+        "t_clip": 8
       },
       "takes": [
         {
@@ -928,15 +901,6 @@
           "exit": "t_clip",
           "roi": 0.18008000000000007,
           "pnl": 0.45020000000000016
-        },
-        {
-          "event": "KXBTCD-26AUG2520",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.41472000000000014,
-          "pnl": 1.0368000000000004
         }
       ]
     },
@@ -949,12 +913,12 @@
       "impulse_max_ask": 0.35,
       "impulse_wait": true,
       "impulse_taker": true,
-      "take_count": 12,
-      "wins": 9,
-      "realized_pnl": 6.8637000000000015,
+      "take_count": 11,
+      "wins": 8,
+      "realized_pnl": 5.826900000000002,
       "exit_reasons": {
         "t_stop": 3,
-        "t_clip": 9
+        "t_clip": 8
       },
       "takes": [
         {
@@ -1055,15 +1019,6 @@
           "exit": "t_clip",
           "roi": 0.18008000000000007,
           "pnl": 0.45020000000000016
-        },
-        {
-          "event": "KXBTCD-26AUG2520",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.41472000000000014,
-          "pnl": 1.0368000000000004
         }
       ]
     },
@@ -1076,12 +1031,12 @@
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
       "impulse_taker": true,
-      "take_count": 12,
-      "wins": 9,
-      "realized_pnl": 6.8637000000000015,
+      "take_count": 11,
+      "wins": 8,
+      "realized_pnl": 5.826900000000002,
       "exit_reasons": {
         "t_stop": 3,
-        "t_clip": 9
+        "t_clip": 8
       },
       "takes": [
         {
@@ -1182,15 +1137,6 @@
           "exit": "t_clip",
           "roi": 0.18008000000000007,
           "pnl": 0.45020000000000016
-        },
-        {
-          "event": "KXBTCD-26AUG2520",
-          "side": "no",
-          "ask": 0.25,
-          "play": "impulse_wait",
-          "exit": "t_clip",
-          "roi": 0.41472000000000014,
-          "pnl": 1.0368000000000004
         }
       ]
     },
@@ -1203,11 +1149,11 @@
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
       "impulse_taker": false,
-      "take_count": 10,
-      "wins": 6,
-      "realized_pnl": 0.8774000000000028,
+      "take_count": 9,
+      "wins": 5,
+      "realized_pnl": -0.29579999999999673,
       "exit_reasons": {
-        "t_clip": 6,
+        "t_clip": 5,
         "t_stop": 3,
         "t_fade": 1
       },
@@ -1292,15 +1238,6 @@
           "exit": "t_stop",
           "roi": -0.21736492890995252,
           "pnl": -1.1465999999999994
-        },
-        {
-          "event": "KXBTCD-26AUG2520",
-          "side": "no",
-          "ask": 0.53,
-          "play": "swing_t",
-          "exit": "t_clip",
-          "roi": 0.2143065906766037,
-          "pnl": 1.1731999999999996
         }
       ]
     },
