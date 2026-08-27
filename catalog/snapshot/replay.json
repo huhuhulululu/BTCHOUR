@@ -1,5 +1,5 @@
 {
-  "replayed_at": "2026-08-27T20:01:15.638438+00:00",
+  "replayed_at": "2026-08-27T21:04:37.375124+00:00",
   "hours": 16,
   "playbook": "flex",
   "formula": "EV = p * b - (1 - p)",
@@ -40,9 +40,102 @@
   },
   "events": [
     {
+      "event_ticker": "KXBTCD-26AUG2717",
+      "settlement_band": [
+        79999.99,
+        80249.99
+      ],
+      "settle_mid": 80124.99,
+      "candles": {
+        "79249.99": 61,
+        "79499.99": 61,
+        "79749.99": 61,
+        "79999.99": 61,
+        "80249.99": 61,
+        "80499.99": 61,
+        "80749.99": 60,
+        "80999.99": 61
+      },
+      "playbook": "flex",
+      "takes": [],
+      "best": {
+        "ts": "2026-08-27T20:53:00+00:00",
+        "event_ticker": "KXBTCD-26AUG2717",
+        "strike": 80249.99,
+        "side": "yes",
+        "spot": 80000.02999999998,
+        "seconds_left": 420.0,
+        "ask": 0.01,
+        "model_p": 0.059880471649468636,
+        "if_win_roi": 92.45794392523365,
+        "ev": 4.596305761632583,
+        "vol": 0.55
+      },
+      "hold_candidates": 0,
+      "session": {
+        "last_loss_event": null,
+        "last_side": null,
+        "last_play": "",
+        "skip_next": false,
+        "skipped_event": null
+      }
+    },
+    {
       "event_ticker": "KXBTCD-26AUG2716",
-      "error": "incomplete data",
-      "takes": []
+      "settlement_band": [
+        79899.99,
+        79999.99
+      ],
+      "settle_mid": 79949.99,
+      "candles": {
+        "79199.99": 60,
+        "79299.99": 60,
+        "79399.99": 60,
+        "79499.99": 60,
+        "79599.99": 60,
+        "79699.99": 60,
+        "79799.99": 60,
+        "79899.99": 60,
+        "79999.99": 60,
+        "80099.99": 60,
+        "80199.99": 60,
+        "80299.99": 60,
+        "80399.99": 60,
+        "80499.99": 60,
+        "80599.99": 60,
+        "80699.99": 60,
+        "80799.99": 60,
+        "80899.99": 60,
+        "80999.99": 60,
+        "81099.99": 52,
+        "81199.99": 37,
+        "81299.99": 31,
+        "81399.99": 23,
+        "81499.99": 23
+      },
+      "playbook": "flex",
+      "takes": [],
+      "best": {
+        "ts": "2026-08-27T19:59:00+00:00",
+        "event_ticker": "KXBTCD-26AUG2716",
+        "strike": 79999.99,
+        "side": "yes",
+        "spot": 79962.15133333328,
+        "seconds_left": 60.0,
+        "ask": 0.02,
+        "model_p": 0.26624697768464206,
+        "if_win_roi": 45.728971962616825,
+        "ev": 11.441447555357106,
+        "vol": 0.55
+      },
+      "hold_candidates": 0,
+      "session": {
+        "last_loss_event": null,
+        "last_side": null,
+        "last_play": "",
+        "skip_next": false,
+        "skipped_event": null
+      }
     },
     {
       "event_ticker": "KXBTCD-26AUG2715",
@@ -777,56 +870,6 @@
       "event_ticker": "KXBTCD-26AUG2702",
       "error": "missing event (404)",
       "takes": []
-    },
-    {
-      "event_ticker": "KXBTCD-26AUG2701",
-      "settlement_band": [
-        78699.99,
-        78799.99
-      ],
-      "settle_mid": 78749.99,
-      "candles": {
-        "77999.99": 35,
-        "78099.99": 53,
-        "78199.99": 59,
-        "78299.99": 32,
-        "78399.99": 60,
-        "78499.99": 60,
-        "78599.99": 60,
-        "78699.99": 60,
-        "78799.99": 60,
-        "78899.99": 60,
-        "78999.99": 60,
-        "79099.99": 60,
-        "79199.99": 60,
-        "79299.99": 60,
-        "79399.99": 56,
-        "79499.99": 59,
-        "79599.99": 34
-      },
-      "playbook": "flex",
-      "takes": [],
-      "best": {
-        "ts": "2026-08-27T04:01:00+00:00",
-        "event_ticker": "KXBTCD-26AUG2701",
-        "strike": 79399.99,
-        "side": "yes",
-        "spot": 78833.97450000001,
-        "seconds_left": 3540.0,
-        "ask": 0.01,
-        "model_p": 0.10915146212965082,
-        "if_win_roi": 92.45794392523365,
-        "ev": 9.201071227070171,
-        "vol": 0.55
-      },
-      "hold_candidates": 0,
-      "session": {
-        "last_loss_event": null,
-        "last_side": null,
-        "last_play": "",
-        "skip_next": false,
-        "skipped_event": null
-      }
     }
   ],
   "take_count": 6,
