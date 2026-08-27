@@ -1,5 +1,5 @@
 {
-  "replayed_at": "2026-08-27T21:04:37.375124+00:00",
+  "replayed_at": "2026-08-27T22:08:58.968289+00:00",
   "hours": 16,
   "playbook": "flex",
   "formula": "EV = p * b - (1 - p)",
@@ -39,6 +39,57 @@
     "allow_early_exit": true
   },
   "events": [
+    {
+      "event_ticker": "KXBTCD-26AUG2718",
+      "settlement_band": [
+        80099.99,
+        80199.99
+      ],
+      "settle_mid": 80149.99,
+      "candles": {
+        "79199.99": 60,
+        "79299.99": 60,
+        "79399.99": 58,
+        "79499.99": 60,
+        "79599.99": 60,
+        "79699.99": 60,
+        "79799.99": 60,
+        "79899.99": 60,
+        "79999.99": 60,
+        "80099.99": 60,
+        "80199.99": 60,
+        "80299.99": 60,
+        "80399.99": 60,
+        "80499.99": 60,
+        "80599.99": 59,
+        "80699.99": 58,
+        "80799.99": 59,
+        "80899.99": 59
+      },
+      "playbook": "flex",
+      "takes": [],
+      "best": {
+        "ts": "2026-08-27T21:52:00+00:00",
+        "event_ticker": "KXBTCD-26AUG2718",
+        "strike": 80299.99,
+        "side": "yes",
+        "spot": 80105.3623333333,
+        "seconds_left": 480.0,
+        "ask": 0.01,
+        "model_p": 0.1287351970280936,
+        "if_win_roi": 92.45794392523365,
+        "ev": 11.031326825055478,
+        "vol": 0.55
+      },
+      "hold_candidates": 0,
+      "session": {
+        "last_loss_event": null,
+        "last_side": null,
+        "last_play": "",
+        "skip_next": false,
+        "skipped_event": null
+      }
+    },
     {
       "event_ticker": "KXBTCD-26AUG2717",
       "settlement_band": [
@@ -863,11 +914,6 @@
     },
     {
       "event_ticker": "KXBTCD-26AUG2703",
-      "error": "missing event (404)",
-      "takes": []
-    },
-    {
-      "event_ticker": "KXBTCD-26AUG2702",
       "error": "missing event (404)",
       "takes": []
     }
