@@ -284,3 +284,44 @@ class ExecuteWaitTests(unittest.TestCase):
                     db, [hop.as_dict()], hop.event_ticker
                 )
                 self.assertEqual(chosen, [])
+
+    def test_flex_cancels_lock_wait_on_the_far_5pm_daily(self):
+        from datetime import datetime, timezone
+
+        from btchour.kalshi import market_from_api
+        from btchour.model import SpotQuote
+
+        now = datetime(2026, 8, 27, 9, 0, tzinfo=timezone.utc)
+        daily = market_from_api(
+            {
+                "ticker": "KXBTCD-26AUG2817-T70499.99",
+                "event_ticker": "KXBTCD-26AUG2817",
+                "title": "Bitcoin price",
+                "subtitle": "$70,499.99 or above",
+                "status": "active",
+                "floor_strike": 70499.99,
+                "strike_type": "greater",
+                "yes_bid_dollars": "0.98",
+                "yes_ask_dollars": "0.99",
+                "no_bid_dollars": "0.01",
+                "no_ask_dollars": "0.02",
+                "open_time": "2026-08-26T20:00:00Z",
+                "close_time": "2026-08-28T21:00:00Z",
+                "result": "",
+            }
+        )
+        lock = self._lock_wait("KXBTCD-26AUG2817-T70499.99")
+        lock["event_ticker"] = "KXBTCD-26AUG2817"
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                db.record_trade(lock)
+                updates = engine_mod.refresh_working(
+                    db,
+                    Settings(playbook="flex"),
+                    [daily],
+                    SpotQuote(79743, "test", annual_vol=0.25),
+                    now,
+                )
+                self.assertEqual(updates[0]["reason"], "wait_invalid")
+                self.assertEqual(db.working_trades(), [])

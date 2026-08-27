@@ -13,7 +13,7 @@ from btchour.fees import fill_cost
 from btchour.kalshi import market_from_api
 from btchour.model import SpotQuote
 from btchour.paper import paper_fill, paper_settle
-from btchour.strategy import evaluate_lock_market, evaluate_market
+from btchour.strategy import evaluate_lock_market, evaluate_market, scan_markets
 
 
 def _market(**overrides):
@@ -80,6 +80,31 @@ class LockStrategyTests(unittest.TestCase):
         )
         self.assertEqual(lock, [])
         self.assertTrue(any(row.side == "yes" for row in hold))
+
+    def test_flex_does_not_lock_the_far_5pm_daily(self):
+        # Paper AUG2706 05:00 ET: trading came back and flex rested
+        # AUG2817-T70499 / T70999 lock_wait @ 0.83. That is tomorrow's 5pm
+        # daily, not the 6am hourly.
+        now = datetime(2026, 8, 27, 9, 0, tzinfo=timezone.utc)
+        daily = _market(
+            ticker="KXBTCD-26AUG2817-T70499.99",
+            event_ticker="KXBTCD-26AUG2817",
+            floor_strike=70499.99,
+            yes_bid_dollars="0.98",
+            yes_ask_dollars="0.99",
+            no_bid_dollars="0.01",
+            no_ask_dollars="0.02",
+            open_time="2026-08-26T20:00:00Z",
+            close_time="2026-08-28T21:00:00Z",
+        )
+        spot = SpotQuote(79743, "test", annual_vol=0.25)
+        flex = Settings(playbook="flex", max_contracts=10)
+        self.assertEqual(evaluate_lock_market(daily, spot, flex, now), [])
+        self.assertFalse(
+            any(row.play.startswith("lock") for row in scan_markets([daily], spot, flex, now))
+        )
+        lock = Settings(playbook="lock", max_contracts=1)
+        self.assertTrue(evaluate_lock_market(daily, spot, lock, now))
 
     def test_wait_is_not_a_paper_fill(self):
         market = _market(yes_bid_dollars="0.98", yes_ask_dollars="0.99", no_bid_dollars="0.01", no_ask_dollars="0.02")

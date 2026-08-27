@@ -390,6 +390,10 @@ def evaluate_lock_market(
     now: datetime | None = None,
 ) -> list[Opportunity]:
     now = now or datetime.now(timezone.utc)
+    # Flex coupon hour only. Overnight lock on the 5pm daily (AUG2717 / AUG2817)
+    # is hopping, not the next hourly close. Lock playbook still scans any book.
+    if settings.playbook == "flex" and not is_next_session_book(market, now):
+        return []
     seconds = _eligible_market(market, settings, now)
     if seconds is None:
         return []

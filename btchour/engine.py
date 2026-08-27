@@ -24,6 +24,7 @@ from btchour.strategy import (
     Opportunity,
     _seconds_left,
     apply_swing_memory,
+    is_next_session_book,
     pick_flex_entries,
     impulse_wait_flipped,
     refresh_session,
@@ -283,11 +284,21 @@ def refresh_working(
     updates = []
     for row in store.working_trades():
         market = by_ticker.get(row["ticker"])
+        play = _row_play(row)
+        if (
+            settings.playbook == "flex"
+            and play == "lock_wait"
+            and (market is None or not is_next_session_book(market, now))
+        ):
+            store.cancel_trade(row["id"], "wait_invalid")
+            updates.append(
+                {"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": "wait_invalid"}
+            )
+            continue
         if market is None or market.strike is None:
             continue
         if settings.live and not can_trade:
             continue
-        play = _row_play(row)
         rest = float(row["price"])
         ask = market.yes_ask_effective if row["side"] == "yes" else market.no_ask_effective
         seconds = _seconds_left(market.close_time, now)
