@@ -9,7 +9,7 @@ from btchour.config import CATALOG_DIR, DATA_DIR, Settings, load_settings
 from btchour.engine import make_client
 from btchour.exits import OpenPosition, evaluate_exit
 from btchour.fees import fill_cost
-from btchour.kalshi import KalshiClient, Market, market_from_api
+from btchour.kalshi import KalshiClient, KalshiError, Market, market_from_api
 from btchour.model import SpotQuote, digital_prob, effective_vol, realized_annual_vol
 from btchour.paper import paper_close, paper_fill, paper_settle
 from btchour.strategy import (
@@ -426,7 +426,11 @@ def recent_event_tickers(hours: int, now: datetime | None = None) -> list[str]:
 
 
 def fetch_event_tape(client: KalshiClient, event_ticker: str, settings: Settings) -> EventTape:
-    payload = client.get(f"/events/{event_ticker}")
+    try:
+        payload = client.get(f"/events/{event_ticker}")
+    except KalshiError as exc:
+        # Overnight Kalshi often never lists the next hourly (404). Sweep the rest.
+        return EventTape(event_ticker, {}, {}, {}, 0, None, error=f"missing event ({exc.status})")
     markets = [market_from_api(item) for item in payload.get("markets") or []]
     band = _settlement_band(markets)
     live = client.live_data(event_ticker, "1h").get("live_data") or {}

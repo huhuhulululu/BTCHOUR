@@ -222,3 +222,18 @@ class SweepTests(unittest.TestCase):
         noskip_events = {take["event"] for take in by_name["flex_noskip"]["takes"]}
         self.assertEqual(noskip_events, {"KXBTCD-26AUG2510", "KXBTCD-26AUG2511"})
         self.assertNotIn("KXBTCD-26AUG2511", {take["event"] for take in by_name["flex_skip"]["takes"]})
+
+
+class MissingHourTapeTests(unittest.TestCase):
+    def test_fetch_tape_skips_a_404_hourly(self):
+        from btchour.kalshi import KalshiError
+        from btchour.replay import fetch_event_tape
+
+        class Boom:
+            def get(self, path, params=None):
+                raise KalshiError("not found", 404, '{"error":{"code":"not_found"}}')
+
+        tape = fetch_event_tape(Boom(), "KXBTCD-26AUG2702", Settings())
+        self.assertEqual(tape.event_ticker, "KXBTCD-26AUG2702")
+        self.assertIn("missing event", tape.error or "")
+        self.assertEqual(tape.spots, {})

@@ -1,5 +1,5 @@
 {
-  "replayed_at": "2026-08-27T05:03:36.205152+00:00",
+  "replayed_at": "2026-08-27T06:01:46.882374+00:00",
   "hours": 16,
   "playbook": "flex",
   "formula": "EV = p * b - (1 - p)",
@@ -39,6 +39,11 @@
     "allow_early_exit": true
   },
   "events": [
+    {
+      "event_ticker": "KXBTCD-26AUG2702",
+      "error": "missing event (404)",
+      "takes": []
+    },
     {
       "event_ticker": "KXBTCD-26AUG2701",
       "settlement_band": [
@@ -891,61 +896,6 @@
         "model_p": 0.10399264671355618,
         "if_win_roi": 30.152647975077883,
         "ev": 2.2396463150640553,
-        "vol": 0.55
-      },
-      "hold_candidates": 0,
-      "session": {
-        "last_loss_event": null,
-        "last_side": null,
-        "last_play": "",
-        "skip_next": false,
-        "skipped_event": null
-      }
-    },
-    {
-      "event_ticker": "KXBTCD-26AUG2610",
-      "settlement_band": [
-        78399.99,
-        78499.99
-      ],
-      "settle_mid": 78449.99,
-      "candles": {
-        "77299.99": 59,
-        "77399.99": 50,
-        "77499.99": 55,
-        "77599.99": 59,
-        "77699.99": 58,
-        "77799.99": 60,
-        "77899.99": 60,
-        "77999.99": 60,
-        "78099.99": 60,
-        "78199.99": 60,
-        "78299.99": 60,
-        "78399.99": 60,
-        "78499.99": 60,
-        "78599.99": 60,
-        "78699.99": 60,
-        "78799.99": 60,
-        "78899.99": 60,
-        "78999.99": 60,
-        "79099.99": 59,
-        "79199.99": 53,
-        "79299.99": 58,
-        "79399.99": 37
-      },
-      "playbook": "flex",
-      "takes": [],
-      "best": {
-        "ts": "2026-08-26T13:53:00+00:00",
-        "event_ticker": "KXBTCD-26AUG2610",
-        "strike": 78399.99,
-        "side": "yes",
-        "spot": 78202.31433333333,
-        "seconds_left": 420.0,
-        "ask": 0.06,
-        "model_p": 0.10397833049641314,
-        "if_win_roi": 14.624999999999998,
-        "ev": 0.6246614140064551,
         "vol": 0.55
       },
       "hold_candidates": 0,
