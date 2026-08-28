@@ -1,11 +1,12 @@
 {
-  "swept_at": "2026-08-28T11:01:01.989276+00:00",
+  "swept_at": "2026-08-28T12:02:36.963219+00:00",
   "hours": 24,
   "windows": [
     16,
     24
   ],
   "events": [
+    "KXBTCD-26AUG2808",
     "KXBTCD-26AUG2807",
     "KXBTCD-26AUG2806",
     "KXBTCD-26AUG2805",
@@ -28,8 +29,7 @@
     "KXBTCD-26AUG2712",
     "KXBTCD-26AUG2711",
     "KXBTCD-26AUG2710",
-    "KXBTCD-26AUG2709",
-    "KXBTCD-26AUG2708"
+    "KXBTCD-26AUG2709"
   ],
   "formula": "EV = p * b - (1 - p)",
   "runs": [
@@ -196,12 +196,11 @@
       "impulse_max_ask": 0.35,
       "impulse_wait": true,
       "impulse_taker": true,
-      "take_count": 7,
+      "take_count": 6,
       "wins": 6,
-      "realized_pnl": 6.748499999999999,
+      "realized_pnl": 7.595199999999999,
       "exit_reasons": {
-        "t_clip": 6,
-        "t_stop": 1
+        "t_clip": 6
       },
       "takes": [
         {
@@ -257,15 +256,6 @@
           "exit": "t_clip",
           "roi": 0.65136,
           "pnl": 1.6284
-        },
-        {
-          "event": "KXBTCD-26AUG2716",
-          "side": "no",
-          "ask": 0.26,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.3096134859399569,
-          "pnl": -0.8467000000000002
         }
       ]
     },
@@ -278,12 +268,11 @@
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
       "impulse_taker": true,
-      "take_count": 7,
+      "take_count": 6,
       "wins": 6,
-      "realized_pnl": 6.748499999999999,
+      "realized_pnl": 7.595199999999999,
       "exit_reasons": {
-        "t_clip": 6,
-        "t_stop": 1
+        "t_clip": 6
       },
       "takes": [
         {
@@ -339,15 +328,6 @@
           "exit": "t_clip",
           "roi": 0.65136,
           "pnl": 1.6284
-        },
-        {
-          "event": "KXBTCD-26AUG2716",
-          "side": "no",
-          "ask": 0.26,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.3096134859399569,
-          "pnl": -0.8467000000000002
         }
       ]
     },
@@ -362,13 +342,22 @@
       "impulse_taker": false,
       "take_count": 5,
       "wins": 2,
-      "realized_pnl": -1.9487,
+      "realized_pnl": -0.9926000000000004,
       "exit_reasons": {
-        "t_clip": 2,
         "t_stop": 2,
+        "t_clip": 2,
         "t_fade": 1
       },
       "takes": [
+        {
+          "event": "KXBTCD-26AUG2807",
+          "side": "no",
+          "ask": 0.47,
+          "play": "swing_t",
+          "exit": "t_stop",
+          "roi": -0.29453881503364515,
+          "pnl": -1.4356999999999998
+        },
         {
           "event": "KXBTCD-26AUG2805",
           "side": "no",
@@ -404,15 +393,6 @@
           "exit": "t_clip",
           "roi": 0.20922167487684726,
           "pnl": 1.0617999999999999
-        },
-        {
-          "event": "KXBTCD-26AUG2716",
-          "side": "yes",
-          "ask": 0.43,
-          "play": "swing_t",
-          "exit": "t_stop",
-          "roi": -0.5348868413990517,
-          "pnl": -2.3917999999999995
         }
       ]
     },
@@ -859,13 +839,22 @@
       "impulse_taker": false,
       "take_count": 9,
       "wins": 2,
-      "realized_pnl": -6.7178,
+      "realized_pnl": -7.0146,
       "exit_reasons": {
-        "t_clip": 2,
         "t_stop": 6,
+        "t_clip": 2,
         "t_fade": 1
       },
       "takes": [
+        {
+          "event": "KXBTCD-26AUG2807",
+          "side": "no",
+          "ask": 0.47,
+          "play": "swing_t",
+          "exit": "t_stop",
+          "roi": -0.29453881503364515,
+          "pnl": -1.4356999999999998
+        },
         {
           "event": "KXBTCD-26AUG2805",
           "side": "no",
@@ -937,15 +926,6 @@
           "exit": "t_stop",
           "roi": -0.1900377904639383,
           "pnl": -0.9454000000000002
-        },
-        {
-          "event": "KXBTCD-26AUG2708",
-          "side": "yes",
-          "ask": 0.46,
-          "play": "swing_t",
-          "exit": "t_stop",
-          "roi": -0.23856804708938192,
-          "pnl": -1.1389000000000005
         }
       ]
     },
