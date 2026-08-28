@@ -135,8 +135,9 @@ class KalshiClient:
         }
         return self._request("POST", url, headers, body)
 
-    def delete(self, path: str) -> Any:
-        url = self.base + path
+    def delete(self, path: str, params: dict | None = None) -> Any:
+        query = urllib.parse.urlencode({k: v for k, v in (params or {}).items() if v is not None})
+        url = self.base + path + (("?" + query) if query else "")
         headers = {
             "User-Agent": self.user_agent,
             "Accept": "application/json",
@@ -264,18 +265,26 @@ class KalshiClient:
         count: float,
         time_in_force: str = "immediate_or_cancel",
         client_order_id: str = "",
+        post_only: bool = False,
     ) -> dict:
         payload = {
             "ticker": ticker,
             "side": side,
-            "count": f"{count:.2f}".rstrip("0").rstrip(".") if count != int(count) else str(int(count)),
-            "price": f"{price:.4f}",
+            "count": f"{float(count):.2f}",
+            "price": f"{float(price):.4f}",
             "time_in_force": time_in_force,
             "self_trade_prevention_type": "taker_at_cross",
+            "post_only": bool(post_only),
         }
         if client_order_id:
             payload["client_order_id"] = client_order_id
         return self.post("/portfolio/events/orders", payload)
+
+    def cancel_order(self, order_id: str, market_ticker: str | None = None) -> dict:
+        return self.delete(
+            f"/portfolio/events/orders/{order_id}",
+            {"market_ticker": market_ticker} if market_ticker else None,
+        )
 
     def balance(self) -> dict:
         return self.get("/portfolio/balance", signed=True)

@@ -47,6 +47,10 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("learn", help="Show recent impulse journal: what printed, what was rejected, why")
     fills = sub.add_parser("fills", help="Read-only: pull recent Kalshi fills and same-side clips (never prints keys)")
     fills.add_argument("--hours", type=int, default=36)
+    hang = sub.add_parser("hang", help="Live one-contract maker rest; does not switch the paper loop")
+    hang.add_argument("--ticker", help="Optional market ticker")
+    hang.add_argument("--side", choices=["yes", "no"])
+    hang.add_argument("--cancel", action="store_true", help="Cancel after the exchange accepts the rest")
 
     args = parser.parse_args(argv)
     if args.cmd == "ev":
@@ -225,6 +229,20 @@ def main(argv: list[str] | None = None) -> int:
         from btchour.account import summarize_fills
 
         _print_json(summarize_fills(client, settings, hours=args.hours))
+        return 0
+
+    if args.cmd == "hang":
+        from btchour.hang import hang_one
+
+        _print_json(
+            hang_one(
+                client,
+                settings,
+                ticker=getattr(args, "ticker", None),
+                side=getattr(args, "side", None),
+                cancel=bool(getattr(args, "cancel", False)),
+            )
+        )
         return 0
 
     parser.error(f"unknown command {args.cmd}")

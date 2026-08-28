@@ -7,16 +7,36 @@ from btchour.kalshi import KalshiClient
 from btchour.strategy import Opportunity
 
 
+def yes_book_quote(side: str, price: float) -> tuple[str, float]:
+    """V2 quotes the YES leg only: bid=buy YES, ask=sell YES (= buy NO at 1-price)."""
+    if side == "yes":
+        return "bid", float(price)
+    if side == "no":
+        return "ask", round(max(0.01, min(0.99, 1.0 - float(price))), 4)
+    raise ValueError(f"side must be yes or no, got {side!r}")
+
+
+def yes_book_exit(side: str, exit_price: float) -> tuple[str, float]:
+    """Flatten a long: sell YES, or sell NO by buying YES at 1 - no_price."""
+    if side == "yes":
+        return "ask", float(exit_price)
+    if side == "no":
+        return "bid", round(max(0.01, min(0.99, 1.0 - float(exit_price))), 4)
+    raise ValueError(f"side must be yes or no, got {side!r}")
+
+
 def live_submit(client: KalshiClient, opportunity: Opportunity) -> dict:
     client_order_id = str(uuid.uuid4())
     tif = "immediate_or_cancel" if opportunity.taker else "good_till_canceled"
+    book_side, yes_price = yes_book_quote(opportunity.side, opportunity.limit_price)
     response = client.create_order(
         ticker=opportunity.ticker,
-        side=opportunity.book_side,
-        price=opportunity.limit_price,
+        side=book_side,
+        price=yes_price,
         count=opportunity.count,
         time_in_force=tif,
         client_order_id=client_order_id,
+        post_only=not opportunity.taker,
     )
     cost = fill_cost(opportunity.limit_price, opportunity.count, taker=opportunity.taker)
     return {
@@ -46,12 +66,7 @@ def live_submit(client: KalshiClient, opportunity: Opportunity) -> dict:
 def live_flatten(client: KalshiClient, trade: dict, exit_price: float) -> dict:
     """Close a long: sell YES (book ask) or sell NO (book bid at 1 - no_price)."""
     client_order_id = str(uuid.uuid4())
-    if trade["side"] == "yes":
-        book_side = "ask"
-        price = exit_price
-    else:
-        book_side = "bid"
-        price = round(max(0.01, min(0.99, 1.0 - exit_price)), 4)
+    book_side, price = yes_book_exit(trade["side"], exit_price)
     response = client.create_order(
         ticker=trade["ticker"],
         side=book_side,
