@@ -75,6 +75,8 @@ class BoardFormatTests(unittest.TestCase):
         self.assertEqual(working_fill_label("no", 0.25, 0.35, -120, settings), "等ask")
         self.assertEqual(working_fill_label("no", 0.25, 0.25, -70, settings), "等动量")
         self.assertEqual(working_fill_label("no", 0.25, 0.25, -120, settings), "可成交")
+        self.assertEqual(working_fill_label("no", 0.25, 0.25, -120, settings, tape=0), "等成交")
+        self.assertEqual(working_fill_label("no", 0.25, 0.25, -120, settings, tape=3), "可成交")
         self.assertEqual(working_fill_label("no", 0.25, 0.24, -120, settings), "可成交")
         self.assertEqual(working_fill_label("no", 0.25, 0.23, -120, settings), "等ask")
         self.assertEqual(working_fill_label("no", 0.25, 0.03, -120, settings), "等ask")

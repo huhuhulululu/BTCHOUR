@@ -62,6 +62,74 @@ def impulse_wait_flipped(side: str, impulse: float, settings: Settings) -> bool:
     return True
 
 
+def _as_float(value) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_api_time(value) -> datetime | None:
+    if not value:
+        return None
+    try:
+        ts = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts
+
+
+def tape_at_rest(
+    trades: list,
+    side: str,
+    rest: float,
+    tick: float = TICK,
+    since: datetime | None = None,
+) -> float:
+    """Contracts that actually printed at the rest after we hung.
+
+    Kalshi `taker_book_side` is YES-leg vocabulary: ask ≡ sell YES / buy NO,
+    bid ≡ buy YES. A YES bid 0.25 fills when a seller hits 0.25 (taker ask).
+    A NO bid 0.25 fills when a buyer lifts YES at 0.75 (taker bid, no 0.25).
+    Quote touch with zero tape is not a counterparty. Block prints do not
+    sit on our rest.
+    """
+    total = 0.0
+    want_taker = "ask" if side == "yes" else "bid"
+    for row in trades or ():
+        if row.get("is_block_trade"):
+            continue
+        if since is not None:
+            created = _parse_api_time(row.get("created_time"))
+            if created is not None and created < since:
+                continue
+        yes = _as_float(row.get("yes_price_dollars") or row.get("yes_price"))
+        no = _as_float(row.get("no_price_dollars") or row.get("no_price"))
+        if yes is not None and yes > 1:
+            yes = yes / 100.0
+        if no is not None and no > 1:
+            no = no / 100.0
+        if no is None and yes is not None:
+            no = max(0.0, 1.0 - yes)
+        px = yes if side == "yes" else no
+        if px is None:
+            continue
+        if not (rest - tick - 1e-12 <= px <= rest + 1e-12):
+            continue
+        book = str(row.get("taker_book_side") or "").lower()
+        if book and book != want_taker:
+            continue
+        size = _as_float(row.get("count_fp") if row.get("count_fp") not in (None, "") else row.get("count"))
+        if size is None or size <= 0:
+            continue
+        total += size
+    return total
+
+
 def _ask_at_rest(ask: float, rest: float, tick: float = TICK) -> bool:
     """The offer is still at the rest, not already dumped through.
 
@@ -607,8 +675,9 @@ def evaluate_impulse_wait_market(
     NO still skips the 29¢ knife. YES may hang from 28¢. The hang ceiling
     is the ATM mid (0.70) so a $500 daily hourly is not an empty book.
     Pick the 32–42¢ coupons first; 0.50–0.70 only pads leftover slots.
-    Fill still needs ask==rest (close or the minute wick) and |impulse| ≥ $100.
-    Do not take 0.45–0.70. Up to three nearby rests. Clip 10–50%.
+    Fill still needs ask==rest (close or the minute wick), |impulse| ≥ $100,
+    and a real print at the rest after the hang. Do not take 0.45–0.70.
+    Paper size is min(rest, tape). Up to three nearby rests. Clip 10–50%.
     If it will not come back, scratch or stop.
     """
     now = now or datetime.now(timezone.utc)

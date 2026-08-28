@@ -128,6 +128,24 @@ def _position_from_fill(fill: dict, opp, now: datetime, event_ticker: str, bar: 
     }
 
 
+def _quotes_volume(quotes: dict) -> float | None:
+    raw = quotes.get("volume")
+    if raw is None or raw == "":
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _replay_tape_ok(quotes: dict, play: str) -> bool:
+    """Old bars have no volume and keep the wick fill. A 0-volume wick is not a print."""
+    if play != "impulse_wait":
+        return True
+    volume = _quotes_volume(quotes)
+    return volume is None or volume > 0
+
+
 def _promote_wait(working: dict) -> dict:
     rest = float(working["price"])
     filled = fill_cost(rest, float(working["count"]), taker=False)
@@ -275,7 +293,7 @@ def replay_bars(
             strike = (working.get("entry") or {}).get("strike")
             if strike is not None:
                 quotes = bar.quotes.get(float(strike)) or {}
-            if wait_book_crossed(
+            if _replay_tape_ok(quotes, play) and wait_book_crossed(
                 side,
                 rest,
                 ask,
@@ -323,7 +341,7 @@ def replay_bars(
                     working = _position_from_fill(fill, chosen[0], now, event_ticker, bar, left)
                     quotes = bar.quotes.get(float(chosen[0].strike)) or {}
                     ask = chosen[0].ask
-                    if wait_book_crossed(
+                    if _replay_tape_ok(quotes, "impulse_wait") and wait_book_crossed(
                         working["side"],
                         float(working["price"]),
                         ask,
@@ -527,11 +545,19 @@ def bars_from_tape(tape: EventTape, settings: Settings) -> list[ReplayBar]:
             stick = sticks.get(end_ts)
             if not stick:
                 continue
+            volume = None
+            raw_vol = stick.get("volume_fp")
+            if raw_vol not in (None, ""):
+                try:
+                    volume = float(raw_vol)
+                except (TypeError, ValueError):
+                    volume = None
             quotes[float(strike)] = {
                 "yes_ask": _money(stick, "yes_ask", ask_field),
                 "yes_bid": _money(stick, "yes_bid"),
                 "yes_ask_low": _money(stick, "yes_ask", "low_dollars"),
                 "yes_bid_high": _money(stick, "yes_bid", "high_dollars"),
+                **({"volume": volume} if volume is not None else {}),
             }
         if not quotes:
             continue
@@ -562,7 +588,7 @@ def tape_from_bars(
         for strike, quotes in bar.quotes.items():
             ask = quotes.get("yes_ask")
             bid = quotes.get("yes_bid")
-            candles.setdefault(strike, {})[bar.end_ts] = {
+            stick = {
                 "yes_ask": {
                     "close_dollars": ask,
                     "low_dollars": quotes.get("yes_ask_low", ask),
@@ -572,6 +598,9 @@ def tape_from_bars(
                     "high_dollars": quotes.get("yes_bid_high", bid),
                 },
             }
+            if quotes.get("volume") is not None:
+                stick["volume_fp"] = quotes["volume"]
+            candles.setdefault(strike, {})[bar.end_ts] = stick
     if band is None and results:
         yes = [strike for strike, result in results.items() if result == "yes"]
         no = [strike for strike, result in results.items() if result == "no"]

@@ -257,6 +257,13 @@ class KalshiClient:
     def exchange_status(self) -> dict:
         return self.get("/exchange/status")
 
+    def market_trades(self, ticker: str, min_ts: int | None = None, limit: int = 200) -> list:
+        """Public prints on one market. Paper hangs use this as the only counterparty."""
+        return self.get(
+            "/markets/trades",
+            {"ticker": ticker, "min_ts": min_ts, "limit": limit},
+        ).get("trades") or []
+
     def create_order(
         self,
         ticker: str,

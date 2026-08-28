@@ -132,6 +132,30 @@ class TapeTests(unittest.TestCase):
         lock = bars_from_tape(tape, Settings(playbook="lock"))
         self.assertEqual(flex[0].quotes[79099.99]["yes_ask"], 0.90)
         self.assertEqual(lock[0].quotes[79099.99]["yes_ask"], 0.80)
+        self.assertNotIn("volume", flex[0].quotes[79099.99])
+
+    def test_bars_keep_candle_volume(self):
+        maturity_s = 1_800_000_000.0
+        minute_ms = int((maturity_s - 600) * 1000)
+        end_ts = minute_ms // 1000 + 60
+        tape = EventTape(
+            event_ticker="KXBTCD-26AUG2516",
+            spots={minute_ms: 79000.0},
+            candles={
+                79099.99: {
+                    end_ts: {
+                        "yes_ask": {"close_dollars": 0.40, "low_dollars": 0.24},
+                        "yes_bid": {"close_dollars": 0.39, "high_dollars": 0.76},
+                        "volume_fp": "12.50",
+                    }
+                }
+            },
+            results={79099.99: "no"},
+            maturity_ms=int(maturity_s * 1000),
+            band=(78999.99, 79099.99),
+        )
+        bars = bars_from_tape(tape, Settings(playbook="flex"))
+        self.assertAlmostEqual(bars[0].quotes[79099.99]["volume"], 12.5)
 
     def test_event_tape_round_trip(self):
         tape = EventTape(

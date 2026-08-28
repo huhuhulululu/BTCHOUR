@@ -236,6 +236,7 @@ def working_fill_label(
     ask: float | None,
     impulse: float | None,
     settings: Settings,
+    tape: float | None = None,
 ) -> str:
     if impulse_wait_flipped(side, float(impulse or 0.0), settings):
         return "反手撤"
@@ -246,6 +247,8 @@ def working_fill_label(
         and _ask_at_rest(float(ask), float(rest))
     )
     if same and ask_ok:
+        if tape is not None and float(tape) <= 0:
+            return "等成交"
         return "可成交"
     if not same and not ask_ok:
         return "等动量/ask"
@@ -345,7 +348,9 @@ def collect_board(
                 "strike": short_strike(ticker),
                 "rest": rest,
                 "ask": ask,
-                "fill": working_fill_label(side, rest, ask, impulse, settings),
+                "fill": working_fill_label(
+                    side, rest, ask, impulse, settings, tape=raw.get("tape_at_rest")
+                ),
                 "status": result_label(raw.get("result") or _row_get(row, "result"), _row_get(row, "status")),
             }
         )

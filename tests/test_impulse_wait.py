@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from datetime import datetime, timezone
@@ -29,9 +30,24 @@ from btchour.strategy import (
     remember_swing_exit,
     refresh_session,
     scan_markets,
+    tape_at_rest,
     wait_book_crossed,
     _taker_impulse_qualifies,
 )
+
+
+def _print(side: str = "no", rest: float = 0.25, count: float = 3, book: str | None = None, **extra):
+    book = book or ("ask" if side == "yes" else "bid")
+    yes = rest if side == "yes" else round(1.0 - rest, 4)
+    row = {
+        "yes_price_dollars": f"{yes:.4f}",
+        "no_price_dollars": f"{1.0 - yes:.4f}",
+        "taker_book_side": book,
+        "count_fp": f"{count:.2f}",
+        "is_block_trade": False,
+    }
+    row.update(extra)
+    return row
 
 
 def _market(**overrides):
@@ -907,6 +923,22 @@ class ImpulseWaitTests(unittest.TestCase):
         self.assertAlmostEqual(opps[0].limit_price, 0.25)
         self.assertFalse(opps[0].taker)
 
+    def test_tape_at_rest_counts_only_the_hitting_side(self):
+        yes_hit = _print("yes", 0.25, 4)
+        yes_lift = _print("yes", 0.25, 9, book="bid")
+        no_hit = _print("no", 0.25, 3)
+        no_wrong = _print("no", 0.25, 8, book="ask")
+        far = _print("yes", 0.96, 100)
+        block = _print("no", 0.25, 12, is_block_trade=True)
+        old = _print("no", 0.25, 5, created_time="2026-08-25T22:00:00Z")
+        derived = {"yes_price_dollars": "0.2500", "taker_book_side": "ask", "count_fp": "2.00"}
+        self.assertAlmostEqual(tape_at_rest([yes_hit, far], "yes", 0.25), 4)
+        self.assertAlmostEqual(tape_at_rest([yes_lift], "yes", 0.25), 0)
+        self.assertAlmostEqual(tape_at_rest([no_hit, no_wrong, block], "no", 0.25), 3)
+        self.assertAlmostEqual(tape_at_rest([derived], "yes", 0.25), 2)
+        since = datetime(2026, 8, 25, 23, 0, tzinfo=timezone.utc)
+        self.assertAlmostEqual(tape_at_rest([old, no_hit], "no", 0.25, since=since), 3)
+
     def test_fade_is_not_a_flip_but_opposite_impulse_is(self):
         self.assertFalse(impulse_wait_flipped("no", -20, self.settings))
         self.assertFalse(impulse_wait_flipped("no", -160, self.settings))
@@ -1162,6 +1194,56 @@ class ImpulseWaitEngineTests(unittest.TestCase):
                 self.assertAlmostEqual(row["fee"], 0.0)
                 self.assertEqual(still, [])
 
+    def test_quote_touch_without_tape_is_not_a_fill(self):
+        settings = Settings(playbook="flex", max_contracts=10, allow_maker=True)
+        opp = evaluate_impulse_wait_market(_market(), self.spot, settings, self.now)[0]
+        fill = paper_fill(opp)
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                db.record_trade(fill)
+                at_rest = _market(
+                    yes_bid_dollars="0.75",
+                    yes_ask_dollars="0.76",
+                    no_bid_dollars="0.24",
+                    no_ask_dollars="0.25",
+                )
+                missed = refresh_working(
+                    db, settings, [at_rest], self.spot, self.now, tapes={opp.ticker: []}
+                )
+                self.assertEqual(missed, [])
+                self.assertEqual(len(db.working_trades()), 1)
+                self.assertEqual(db.open_trades(), [])
+                raw = json.loads(db.working_trades()[0]["raw"])
+                self.assertEqual(raw.get("tape_at_rest"), 0)
+
+    def test_promotes_only_the_printed_size(self):
+        settings = Settings(playbook="flex", max_contracts=10, allow_maker=True)
+        opp = evaluate_impulse_wait_market(_market(), self.spot, settings, self.now)[0]
+        fill = paper_fill(opp)
+        self.assertAlmostEqual(fill["count"], 10)
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                db.record_trade(fill)
+                at_rest = _market(
+                    yes_bid_dollars="0.75",
+                    yes_ask_dollars="0.76",
+                    no_bid_dollars="0.24",
+                    no_ask_dollars="0.25",
+                )
+                prints = [_print("no", 0.25, 3)]
+                promoted = refresh_working(
+                    db, settings, [at_rest], self.spot, self.now, tapes={opp.ticker: prints}
+                )
+                self.assertEqual(promoted[0]["status"], "open")
+                self.assertAlmostEqual(promoted[0]["count"], 3)
+                row = db.open_trades()[0]
+                self.assertAlmostEqual(row["count"], 3)
+                self.assertAlmostEqual(row["price"], 0.25)
+                self.assertAlmostEqual(row["cost"], 0.75)
+                self.assertEqual(row["taker"], 0)
+
     def test_cancels_when_the_book_is_already_through_rest(self):
         opp = evaluate_impulse_wait_market(_market(), self.spot, self.settings, self.now)[0]
         fill = paper_fill(opp)
@@ -1287,6 +1369,41 @@ class ImpulseWaitEngineTests(unittest.TestCase):
                 self.assertEqual(updates, [])
                 self.assertEqual(len(db.working_trades()), 1)
                 self.assertEqual(db.open_trades(), [])
+
+    def test_client_prints_also_cap_the_fill(self):
+        settings = Settings(playbook="flex", max_contracts=10, allow_maker=True)
+        opp = evaluate_impulse_wait_market(_market(), self.spot, settings, self.now)[0]
+        fill = paper_fill(opp)
+
+        class Fake:
+            def market_trades(self, ticker, min_ts=None, limit=200):
+                return [_print("no", 0.25, 2.5)]
+
+        from btchour import engine as engine_mod
+
+        engine_mod._TAPE_CACHE.clear()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                db.record_trade(fill)
+                at_rest = _market(
+                    yes_bid_dollars="0.75",
+                    yes_ask_dollars="0.76",
+                    no_bid_dollars="0.24",
+                    no_ask_dollars="0.25",
+                )
+                promoted = refresh_working(
+                    db,
+                    settings,
+                    [at_rest],
+                    self.spot,
+                    self.now,
+                    extremes={},
+                    client=Fake(),
+                )
+                self.assertAlmostEqual(promoted[0]["count"], 2.5)
+                self.assertAlmostEqual(db.open_trades()[0]["count"], 2.5)
 
 
 class ImpulseWaitReplayTests(unittest.TestCase):
@@ -1564,3 +1681,21 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         self.assertEqual(coupon_take["ticker"], f"KXBTCD-26AUG2614-T{coupon}")
         self.assertAlmostEqual(coupon_take["ask"], 0.25)
         self.assertEqual(coupon_take["exit_reason"], "t_clip")
+
+    def test_zero_volume_wick_is_not_a_print(self):
+        settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
+        maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
+        strike = 78699.99
+        bars = [
+            ReplayBar(int(maturity - 1800), 78800, 0.55, {strike: {"yes_ask": 0.65, "yes_bid": 0.64}}, impulse=-160),
+            ReplayBar(
+                int(maturity - 1740),
+                78720,
+                0.55,
+                {strike: {"yes_ask": 0.65, "yes_bid": 0.64, "yes_bid_high": 0.76, "volume": 0}},
+                impulse=-180,
+            ),
+            ReplayBar(int(maturity - 1680), 78640, 0.55, {strike: {"yes_ask": 0.60, "yes_bid": 0.59}}, impulse=-120),
+        ]
+        report = replay_bars("KXBTCD-26AUG2520", bars, {strike: "no"}, maturity, settings)
+        self.assertEqual(report["takes"], [])

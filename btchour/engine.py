@@ -35,6 +35,7 @@ from btchour.strategy import (
     pick_flex_entries,
     impulse_wait_flipped,
     refresh_session,
+    tape_at_rest,
     wait_book_crossed,
     scan_markets,
 )
@@ -44,6 +45,8 @@ CYCLE_TIMEOUT_SECONDS = 25
 STALL_SECONDS = 60
 _EXTREME_CACHE: dict[str, tuple[float, dict]] = {}
 _EXTREME_TTL = 15.0
+_TAPE_CACHE: dict[str, tuple[float, list]] = {}
+_TAPE_TTL = 8.0
 
 
 def make_client(settings: Settings) -> KalshiClient:
@@ -299,6 +302,53 @@ def _row_ask(row) -> float:
         return 1.0
 
 
+def _row_created_at(row) -> datetime | None:
+    raw = row["created_at"] if "created_at" in row.keys() else None
+    if not raw:
+        return None
+    try:
+        ts = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts
+
+
+def market_prints(client: KalshiClient, ticker: str, min_ts: int | None) -> list:
+    """Recent public prints. Cached a few seconds so three rests share one pull."""
+    now_s = time.time()
+    hit = _TAPE_CACHE.get(ticker)
+    if hit and hit[0] > now_s:
+        return hit[1]
+    try:
+        rows = client.market_trades(ticker, min_ts=min_ts, limit=1000)
+    except Exception:
+        rows = []
+    _TAPE_CACHE[ticker] = (now_s + _TAPE_TTL, rows)
+    return rows
+
+
+def paper_rest_tape(
+    row,
+    rest: float,
+    *,
+    client: KalshiClient | None = None,
+    tapes: dict | None = None,
+) -> float | None:
+    """Observed size at the rest. None means the caller has no tape (unit tests)."""
+    ticker = row["ticker"]
+    created = _row_created_at(row)
+    if tapes is not None:
+        trades = tapes.get(ticker) or []
+    elif client is not None:
+        min_ts = int(created.timestamp()) if created is not None else None
+        trades = market_prints(client, ticker, min_ts)
+    else:
+        return None
+    return tape_at_rest(trades, row["side"], rest, since=created)
+
+
 def working_extremes(client: KalshiClient, tickers: list[str], now: datetime) -> dict[str, dict]:
     """Cached minute wicks for working coupons. A miss must not stall the cycle."""
     now_s = time.time()
@@ -323,6 +373,7 @@ def refresh_working(
     can_trade: bool = True,
     *,
     extremes: dict | None = None,
+    tapes: dict | None = None,
     client: KalshiClient | None = None,
 ) -> list[dict]:
     now = now or datetime.now(timezone.utc)
@@ -367,27 +418,47 @@ def refresh_working(
                 impulse=spot.impulse,
                 min_impulse=settings.impulse_min if play == "impulse_wait" else None,
             ):
-                filled = fill_cost(rest, float(row["count"]), taker=False)
-                store.promote_working(
-                    row["id"], rest, filled.fee, filled.cost, filled.if_win_roi, taker=False
-                )
                 raw = {}
                 try:
                     raw = json.loads(row["raw"] or "{}")
                 except Exception:
                     raw = {}
-                raw["filled_at"] = now.isoformat()
-                store.update_raw(row["id"], raw)
-                updates.append(
-                    {
-                        "id": row["id"],
-                        "ticker": row["ticker"],
-                        "status": "open",
-                        "price": rest,
-                        "reason": "wait_crossed",
-                    }
-                )
-                continue
+                tape_size = None
+                if not settings.live:
+                    tape_size = paper_rest_tape(row, rest, client=client, tapes=tapes)
+                    if tape_size is not None:
+                        raw["tape_at_rest"] = tape_size
+                if tape_size is not None and tape_size <= 0:
+                    store.update_raw(row["id"], raw)
+                    # Quote/wick touched rest, but nobody printed. Stay working.
+                else:
+                    fill_count = float(row["count"])
+                    if tape_size is not None:
+                        fill_count = min(fill_count, tape_size)
+                    filled = fill_cost(rest, fill_count, taker=False)
+                    store.promote_working(
+                        row["id"],
+                        rest,
+                        filled.fee,
+                        filled.cost,
+                        filled.if_win_roi,
+                        taker=False,
+                        count=fill_count,
+                    )
+                    raw["filled_at"] = now.isoformat()
+                    raw["filled_count"] = fill_count
+                    store.update_raw(row["id"], raw)
+                    updates.append(
+                        {
+                            "id": row["id"],
+                            "ticker": row["ticker"],
+                            "status": "open",
+                            "price": rest,
+                            "count": fill_count,
+                            "reason": "wait_crossed",
+                        }
+                    )
+                    continue
             if can_trade and ask is not None and ask < rest - TICK - 1e-12:
                 store.cancel_trade(row["id"], "wait_through")
                 updates.append(

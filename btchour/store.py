@@ -180,14 +180,24 @@ class Store:
         if_win_roi: float,
         *,
         taker: bool = True,
+        count: float | None = None,
     ) -> None:
-        self.conn.execute(
-            """
-            UPDATE trades SET status = 'open', taker = ?, price = ?, fee = ?, cost = ?, if_win_roi = ?
-            WHERE id = ? AND status = 'working'
-            """,
-            (1 if taker else 0, price, fee, cost, if_win_roi, trade_id),
-        )
+        if count is None:
+            self.conn.execute(
+                """
+                UPDATE trades SET status = 'open', taker = ?, price = ?, fee = ?, cost = ?, if_win_roi = ?
+                WHERE id = ? AND status = 'working'
+                """,
+                (1 if taker else 0, price, fee, cost, if_win_roi, trade_id),
+            )
+        else:
+            self.conn.execute(
+                """
+                UPDATE trades SET status = 'open', taker = ?, price = ?, fee = ?, cost = ?, if_win_roi = ?, count = ?
+                WHERE id = ? AND status = 'working'
+                """,
+                (1 if taker else 0, price, fee, cost, if_win_roi, count, trade_id),
+            )
         self.conn.commit()
 
     def update_raw(self, trade_id: int, raw: dict) -> None:
