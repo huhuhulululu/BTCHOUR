@@ -287,11 +287,42 @@ class KalshiClient:
             payload["client_order_id"] = client_order_id
         return self.post("/portfolio/events/orders", payload)
 
-    def cancel_order(self, order_id: str, market_ticker: str | None = None) -> dict:
-        return self.delete(
-            f"/portfolio/events/orders/{order_id}",
-            {"market_ticker": market_ticker} if market_ticker else None,
-        )
+    def get_order(self, order_id: str) -> dict | None:
+        try:
+            data = self.get(f"/portfolio/orders/{order_id}", signed=True)
+        except KalshiError as exc:
+            if exc.status == 404:
+                return None
+            raise
+        if isinstance(data, dict) and isinstance(data.get("order"), dict):
+            return data["order"]
+        return data if isinstance(data, dict) else None
+
+    def cancel_order(
+        self,
+        order_id: str,
+        market_ticker: str | None = None,
+        exchange_index: int | None = None,
+    ) -> dict:
+        """Cancel on the shard that holds the order. Crypto KXBTCD is index 2.
+
+        DELETE without exchange_index lands on shard 0 and 404s, leaving the
+        rest live. Look the order up when the caller did not pass the shard.
+        """
+        ticker = market_ticker
+        idx = exchange_index
+        if idx is None:
+            order = self.get_order(order_id)
+            if order:
+                if order.get("exchange_index") is not None:
+                    idx = int(order["exchange_index"])
+                ticker = ticker or order.get("ticker")
+            else:
+                idx = -1
+        params: dict = {"exchange_index": idx}
+        if ticker:
+            params["market_ticker"] = ticker
+        return self.delete(f"/portfolio/events/orders/{order_id}", params)
 
     def balance(self) -> dict:
         return self.get("/portfolio/balance", signed=True)

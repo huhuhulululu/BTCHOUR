@@ -9,7 +9,12 @@ from unittest.mock import patch
 
 from btchour import engine as engine_mod
 from btchour import store as store_mod
-from btchour.broker import live_rest_one, order_fill_count, order_id_from_response
+from btchour.broker import (
+    exchange_index_from_response,
+    live_rest_one,
+    order_fill_count,
+    order_id_from_response,
+)
 from btchour.config import Settings
 from btchour.engine import refresh_working
 from btchour.kalshi import market_from_api
@@ -73,6 +78,7 @@ class LiveRestHelpers(unittest.TestCase):
     def test_order_id_and_fill_count(self):
         self.assertEqual(order_id_from_response({"order_id": "a"}), "a")
         self.assertEqual(order_id_from_response({"order": {"order_id": "b"}}), "b")
+        self.assertEqual(exchange_index_from_response({"order": {"exchange_index": 2}}), 2)
         self.assertAlmostEqual(order_fill_count({"fill_count_fp": "1.00"}), 1.0)
         self.assertAlmostEqual(order_fill_count({"fill_count": "0.00"}), 0.0)
 
@@ -194,7 +200,7 @@ class LiveOneRefreshTests(unittest.TestCase):
             def orders(self, status=None, ticker=None, min_ts=None):
                 return list(orders)
 
-            def cancel_order(self, order_id, market_ticker=None):
+            def cancel_order(self, order_id, market_ticker=None, exchange_index=None):
                 orders.clear()
                 return {"order_id": order_id}
 
@@ -231,7 +237,7 @@ class LiveOneRefreshTests(unittest.TestCase):
             def orders(self, status=None, ticker=None, min_ts=None):
                 return [{"order_id": "ord-1", "status": "resting", "fill_count_fp": "0.00"}]
 
-            def cancel_order(self, order_id, market_ticker=None):
+            def cancel_order(self, order_id, market_ticker=None, exchange_index=None):
                 cancelled.append(order_id)
                 return {}
 
@@ -276,7 +282,7 @@ class LiveOneRefreshTests(unittest.TestCase):
             def orders(self, status=None, ticker=None, min_ts=None):
                 return [{"order_id": "ord-1", "status": "resting", "fill_count_fp": "0.00"}]
 
-            def cancel_order(self, order_id, market_ticker=None):
+            def cancel_order(self, order_id, market_ticker=None, exchange_index=None):
                 cancelled.append(order_id)
                 return {}
 
@@ -303,7 +309,7 @@ class LiveOneRefreshTests(unittest.TestCase):
             def orders(self, status=None, ticker=None, min_ts=None):
                 return [{"order_id": "ord-pad", "status": "resting", "fill_count_fp": "0.00"}]
 
-            def cancel_order(self, order_id, market_ticker=None):
+            def cancel_order(self, order_id, market_ticker=None, exchange_index=None):
                 cancelled.append(order_id)
                 return {}
 

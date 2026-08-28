@@ -352,10 +352,15 @@ def _cancel_working(store: Store, row, reason: str, client: KalshiClient | None 
     raw = _row_raw(row)
     order_id = raw.get("live_order_id")
     if order_id and client is not None:
+        idx = raw.get("exchange_index")
         try:
-            client.cancel_order(str(order_id), market_ticker=row["ticker"])
-        except Exception:
-            pass
+            client.cancel_order(
+                str(order_id),
+                market_ticker=row["ticker"],
+                exchange_index=int(idx) if idx is not None else None,
+            )
+        except Exception as exc:
+            print(f"cancel_order {order_id} {row['ticker']} failed: {exc}", flush=True)
     store.cancel_trade(row["id"], reason)
 
 
@@ -379,9 +384,15 @@ def cancel_stale_live_rests(client: KalshiClient, now: datetime | None = None) -
         event = ticker.rsplit("-T", 1)[0] if "-T" in ticker else ""
         if event and event != current and row.get("order_id"):
             try:
-                client.cancel_order(str(row["order_id"]), market_ticker=ticker)
+                idx = row.get("exchange_index")
+                client.cancel_order(
+                    str(row["order_id"]),
+                    market_ticker=ticker,
+                    exchange_index=int(idx) if idx is not None else None,
+                )
                 cancelled.append({"ticker": ticker, "order_id": row["order_id"]})
-            except Exception:
+            except Exception as exc:
+                print(f"cancel_stale {row.get('order_id')} {ticker} failed: {exc}", flush=True)
                 continue
     return cancelled
 

@@ -74,6 +74,19 @@ def order_id_from_response(response: dict | None) -> str | None:
     return None
 
 
+def exchange_index_from_response(response: dict | None) -> int | None:
+    if not response:
+        return None
+    nested = response.get("order")
+    src = nested if isinstance(nested, dict) else response
+    if isinstance(src, dict) and src.get("exchange_index") is not None:
+        try:
+            return int(src["exchange_index"])
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
 def order_fill_count(order: dict | None) -> float:
     if not order:
         return 0.0
@@ -100,6 +113,7 @@ def live_rest_one(client: KalshiClient, opportunity: Opportunity) -> dict:
     raw = trade.setdefault("raw", {})
     raw["live_one"] = True
     raw["live_order_id"] = order_id_from_response(raw.get("response") or {})
+    raw["exchange_index"] = exchange_index_from_response(raw.get("response") or {})
     raw["rest"] = one.limit_price
     raw["ask"] = one.ask
     raw["play"] = one.play

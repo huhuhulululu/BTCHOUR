@@ -88,3 +88,27 @@ class HangPickTests(unittest.TestCase):
         self.assertEqual(seen["payload"]["side"], "bid")
         self.assertTrue(seen["payload"]["post_only"])
         self.assertEqual(seen["payload"]["time_in_force"], "good_till_canceled")
+
+    def test_cancel_order_routes_to_the_order_shard(self):
+        seen = {}
+
+        class Fake(KalshiClient):
+            def __init__(self):
+                super().__init__()
+
+            def get_order(self, order_id):
+                return {"order_id": order_id, "exchange_index": 2, "ticker": "KXBTCD-26AUG2820-T77699.99"}
+
+            def delete(self, path, params=None):
+                seen["path"] = path
+                seen["params"] = params
+                return {"order_id": "ord-1", "reduced_by": "1.00"}
+
+        Fake().cancel_order("ord-1", market_ticker="KXBTCD-26AUG2820-T77699.99")
+        self.assertEqual(seen["path"], "/portfolio/events/orders/ord-1")
+        self.assertEqual(seen["params"]["exchange_index"], 2)
+        self.assertEqual(seen["params"]["market_ticker"], "KXBTCD-26AUG2820-T77699.99")
+
+        seen.clear()
+        Fake().cancel_order("ord-1", market_ticker="KXBTCD-26AUG2820-T77699.99", exchange_index=2)
+        self.assertEqual(seen["params"]["exchange_index"], 2)
