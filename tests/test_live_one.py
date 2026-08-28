@@ -139,6 +139,27 @@ class LiveOneExecuteTests(unittest.TestCase):
                 self.assertEqual(second["reason"], "already_one_live")
                 self.assertEqual(len(placed), 1)
 
+    def test_refuses_an_atm_pad_on_the_live_ticket(self):
+        placed = []
+
+        class Fake:
+            def create_order(self, **kwargs):
+                placed.append(kwargs)
+                return {"order_id": "ord-pad", "status": "resting", "fill_count": "0.00"}
+
+            def orders(self, status=None, ticker=None, min_ts=None):
+                return []
+
+        pad = Opportunity(**{**_coupon().__dict__, "ask": 0.51})
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                skipped = engine_mod._execute(pad, Fake(), _signed(), db)
+                self.assertTrue(skipped.get("skipped"))
+                self.assertEqual(skipped["reason"], "pad_not_live")
+                self.assertEqual(placed, [])
+                self.assertEqual(db.working_trades(), [])
+
     def test_unsigned_paper_still_allows_three_rests(self):
         with tempfile.TemporaryDirectory() as tmp:
             with patch.object(store_mod, "DATA_DIR", Path(tmp)):
@@ -241,4 +262,59 @@ class LiveOneRefreshTests(unittest.TestCase):
                 )
                 self.assertEqual(updates[0]["reason"], "wait_through")
                 self.assertEqual(cancelled, ["ord-1"])
+                self.assertEqual(db.working_trades(), [])
+
+    def test_cancels_a_weak_up_yes_when_the_tape_is_not_a_rally(self):
+        now = datetime(2026, 8, 28, 23, 20, tzinfo=timezone.utc)
+        quiet = SpotQuote(77750, "test", annual_vol=0.55, impulse=-16)
+        cancelled = []
+
+        class Fake:
+            def create_order(self, **kwargs):
+                return {"order_id": "ord-1", "status": "resting", "fill_count": "0.00"}
+
+            def orders(self, status=None, ticker=None, min_ts=None):
+                return [{"order_id": "ord-1", "status": "resting", "fill_count_fp": "0.00"}]
+
+            def cancel_order(self, order_id, market_ticker=None):
+                cancelled.append(order_id)
+                return {}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                db.record_trade(live_rest_one(Fake(), _coupon(1)))
+                updates = refresh_working(
+                    db, _signed(), [_market()], quiet, now, extremes={}, client=Fake()
+                )
+                self.assertEqual(updates[0]["reason"], "wait_wrong_side")
+                self.assertEqual(cancelled, ["ord-1"])
+                self.assertEqual(db.working_trades(), [])
+
+    def test_cancels_a_live_pad_even_on_a_real_rally(self):
+        now = datetime(2026, 8, 28, 23, 20, tzinfo=timezone.utc)
+        rally = SpotQuote(77750, "test", annual_vol=0.55, impulse=160)
+        cancelled = []
+
+        class Fake:
+            def create_order(self, **kwargs):
+                return {"order_id": "ord-pad", "status": "resting", "fill_count": "0.00"}
+
+            def orders(self, status=None, ticker=None, min_ts=None):
+                return [{"order_id": "ord-pad", "status": "resting", "fill_count_fp": "0.00"}]
+
+            def cancel_order(self, order_id, market_ticker=None):
+                cancelled.append(order_id)
+                return {}
+
+        pad = Opportunity(**{**_coupon().__dict__, "ask": 0.51})
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                db.record_trade(live_rest_one(Fake(), pad))
+                updates = refresh_working(
+                    db, _signed(), [_market()], rally, now, extremes={}, client=Fake()
+                )
+                self.assertEqual(updates[0]["reason"], "pad_not_live")
+                self.assertEqual(cancelled, ["ord-pad"])
                 self.assertEqual(db.working_trades(), [])

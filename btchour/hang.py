@@ -44,7 +44,9 @@ def _pick_wait(scan: dict, settings: Settings, ticker: str | None, side: str | N
     if not waits:
         raise RuntimeError("no impulse_wait coupon to hang; pass --ticker and --side")
     in_band = [row for row in waits if coupon_in_band(row.ask, settings)]
-    chosen = (in_band or waits)[0]
+    if not in_band:
+        raise RuntimeError("no in-band 32–42¢ coupon; will not hang an ATM pad")
+    chosen = in_band[0]
     return Opportunity(**{**chosen.__dict__, "count": 1.0, "taker": False})
 
 

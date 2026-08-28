@@ -12,7 +12,7 @@ from pathlib import Path
 from btchour.config import CATALOG_DIR, Settings, load_settings
 from btchour.fees import round_trip_roi
 from btchour.store import Store
-from btchour.strategy import _ask_at_rest, impulse_wait_flipped
+from btchour.strategy import _ask_at_rest, impulse_wait_flipped, impulse_wait_wrong_side
 from btchour.tickers import (
     ET,
     format_et,
@@ -239,8 +239,10 @@ def working_fill_label(
     tape: float | None = None,
     live_one: bool = False,
 ) -> str:
-    if impulse_wait_flipped(side, float(impulse or 0.0), settings):
-        return "反手撤"
+    if impulse_wait_wrong_side(side, float(impulse or 0.0), settings):
+        if impulse_wait_flipped(side, float(impulse or 0.0), settings):
+            return "反手撤"
+        return "错边撤"
     if live_one:
         return "等交易所"
     same = _same_dir(side, impulse, settings.impulse_min)

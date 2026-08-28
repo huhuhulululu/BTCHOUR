@@ -458,7 +458,7 @@ class ExecuteWaitTests(unittest.TestCase):
                     db,
                     Settings(playbook="flex"),
                     [nxt],
-                    SpotQuote(79596, "test", annual_vol=0.25, impulse=5),
+                    SpotQuote(79596, "test", annual_vol=0.25, impulse=160),
                     now,
                 )
                 self.assertEqual([row["ticker"] for row in updates], [stale["ticker"]])

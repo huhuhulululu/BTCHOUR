@@ -22,7 +22,9 @@ from btchour.strategy import (
     evaluate_impulse_market,
     dump_wait_rest_ready,
     evaluate_impulse_wait_market,
+    coupon_sides,
     impulse_wait_flipped,
+    impulse_wait_wrong_side,
     is_coupon_window,
     is_fast_window,
     pick_flex_entries,
@@ -255,12 +257,12 @@ class ImpulseWaitTests(unittest.TestCase):
         shallow = SpotQuote(78340, "test", annual_vol=0.55, impulse=-20)
         self.assertTrue(evaluate_impulse_wait_market(coupon, shallow, self.settings, now))
         mild_rally = SpotQuote(78340, "test", annual_vol=0.55, impulse=80)
-        # Rally follows YES under the ATM mid. Do not rest NO against the tape.
-        yes_rest = evaluate_impulse_wait_market(coupon, mild_rally, self.settings, now)
-        self.assertTrue(yes_rest)
-        self.assertEqual(yes_rest[0].side, "yes")
-        self.assertAlmostEqual(yes_rest[0].limit_price, 0.25)
-        self.assertFalse(yes_rest[0].taker)
+        # Weak-up is still quiet. Do not hang YES on a +$80 print.
+        quiet_no = evaluate_impulse_wait_market(coupon, mild_rally, self.settings, now)
+        self.assertTrue(quiet_no)
+        self.assertEqual(quiet_no[0].side, "no")
+        self.assertAlmostEqual(quiet_no[0].limit_price, 0.25)
+        self.assertFalse(quiet_no[0].taker)
         flipped = SpotQuote(78340, "test", annual_vol=0.55, impulse=160)
         yes_flip = evaluate_impulse_wait_market(coupon, flipped, self.settings, now)
         self.assertTrue(yes_flip)
@@ -946,6 +948,21 @@ class ImpulseWaitTests(unittest.TestCase):
         self.assertFalse(impulse_wait_flipped("yes", 20, self.settings))
         self.assertTrue(impulse_wait_flipped("yes", -160, self.settings))
 
+    def test_weak_up_is_quiet_no_not_yes(self):
+        self.assertEqual(coupon_sides(160, self.settings), ["yes"])
+        self.assertEqual(coupon_sides(100, self.settings), ["yes"])
+        self.assertEqual(coupon_sides(80, self.settings), ["no"])
+        self.assertEqual(coupon_sides(6, self.settings), ["no"])
+        self.assertEqual(coupon_sides(0, self.settings), ["no"])
+        self.assertEqual(coupon_sides(-3, self.settings), ["no"])
+        self.assertEqual(coupon_sides(-160, self.settings), ["no"])
+        self.assertTrue(impulse_wait_wrong_side("yes", 30, self.settings))
+        self.assertTrue(impulse_wait_wrong_side("yes", -16, self.settings))
+        self.assertFalse(impulse_wait_wrong_side("yes", 160, self.settings))
+        self.assertFalse(impulse_wait_wrong_side("no", 80, self.settings))
+        self.assertFalse(impulse_wait_wrong_side("no", -20, self.settings))
+        self.assertTrue(impulse_wait_wrong_side("no", 160, self.settings))
+
     def test_minute_high_counts_as_a_maker_fill(self):
         self.assertFalse(wait_book_crossed("no", 0.25, 0.32))
         self.assertTrue(
@@ -1093,7 +1110,7 @@ class ImpulseWaitTests(unittest.TestCase):
             open_time="2026-08-25T20:00:00Z",
             close_time="2026-08-26T21:00:00Z",
         )
-        spot = SpotQuote(78423, "test", annual_vol=0.55, impulse=55)
+        spot = SpotQuote(78423, "test", annual_vol=0.55, impulse=160)
         opps = evaluate_impulse_wait_market(market, spot, self.settings, now)
         self.assertTrue(opps)
         self.assertEqual(opps[0].side, "yes")
@@ -1156,8 +1173,8 @@ class ImpulseWaitTests(unittest.TestCase):
         waits = [row for row in opps if row.play == "impulse_wait"]
         self.assertEqual(len(waits), 1)
         self.assertEqual(waits[0].ticker, atm.ticker)
-        self.assertEqual(waits[0].side, "yes")
-        self.assertAlmostEqual(waits[0].ask, 0.51)
+        self.assertEqual(waits[0].side, "no")
+        self.assertAlmostEqual(waits[0].ask, 0.52)
         self.assertAlmostEqual(waits[0].limit_price, 0.25)
         self.assertFalse(waits[0].taker)
 
@@ -1261,6 +1278,26 @@ class ImpulseWaitEngineTests(unittest.TestCase):
                 self.assertEqual(missed[0]["reason"], "wait_through")
                 self.assertEqual(db.working_trades(), [])
                 self.assertEqual(db.open_trades(), [])
+
+    def test_cancels_paper_yes_when_the_tape_is_no_longer_a_rally(self):
+        rally = SpotQuote(78800, "test", annual_vol=0.55, impulse=160)
+        market = _market(
+            yes_bid_dollars="0.36",
+            yes_ask_dollars="0.37",
+            no_bid_dollars="0.63",
+            no_ask_dollars="0.64",
+        )
+        opp = evaluate_impulse_wait_market(market, rally, self.settings, self.now)[0]
+        self.assertEqual(opp.side, "yes")
+        fill = paper_fill(opp)
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                db.record_trade(fill)
+                quiet = SpotQuote(78800, "test", annual_vol=0.55, impulse=30)
+                updates = refresh_working(db, self.settings, [market], quiet, self.now)
+                self.assertEqual(updates[0]["reason"], "wait_wrong_side")
+                self.assertEqual(db.working_trades(), [])
 
     def test_keeps_the_rest_when_the_dump_impulse_fades(self):
         opp = evaluate_impulse_wait_market(_market(), self.spot, self.settings, self.now)[0]

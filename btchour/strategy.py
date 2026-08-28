@@ -19,12 +19,13 @@ def dump_wait_rest_ready(impulse: float, settings: Settings) -> bool:
 
 
 def coupon_sides(impulse: float, settings: Settings) -> list[str]:
-    """Follow the tape. Rally rests YES; dump or quiet rests NO."""
+    """Follow the tape. Only a real rally rests YES; dump, quiet, or weak-up rest NO.
+
+    涨 means |impulse| ≥ impulse_min. A +$6 / +$80 print is not a rally.
+    Hanging YES on that weak-up, then eating the dump, is 乱挂.
+    Do not rest both sides at once.
+    """
     if impulse + 1e-9 >= settings.impulse_min:
-        return ["yes"]
-    if impulse - 1e-9 <= -settings.impulse_min:
-        return ["no"]
-    if impulse > 0:
         return ["yes"]
     return ["no"]
 
@@ -60,6 +61,15 @@ def impulse_wait_flipped(side: str, impulse: float, settings: Settings) -> bool:
     if side == "yes":
         return impulse - 1e-9 <= -settings.impulse_min
     return True
+
+
+def impulse_wait_wrong_side(side: str, impulse: float, settings: Settings) -> bool:
+    """Pull a rest that is no longer the tape side.
+
+    Dump/quiet NO fading is not wrong-side. Weak-up YES is: only a real
+    rally may sit on YES. Sitting on YES into a dump is 一边倒吃瘪.
+    """
+    return str(side) not in coupon_sides(impulse, settings)
 
 
 def _as_float(value) -> float | None:

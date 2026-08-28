@@ -50,6 +50,17 @@ class HangPickTests(unittest.TestCase):
         self.assertFalse(picked.taker)
         self.assertAlmostEqual(picked.limit_price, 0.25)
 
+    def test_refuses_an_atm_pad_when_that_is_the_only_book(self):
+        settings = Settings(playbook="flex")
+        scan = {
+            "opportunities": [
+                _wait("KXBTCD-26AUG2819-T77499.99", "yes", 0.51),
+                _wait("KXBTCD-26AUG2819-T77599.99", "no", 0.68),
+            ]
+        }
+        with self.assertRaisesRegex(RuntimeError, "ATM pad"):
+            _pick_wait(scan, settings, None, None)
+
     def test_create_order_payload_uses_fixed_point_and_post_only(self):
         seen = {}
 

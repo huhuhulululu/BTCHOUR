@@ -17,7 +17,7 @@ from btchour.strategy import (
     SessionMemory,
     SwingMemory,
     apply_swing_memory,
-    impulse_wait_flipped,
+    impulse_wait_wrong_side,
     remember_session_exit,
     remember_swing_exit,
     refresh_session,
@@ -309,7 +309,7 @@ def replay_bars(
                 working = None
                 continue
             if play == "impulse_wait" and (
-                impulse_wait_flipped(side, bar.impulse, settings) or left + 1e-12 < settings.swing_min_seconds
+                impulse_wait_wrong_side(side, bar.impulse, settings) or left + 1e-12 < settings.swing_min_seconds
             ):
                 working = None
             elif play != "impulse_wait" and left + 1e-12 < settings.swing_min_seconds:

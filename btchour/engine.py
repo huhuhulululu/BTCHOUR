@@ -33,7 +33,7 @@ from btchour.strategy import (
     coupon_in_band,
     is_next_session_book,
     pick_flex_entries,
-    impulse_wait_flipped,
+    impulse_wait_wrong_side,
     refresh_session,
     tape_at_rest,
     wait_book_crossed,
@@ -219,6 +219,13 @@ def _execute(
             and settings.can_sign
             and opportunity.play == "impulse_wait"
         ):
+            if not coupon_in_band(opportunity.ask, settings):
+                return {
+                    "skipped": True,
+                    "reason": "pad_not_live",
+                    "ticker": opportunity.ticker,
+                    "ask": opportunity.ask,
+                }
             if any(_is_live_one(row) for row in working):
                 return {"skipped": True, "reason": "already_one_live", "ticker": opportunity.ticker}
             if _live_resting(client, opportunity.event_ticker):
@@ -314,6 +321,20 @@ def _row_raw(row) -> dict:
 def _is_live_one(row) -> bool:
     raw = _row_raw(row)
     return bool(raw.get("live_one") and raw.get("live_order_id"))
+
+
+def _wait_cancel_reason(row, impulse: float, settings: Settings, seconds: float) -> str | None:
+    """Wrong-side and ATM-pad live rests come off. Fade on the right side stays."""
+    raw = _row_raw(row)
+    if settings.live_one and _is_live_one(row):
+        hung_ask = raw.get("ask")
+        if hung_ask is not None and not coupon_in_band(float(hung_ask), settings):
+            return "pad_not_live"
+    if impulse_wait_wrong_side(row["side"], impulse, settings):
+        return "wait_wrong_side"
+    if seconds + 1e-12 < settings.swing_min_seconds:
+        return "wait_invalid"
+    return None
 
 
 def _live_resting(client: KalshiClient, event_ticker: str | None = None) -> list:
@@ -546,10 +567,11 @@ def refresh_working(
                         {"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": "wait_through"}
                     )
                     continue
-                if impulse_wait_flipped(row["side"], spot.impulse, settings) or seconds + 1e-12 < settings.swing_min_seconds:
-                    _cancel_working(store, row, "wait_invalid", client)
+                reason = _wait_cancel_reason(row, spot.impulse, settings, seconds)
+                if reason:
+                    _cancel_working(store, row, reason, client)
                     updates.append(
-                        {"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": "wait_invalid"}
+                        {"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": reason}
                     )
                 continue
             wick = extremes.get(row["ticker"]) or {}
@@ -609,10 +631,11 @@ def refresh_working(
                     {"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": "wait_through"}
                 )
                 continue
-            if impulse_wait_flipped(row["side"], spot.impulse, settings) or seconds + 1e-12 < settings.swing_min_seconds:
-                _cancel_working(store, row, "wait_invalid", client)
+            reason = _wait_cancel_reason(row, spot.impulse, settings, seconds)
+            if reason:
+                _cancel_working(store, row, reason, client)
                 updates.append(
-                    {"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": "wait_invalid"}
+                    {"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": reason}
                 )
             continue
         if can_trade and ask is not None and ask <= rest + 1e-12:
