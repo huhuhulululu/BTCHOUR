@@ -287,7 +287,7 @@ def refresh_working(
         play = _row_play(row)
         if (
             settings.playbook == "flex"
-            and play == "lock_wait"
+            and play in {"lock_wait", "impulse_wait"}
             and (market is None or not is_next_session_book(market, now))
         ):
             store.cancel_trade(row["id"], "wait_invalid")

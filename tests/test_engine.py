@@ -325,3 +325,68 @@ class ExecuteWaitTests(unittest.TestCase):
                 )
                 self.assertEqual(updates[0]["reason"], "wait_invalid")
                 self.assertEqual(db.working_trades(), [])
+
+    def test_flex_cancels_stale_impulse_wait_after_the_hour_closes(self):
+        from datetime import datetime, timezone
+
+        from btchour.kalshi import market_from_api
+        from btchour.model import SpotQuote
+
+        now = datetime(2026, 8, 28, 12, 1, tzinfo=timezone.utc)
+        nxt = market_from_api(
+            {
+                "ticker": "KXBTCD-26AUG2809-T79699.99",
+                "event_ticker": "KXBTCD-26AUG2809",
+                "title": "Bitcoin price",
+                "subtitle": "$79,699.99 or above",
+                "status": "active",
+                "floor_strike": 79699.99,
+                "strike_type": "greater",
+                "yes_bid_dollars": "0.27",
+                "yes_ask_dollars": "0.28",
+                "no_bid_dollars": "0.72",
+                "no_ask_dollars": "0.73",
+                "open_time": "2026-08-28T11:00:00Z",
+                "close_time": "2026-08-28T13:00:00Z",
+                "result": "",
+            }
+        )
+        stale = {
+            "ticker": "KXBTCD-26AUG2808-T79599.99",
+            "event_ticker": "KXBTCD-26AUG2808",
+            "side": "no",
+            "price": 0.25,
+            "count": 10,
+            "fee": 0.0,
+            "cost": 2.5,
+            "mode": "paper",
+            "taker": False,
+            "model_p": 0.47,
+            "if_win_roi": 3.0,
+            "expected_roi": 0.4,
+            "status": "working",
+            "raw": {"play": "impulse_wait", "rest": 0.25},
+        }
+        live = {
+            **stale,
+            "ticker": "KXBTCD-26AUG2809-T79699.99",
+            "event_ticker": "KXBTCD-26AUG2809",
+            "side": "yes",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                db.record_trade(stale)
+                db.record_trade(live)
+                updates = engine_mod.refresh_working(
+                    db,
+                    Settings(playbook="flex"),
+                    [nxt],
+                    SpotQuote(79596, "test", annual_vol=0.25, impulse=5),
+                    now,
+                )
+                self.assertEqual([row["ticker"] for row in updates], [stale["ticker"]])
+                self.assertEqual(updates[0]["reason"], "wait_invalid")
+                left = db.working_trades()
+                self.assertEqual(len(left), 1)
+                self.assertEqual(left[0]["ticker"], live["ticker"])
