@@ -86,6 +86,7 @@ class Settings:
     impulse_wait_max_distance: float = 600.0
     impulse_wait_stop: float = 0.80
     impulse_wait_scratch_seconds: float = 480.0
+    live_one: bool = True  # one live contract at a time; do not switch the loop to live
     scan_15m: bool = True
     scan_daily: bool = True
     scan_weekly: bool = True
@@ -180,6 +181,7 @@ def load_settings() -> Settings:
         impulse_wait_max_distance=_env_float("BTCHOUR_IMPULSE_WAIT_MAX_DISTANCE", 600.0),
         impulse_wait_stop=_env_float("BTCHOUR_IMPULSE_WAIT_STOP", 0.80),
         impulse_wait_scratch_seconds=_env_float("BTCHOUR_IMPULSE_WAIT_SCRATCH_SECONDS", 480.0),
+        live_one=_env_bool("BTCHOUR_LIVE_ONE", True),
         scan_15m=_env_bool("BTCHOUR_SCAN_15M", True),
         scan_daily=_env_bool("BTCHOUR_SCAN_DAILY", True),
         scan_weekly=_env_bool("BTCHOUR_SCAN_WEEKLY", True),
@@ -234,6 +236,7 @@ def apply_playbook(
     bool_extras = {
         "impulse_wait",
         "impulse_taker",
+        "live_one",
         "allow_maker",
         "allow_early_exit",
         "scan_15m",

@@ -237,9 +237,12 @@ def working_fill_label(
     impulse: float | None,
     settings: Settings,
     tape: float | None = None,
+    live_one: bool = False,
 ) -> str:
     if impulse_wait_flipped(side, float(impulse or 0.0), settings):
         return "反手撤"
+    if live_one:
+        return "等交易所"
     same = _same_dir(side, impulse, settings.impulse_min)
     ask_ok = (
         ask is not None
@@ -349,9 +352,19 @@ def collect_board(
                 "rest": rest,
                 "ask": ask,
                 "fill": working_fill_label(
-                    side, rest, ask, impulse, settings, tape=raw.get("tape_at_rest")
+                    side,
+                    rest,
+                    ask,
+                    impulse,
+                    settings,
+                    tape=raw.get("tape_at_rest"),
+                    live_one=bool(raw.get("live_one")),
                 ),
-                "status": result_label(raw.get("result") or _row_get(row, "result"), _row_get(row, "status")),
+                "status": (
+                    "实盘1张"
+                    if raw.get("live_one") and _row_get(row, "status") == "working"
+                    else result_label(raw.get("result") or _row_get(row, "result"), _row_get(row, "status"))
+                ),
             }
         )
 

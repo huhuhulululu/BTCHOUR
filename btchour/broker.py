@@ -63,6 +63,51 @@ def live_submit(client: KalshiClient, opportunity: Opportunity) -> dict:
     }
 
 
+def order_id_from_response(response: dict | None) -> str | None:
+    if not response:
+        return None
+    nested = response.get("order")
+    if isinstance(nested, dict) and nested.get("order_id"):
+        return str(nested["order_id"])
+    if response.get("order_id"):
+        return str(response["order_id"])
+    return None
+
+
+def order_fill_count(order: dict | None) -> float:
+    if not order:
+        return 0.0
+    for key in ("fill_count_fp", "fill_count"):
+        raw = order.get(key)
+        if raw in (None, ""):
+            continue
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            continue
+    return 0.0
+
+
+def live_rest_one(client: KalshiClient, opportunity: Opportunity) -> dict:
+    """One live post-only rest. Loop stays paper; this is the only real size."""
+    one = opportunity
+    if abs(float(opportunity.count) - 1.0) > 1e-12 or opportunity.taker:
+        one = Opportunity(**{**opportunity.__dict__, "count": 1.0, "taker": False})
+    trade = live_submit(client, one)
+    trade["status"] = "working"
+    trade["count"] = 1.0
+    trade["mode"] = "paper"
+    raw = trade.setdefault("raw", {})
+    raw["live_one"] = True
+    raw["live_order_id"] = order_id_from_response(raw.get("response") or {})
+    raw["rest"] = one.limit_price
+    raw["ask"] = one.ask
+    raw["play"] = one.play
+    raw["lock_price"] = one.lock_price
+    raw["reason"] = one.reason
+    return trade
+
+
 def live_flatten(client: KalshiClient, trade: dict, exit_price: float) -> dict:
     """Close a long: sell YES (book ask) or sell NO (book bid at 1 - no_price)."""
     client_order_id = str(uuid.uuid4())

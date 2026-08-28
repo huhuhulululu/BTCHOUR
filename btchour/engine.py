@@ -7,7 +7,7 @@ import threading
 import time
 from datetime import datetime, timezone
 
-from btchour.broker import live_flatten, live_submit
+from btchour.broker import live_flatten, live_rest_one, live_submit, order_fill_count
 from btchour.catalog import sync_catalog
 from btchour.config import ROOT, Settings, load_settings
 from btchour.exits import OpenPosition, evaluate_exit
@@ -24,7 +24,7 @@ from btchour.paper import paper_close, paper_fill, paper_settle
 from btchour.score import score_market
 from btchour.store import Store
 from btchour.learn import diagnose_impulse, journal_line, merge_impulse, tape_impulse
-from btchour.tickers import format_et
+from btchour.tickers import format_et, next_session_event_ticker
 from btchour.strategy import (
     WAIT_PLAYS,
     Opportunity,
@@ -199,7 +199,7 @@ def _execute(
                 pads = [row for row in coupons if not coupon_in_band(_row_ask(row), settings)]
                 if coupon_in_band(opportunity.ask, settings) and pads:
                     worst = max(pads, key=_row_ask)
-                    store.cancel_trade(worst["id"], "wait_replace")
+                    _cancel_working(store, worst, "wait_replace", client)
                 else:
                     return {"skipped": True, "reason": "enough working coupons", "ticker": opportunity.ticker}
             if any(
@@ -214,6 +214,18 @@ def _execute(
                 raise RuntimeError("live mode needs KALSHI_API_KEY_ID and a private key")
             trade = live_submit(client, opportunity)
             trade["status"] = "working"
+        elif (
+            settings.live_one
+            and settings.can_sign
+            and opportunity.play == "impulse_wait"
+        ):
+            if any(_is_live_one(row) for row in working):
+                return {"skipped": True, "reason": "already_one_live", "ticker": opportunity.ticker}
+            if _live_resting(client, opportunity.event_ticker):
+                return {"skipped": True, "reason": "already_one_live", "ticker": opportunity.ticker}
+            if any(_row_play(row) == "impulse_wait" for row in working):
+                return {"skipped": True, "reason": "one_at_a_time", "ticker": opportunity.ticker}
+            trade = live_rest_one(client, opportunity)
         else:
             trade = paper_fill(opportunity)
         trade_id = store.record_trade(trade)
@@ -228,7 +240,7 @@ def _execute(
     if trade.get("status") != "open":
         return {**trade, "skipped": True, "reason": "not a fill"}
     for row in store.working_trades():
-        store.cancel_trade(row["id"], "taken_elsewhere")
+        _cancel_working(store, row, "taken_elsewhere", client)
     trade_id = store.record_trade(trade)
     trade["id"] = trade_id
     return trade
@@ -261,9 +273,9 @@ def _close_position(
         raw = {}
     if not can_trade:
         return {"id": row["id"], "ticker": trade["ticker"], "skipped": True, "reason": "exchange_not_trading"}
-    if settings.live:
+    if settings.live or raw.get("live_one"):
         if not settings.can_sign:
-            raise RuntimeError("live mode needs KALSHI_API_KEY_ID and a private key")
+            raise RuntimeError("live flatten needs KALSHI_API_KEY_ID and a private key")
         try:
             raw["flatten"] = live_flatten(client, trade, action.price)
         except Exception as exc:
@@ -289,6 +301,70 @@ def _row_play(row) -> str:
     except Exception:
         raw = {}
     return str(raw.get("play") or "")
+
+
+def _row_raw(row) -> dict:
+    try:
+        raw = json.loads(row["raw"] or "{}")
+    except Exception:
+        raw = {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def _is_live_one(row) -> bool:
+    raw = _row_raw(row)
+    return bool(raw.get("live_one") and raw.get("live_order_id"))
+
+
+def _live_resting(client: KalshiClient, event_ticker: str | None = None) -> list:
+    try:
+        rows = client.orders(status="resting")
+    except Exception:
+        return []
+    if event_ticker:
+        prefix = str(event_ticker)
+        rows = [row for row in rows if str(row.get("ticker") or "").startswith(prefix)]
+    return rows
+
+
+def _cancel_working(store: Store, row, reason: str, client: KalshiClient | None = None) -> None:
+    raw = _row_raw(row)
+    order_id = raw.get("live_order_id")
+    if order_id and client is not None:
+        try:
+            client.cancel_order(str(order_id), market_ticker=row["ticker"])
+        except Exception:
+            pass
+    store.cancel_trade(row["id"], reason)
+
+
+def cancel_stale_live_rests(client: KalshiClient, now: datetime | None = None) -> list[dict]:
+    """A leftover hang on a closed hour must not block the next one-contract test."""
+    now = now or datetime.now(timezone.utc)
+    current = next_session_event_ticker(now)
+    cancelled = []
+    for row in _live_resting(client):
+        ticker = str(row.get("ticker") or "")
+        event = ticker.rsplit("-T", 1)[0] if "-T" in ticker else ""
+        if event and event != current and row.get("order_id"):
+            try:
+                client.cancel_order(str(row["order_id"]), market_ticker=ticker)
+                cancelled.append({"ticker": ticker, "order_id": row["order_id"]})
+            except Exception:
+                continue
+    return cancelled
+
+
+def _find_live_order(client: KalshiClient, row) -> dict | None:
+    raw = _row_raw(row)
+    order_id = raw.get("live_order_id")
+    if not order_id:
+        return None
+    try:
+        rows = client.orders(ticker=row["ticker"])
+    except Exception:
+        return None
+    return next((item for item in rows if str(item.get("order_id")) == str(order_id)), None)
 
 
 def _row_ask(row) -> float:
@@ -395,7 +471,7 @@ def refresh_working(
             and play in {"lock_wait", "impulse_wait"}
             and (market is None or not is_next_session_book(market, now))
         ):
-            store.cancel_trade(row["id"], "wait_invalid")
+            _cancel_working(store, row, "wait_invalid", client)
             updates.append(
                 {"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": "wait_invalid"}
             )
@@ -408,6 +484,64 @@ def refresh_working(
         ask = market.yes_ask_effective if row["side"] == "yes" else market.no_ask_effective
         seconds = _seconds_left(market.close_time, now)
         if play == "impulse_wait":
+            if _is_live_one(row) and client is not None:
+                order = _find_live_order(client, row)
+                raw = _row_raw(row)
+                if order:
+                    fill = order_fill_count(order)
+                    raw["live_status"] = order.get("status")
+                    raw["live_fill"] = fill
+                    store.update_raw(row["id"], raw)
+                    status = str(order.get("status") or "").lower()
+                    if can_trade and fill > 0:
+                        fill_count = min(float(row["count"]), fill)
+                        filled = fill_cost(rest, fill_count, taker=False)
+                        store.promote_working(
+                            row["id"],
+                            rest,
+                            filled.fee,
+                            filled.cost,
+                            filled.if_win_roi,
+                            taker=False,
+                            count=fill_count,
+                        )
+                        raw["filled_at"] = now.isoformat()
+                        raw["filled_count"] = fill_count
+                        store.update_raw(row["id"], raw)
+                        updates.append(
+                            {
+                                "id": row["id"],
+                                "ticker": row["ticker"],
+                                "status": "open",
+                                "price": rest,
+                                "count": fill_count,
+                                "reason": "live_fill",
+                            }
+                        )
+                        continue
+                    if status in {"canceled", "cancelled", "expired"} and fill <= 0:
+                        store.cancel_trade(row["id"], "wait_invalid")
+                        updates.append(
+                            {
+                                "id": row["id"],
+                                "ticker": row["ticker"],
+                                "status": "cancelled",
+                                "reason": "wait_invalid",
+                            }
+                        )
+                        continue
+                if can_trade and ask is not None and ask < rest - TICK - 1e-12:
+                    _cancel_working(store, row, "wait_through", client)
+                    updates.append(
+                        {"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": "wait_through"}
+                    )
+                    continue
+                if impulse_wait_flipped(row["side"], spot.impulse, settings) or seconds + 1e-12 < settings.swing_min_seconds:
+                    _cancel_working(store, row, "wait_invalid", client)
+                    updates.append(
+                        {"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": "wait_invalid"}
+                    )
+                continue
             wick = extremes.get(row["ticker"]) or {}
             if can_trade and wait_book_crossed(
                 row["side"],
@@ -460,13 +594,13 @@ def refresh_working(
                     )
                     continue
             if can_trade and ask is not None and ask < rest - TICK - 1e-12:
-                store.cancel_trade(row["id"], "wait_through")
+                _cancel_working(store, row, "wait_through", client)
                 updates.append(
                     {"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": "wait_through"}
                 )
                 continue
             if impulse_wait_flipped(row["side"], spot.impulse, settings) or seconds + 1e-12 < settings.swing_min_seconds:
-                store.cancel_trade(row["id"], "wait_invalid")
+                _cancel_working(store, row, "wait_invalid", client)
                 updates.append(
                     {"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": "wait_invalid"}
                 )
@@ -481,7 +615,7 @@ def refresh_working(
         model_p = p_yes if row["side"] == "yes" else 1.0 - p_yes
         sigma = sigma_cushion(spot.price, market.strike, max(seconds, 1.0), vol)
         if model_p + 1e-12 < settings.lock_min_p or sigma + 1e-12 < settings.min_sigma or seconds < 8:
-            store.cancel_trade(row["id"], "wait_invalid")
+            _cancel_working(store, row, "wait_invalid", client)
             updates.append({"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": "wait_invalid"})
     return updates
 
@@ -574,6 +708,8 @@ def run_cycle(client: KalshiClient | None = None, settings: Settings | None = No
     store = Store()
     exchange = read_exchange_status(client)
     can_trade = bool(exchange.get("can_trade"))
+    if settings.live_one and settings.can_sign:
+        cancel_stale_live_rests(client)
     settlements = settle_open(client, store)
     scan = scan_once(client, settings, persist=True)
     spot_info = scan["spot"]

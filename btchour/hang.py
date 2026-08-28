@@ -4,10 +4,11 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from btchour.broker import live_submit, yes_book_quote
+from btchour.broker import live_rest_one, yes_book_quote
 from btchour.config import DATA_DIR, Settings, load_settings
 from btchour.engine import make_client, scan_once
 from btchour.kalshi import KalshiClient, KalshiError, read_exchange_status
+from btchour.store import Store
 from btchour.strategy import Opportunity, coupon_in_band
 
 
@@ -66,11 +67,24 @@ def hang_one(
     exchange = read_exchange_status(client)
     if not exchange.get("can_trade"):
         return {"ok": False, "error": "exchange_not_trading", "exchange": exchange}
+    try:
+        resting_now = client.orders(status="resting")
+    except KalshiError:
+        resting_now = []
+    if resting_now:
+        return {
+            "ok": False,
+            "error": "already_one_live",
+            "resting": [_slim_order(row) for row in resting_now],
+            "mode": "live_hang",
+            "loop_mode": settings.mode,
+            "note": "One live contract at a time. Do not stack a second rest.",
+        }
     scan = scan_once(client, settings, persist=False)
     opp = _pick_wait(scan, settings, ticker, side)
     book_side, yes_price = yes_book_quote(opp.side, opp.limit_price)
     try:
-        trade = live_submit(client, opp)
+        trade = live_rest_one(client, opp)
     except KalshiError as exc:
         return {
             "ok": False,
@@ -87,7 +101,7 @@ def hang_one(
         }
     raw = trade.get("raw") or {}
     response = raw.get("response") or {}
-    order_id = response.get("order_id")
+    order_id = raw.get("live_order_id") or response.get("order_id")
     resting = []
     try:
         resting = [_slim_order(row) for row in client.orders(status="resting", ticker=opp.ticker)]
@@ -121,6 +135,11 @@ def hang_one(
         "kept": cancelled is None,
         "note": "One live maker rest. Paper loop stays paper. 10%–50% is the clip band, not a guarantee.",
     }
+    if cancelled is None:
+        try:
+            Store().record_trade(trade)
+        except Exception:
+            pass
     dest = DATA_DIR / "hang-probe.json"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(json.dumps(report, indent=2, default=str) + "\n")
