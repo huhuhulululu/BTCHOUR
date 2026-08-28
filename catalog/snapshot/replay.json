@@ -1,5 +1,5 @@
 {
-  "replayed_at": "2026-08-27T23:16:34.262523+00:00",
+  "replayed_at": "2026-08-28T00:00:44.887854+00:00",
   "hours": 16,
   "playbook": "flex",
   "formula": "EV = p * b - (1 - p)",
@@ -39,6 +39,11 @@
     "allow_early_exit": true
   },
   "events": [
+    {
+      "event_ticker": "KXBTCD-26AUG2720",
+      "error": "incomplete data",
+      "takes": []
+    },
     {
       "event_ticker": "KXBTCD-26AUG2719",
       "settlement_band": [
@@ -957,11 +962,6 @@
     },
     {
       "event_ticker": "KXBTCD-26AUG2705",
-      "error": "missing event (404)",
-      "takes": []
-    },
-    {
-      "event_ticker": "KXBTCD-26AUG2704",
       "error": "missing event (404)",
       "takes": []
     }
