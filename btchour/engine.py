@@ -11,7 +11,7 @@ from btchour.broker import live_flatten, live_submit
 from btchour.catalog import sync_catalog
 from btchour.config import ROOT, Settings, load_settings
 from btchour.exits import OpenPosition, evaluate_exit
-from btchour.fees import fill_cost
+from btchour.fees import TICK, fill_cost
 from btchour.kalshi import (
     KalshiClient,
     Market,
@@ -386,6 +386,12 @@ def refresh_working(
                         "price": rest,
                         "reason": "wait_crossed",
                     }
+                )
+                continue
+            if can_trade and ask is not None and ask < rest - TICK - 1e-12:
+                store.cancel_trade(row["id"], "wait_through")
+                updates.append(
+                    {"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": "wait_through"}
                 )
                 continue
             if impulse_wait_flipped(row["side"], spot.impulse, settings) or seconds + 1e-12 < settings.swing_min_seconds:

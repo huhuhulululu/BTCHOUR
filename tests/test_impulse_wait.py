@@ -1147,15 +1147,6 @@ class ImpulseWaitEngineTests(unittest.TestCase):
                 still = refresh_working(db, self.settings, [_market()], self.spot, self.now)
                 self.assertEqual(db.open_trades(), [])
                 self.assertEqual(len(db.working_trades()), 1)
-                through = _market(
-                    yes_bid_dollars="0.77",
-                    yes_ask_dollars="0.78",
-                    no_bid_dollars="0.22",
-                    no_ask_dollars="0.23",
-                )
-                missed = refresh_working(db, self.settings, [through], self.spot, self.now)
-                self.assertEqual(missed, [])
-                self.assertEqual(len(db.working_trades()), 1)
                 at_rest = _market(
                     yes_bid_dollars="0.75",
                     yes_ask_dollars="0.76",
@@ -1170,6 +1161,24 @@ class ImpulseWaitEngineTests(unittest.TestCase):
                 self.assertEqual(row["taker"], 0)
                 self.assertAlmostEqual(row["fee"], 0.0)
                 self.assertEqual(still, [])
+
+    def test_cancels_when_the_book_is_already_through_rest(self):
+        opp = evaluate_impulse_wait_market(_market(), self.spot, self.settings, self.now)[0]
+        fill = paper_fill(opp)
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                db.record_trade(fill)
+                through = _market(
+                    yes_bid_dollars="0.77",
+                    yes_ask_dollars="0.78",
+                    no_bid_dollars="0.22",
+                    no_ask_dollars="0.23",
+                )
+                missed = refresh_working(db, self.settings, [through], self.spot, self.now)
+                self.assertEqual(missed[0]["reason"], "wait_through")
+                self.assertEqual(db.working_trades(), [])
+                self.assertEqual(db.open_trades(), [])
 
     def test_keeps_the_rest_when_the_dump_impulse_fades(self):
         opp = evaluate_impulse_wait_market(_market(), self.spot, self.settings, self.now)[0]
@@ -1210,15 +1219,16 @@ class ImpulseWaitEngineTests(unittest.TestCase):
                 db = store_mod.Store(Path(tmp) / "t.sqlite")
                 db.record_trade(fill)
                 bounce = SpotQuote(78910, "test", annual_vol=0.55, impulse=80)
-                crossed = _market(
-                    yes_bid_dollars="0.86",
-                    yes_ask_dollars="0.87",
-                    no_bid_dollars="0.13",
-                    no_ask_dollars="0.14",
+                printed = _market(
+                    yes_bid_dollars="0.75",
+                    yes_ask_dollars="0.76",
+                    no_bid_dollars="0.24",
+                    no_ask_dollars="0.25",
                 )
-                updates = refresh_working(db, self.settings, [crossed], bounce, self.now)
+                updates = refresh_working(db, self.settings, [printed], bounce, self.now)
                 self.assertEqual(updates, [])
                 self.assertEqual(len(db.working_trades()), 1)
+                self.assertEqual(db.open_trades(), [])
 
     def test_cancels_when_the_tape_flips_to_a_rally(self):
         opp = evaluate_impulse_wait_market(_market(), self.spot, self.settings, self.now)[0]
