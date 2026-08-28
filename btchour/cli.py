@@ -42,6 +42,8 @@ def main(argv: list[str] | None = None) -> int:
     loop = sub.add_parser("loop", help="Auto-loop: supervise paper/live run and restart if scans stall")
     loop.add_argument("--playbook", choices=["flex", "swing", "lock", "hold", "scalp"])
     sub.add_parser("status", help="Local paper/live ledger summary")
+    board = sub.add_parser("board", help="15-minute broadcast tables (paper vs true coupon)")
+    board.add_argument("--json", action="store_true", help="Print the table payload as JSON")
     sub.add_parser("learn", help="Show recent impulse journal: what printed, what was rejected, why")
     fills = sub.add_parser("fills", help="Read-only: pull recent Kalshi fills and same-side clips (never prints keys)")
     fills.add_argument("--hours", type=int, default=36)
@@ -201,6 +203,16 @@ def main(argv: list[str] | None = None) -> int:
                 "open": [dict(row) for row in store.open_trades()],
             }
         )
+        return 0
+
+    if args.cmd == "board":
+        from btchour.board import build_board
+
+        payload, text = build_board(Store(), settings)
+        if args.json:
+            _print_json(payload)
+            return 0
+        print(text)
         return 0
 
     if args.cmd == "learn":

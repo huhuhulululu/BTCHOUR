@@ -19,6 +19,7 @@ python3 -m btchour sweep --hours 16
 python3 -m btchour run --once
 python3 -m btchour loop
 python3 -m btchour status
+python3 -m btchour board
 python3 -m btchour fills
 ```
 

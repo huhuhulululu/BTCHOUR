@@ -13,7 +13,7 @@ python3 -m btchour sync
 | 路径 | 内容 |
 | --- | --- |
 | `catalog/series/*.json` | 系列元数据、结算源、费率 |
-| `catalog/rules/` | 结算、ticker、费率、**EV = p·b−(1−p)**、锁仓、**做T / 短线**、灵活编排 |
+| `catalog/rules/` | 结算、ticker、费率、**EV = p·b−(1−p)**、锁仓、**做T / 短线**、灵活编排、**播报表格** |
 | `catalog/snapshot/latest.json` | 最近一次从 Kalshi 拉回的小时盘快照 |
 | `catalog/snapshot/replay.json` / `replay-swing.json` | 最近一次小时回放（flex / swing） |
 | `catalog/snapshot/sweep.json` | 同一段 K 线上 flex/swing/lock、跳过亏损小时开/关的对照 |
