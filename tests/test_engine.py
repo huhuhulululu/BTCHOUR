@@ -253,6 +253,25 @@ class ExecuteWaitTests(unittest.TestCase):
                 self.assertTrue(fourth_fill.get("skipped"))
                 self.assertEqual(fourth_fill.get("reason"), "enough working coupons")
 
+    def test_same_ticker_opposite_side_can_work(self):
+        no_rest = self._coupon()
+        yes_rest = Opportunity(**{**no_rest.__dict__, "side": "yes", "book_side": "bid"})
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                first = engine_mod._execute(no_rest, object(), Settings(playbook="flex"), db)
+                self.assertFalse(first.get("skipped"))
+                second = engine_mod._execute(yes_rest, object(), Settings(playbook="flex"), db)
+                self.assertFalse(second.get("skipped"))
+                self.assertEqual(second["status"], "working")
+                again = engine_mod._execute(yes_rest, object(), Settings(playbook="flex"), db)
+                self.assertTrue(again.get("skipped"))
+                sides = {(row["ticker"], row["side"]) for row in db.working_trades()}
+                self.assertEqual(
+                    sides,
+                    {(no_rest.ticker, "no"), (yes_rest.ticker, "yes")},
+                )
+
     def test_entries_after_a_coupon_clip_do_not_hop(self):
         leftover = self._coupon()
         hop = Opportunity(**{**leftover.__dict__, "ticker": "KXBTCD-26AUG2617-T78699.99"})

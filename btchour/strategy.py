@@ -599,10 +599,11 @@ def evaluate_impulse_wait_market(
     """Rest 25¢ on the next hourly ladder, with the tape.
 
     Scan every nearby rung ($600). Rally hangs YES; dump/quiet hangs NO.
-    NO still needs 32–42¢ (29¢ is the knife). YES may hang from 28–42¢ —
-    the 5pm daily $250 ladder often has only that mid. Fill still needs
-    |impulse| ≥ $100 in that direction. Up to three nearby in-band rests.
-    Clip 10–50%. If it will not come back, scratch or stop.
+    NO still skips the 29¢ knife. YES may hang from 28¢. The hang ceiling
+    is the ATM mid (0.70), not the old 10¢ coupon window — a $500 daily
+    hourly only has one current book, often 0.50–0.55. Fill still needs
+    ask==rest and |impulse| ≥ $100. Do not take 0.45–0.70. Up to three
+    nearby rests. Clip 10–50%. If it will not come back, scratch or stop.
     """
     now = now or datetime.now(timezone.utc)
     if not settings.impulse_wait or not settings.allow_maker:
@@ -817,11 +818,12 @@ def pick_dump_wait(waits: list[Opportunity], spot: SpotQuote) -> list[Opportunit
         )
     )
     unique: list[Opportunity] = []
-    seen: set[str] = set()
+    seen: set[tuple[str, str]] = set()
     for row in chosen:
-        if row.ticker in seen:
+        key = (row.ticker, row.side)
+        if key in seen:
             continue
-        seen.add(row.ticker)
+        seen.add(key)
         unique.append(row)
         if len(unique) >= 3:
             break

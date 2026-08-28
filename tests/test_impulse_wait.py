@@ -158,10 +158,13 @@ class ImpulseWaitTests(unittest.TestCase):
         spot = SpotQuote(78689.70, "test", annual_vol=0.55, impulse=-104)
         opps = scan_markets([far, near, atm], spot, self.settings, now)
         waits = [row for row in opps if row.play == "impulse_wait"]
-        self.assertEqual(len(waits), 1)
-        self.assertEqual(waits[0].ticker, "KXBTCD-26AUG2602-T78599.99")
-        self.assertAlmostEqual(waits[0].ask, 0.42)
+        self.assertEqual(
+            [row.ticker for row in waits],
+            ["KXBTCD-26AUG2602-T78699.99", "KXBTCD-26AUG2602-T78599.99"],
+        )
+        self.assertAlmostEqual(waits[0].ask, 0.60)
         self.assertAlmostEqual(waits[0].limit_price, 0.25)
+        self.assertAlmostEqual(waits[1].ask, 0.42)
 
     def test_dump_rests_under_a_forty_cent_no(self):
         opps = evaluate_impulse_wait_market(_market(), self.spot, self.settings, self.now)
@@ -201,10 +204,18 @@ class ImpulseWaitTests(unittest.TestCase):
         shallow = SpotQuote(78340, "test", annual_vol=0.55, impulse=-20)
         self.assertTrue(evaluate_impulse_wait_market(coupon, shallow, self.settings, now))
         mild_rally = SpotQuote(78340, "test", annual_vol=0.55, impulse=80)
-        # Rally follows YES. This book is a NO coupon; do not hang against the tape.
-        self.assertEqual(evaluate_impulse_wait_market(coupon, mild_rally, self.settings, now), [])
+        # Rally follows YES under the ATM mid. Do not rest NO against the tape.
+        yes_rest = evaluate_impulse_wait_market(coupon, mild_rally, self.settings, now)
+        self.assertTrue(yes_rest)
+        self.assertEqual(yes_rest[0].side, "yes")
+        self.assertAlmostEqual(yes_rest[0].limit_price, 0.25)
+        self.assertFalse(yes_rest[0].taker)
         flipped = SpotQuote(78340, "test", annual_vol=0.55, impulse=160)
-        self.assertEqual(evaluate_impulse_wait_market(coupon, flipped, self.settings, now), [])
+        yes_flip = evaluate_impulse_wait_market(coupon, flipped, self.settings, now)
+        self.assertTrue(yes_flip)
+        self.assertEqual(yes_flip[0].side, "yes")
+        self.assertAlmostEqual(yes_flip[0].limit_price, 0.25)
+        self.assertFalse(yes_flip[0].taker)
 
     def test_high_p_coupon_is_not_swallowed_by_taker_qualify(self):
         # Taker-off + coupon-first: a 32–42¢ NO with p≥52% used to return []
@@ -286,31 +297,31 @@ class ImpulseWaitTests(unittest.TestCase):
         self.assertAlmostEqual(chosen[0].ask, 0.36)
 
     def test_flex_default_does_not_take_when_no_coupon_book(self):
-        atm = _market(
+        locked = _market(
             ticker="KXBTCD-26AUG2520-T78799.99",
             floor_strike=78799.99,
-            yes_bid_dollars="0.50",
-            yes_ask_dollars="0.51",
-            no_bid_dollars="0.49",
-            no_ask_dollars="0.50",
+            yes_bid_dollars="0.18",
+            yes_ask_dollars="0.19",
+            no_bid_dollars="0.81",
+            no_ask_dollars="0.82",
         )
         dump = SpotQuote(78680, "test", annual_vol=0.55, impulse=-160)
-        opps = scan_markets([atm], dump, self.settings, self.now)
+        opps = scan_markets([locked], dump, self.settings, self.now)
         self.assertEqual([row.play for row in opps if row.play == "impulse_t"], [])
         self.assertEqual(pick_flex_entries(opps), [])
 
     def test_impulse_taker_flag_still_takes_when_no_coupon_book(self):
-        atm = _market(
+        knife = _market(
             ticker="KXBTCD-26AUG2520-T78799.99",
             floor_strike=78799.99,
-            yes_bid_dollars="0.50",
-            yes_ask_dollars="0.51",
-            no_bid_dollars="0.49",
-            no_ask_dollars="0.50",
+            yes_bid_dollars="0.70",
+            yes_ask_dollars="0.71",
+            no_bid_dollars="0.29",
+            no_ask_dollars="0.30",
         )
         dump = SpotQuote(78680, "test", annual_vol=0.55, impulse=-160)
         settings = Settings(playbook="flex", max_contracts=1, allow_maker=True, impulse_taker=True)
-        opps = scan_markets([atm], dump, settings, self.now)
+        opps = scan_markets([knife], dump, settings, self.now)
         chosen = pick_flex_entries(opps)
         self.assertTrue(chosen)
         self.assertEqual(chosen[0].play, "impulse_t")
@@ -602,8 +613,10 @@ class ImpulseWaitTests(unittest.TestCase):
         dump = SpotQuote(78680, "test", annual_vol=0.55, impulse=-160)
         opps = scan_markets([coupon, atm], dump, self.settings, self.now)
         chosen = pick_flex_entries(opps, working_plays={"impulse_wait"})
-        self.assertEqual([row.play for row in chosen], ["impulse_wait"])
+        self.assertTrue(chosen)
+        self.assertTrue(all(row.play == "impulse_wait" for row in chosen))
         self.assertEqual(chosen[0].ticker, coupon.ticker)
+        self.assertFalse(any(row.taker for row in chosen))
 
     def test_flex_still_adds_dump_waits_while_one_is_working(self):
         other = _market(
@@ -1033,6 +1046,54 @@ class ImpulseWaitTests(unittest.TestCase):
         )
         self.assertEqual(evaluate_impulse_wait_market(knife, spot, self.settings, now), [])
 
+    def test_sparse_daily_atm_mid_is_the_current_book(self):
+        # Paper AUG2817 16:29 ET: $500 rungs, only T77499 is the book (YES 0.51).
+        # The 0.42 hang cap skipped that mid for half an hour. Rest 0.25 under
+        # it. Do not take 0.51. Far 0.98 is not the current book.
+        now = datetime(2026, 8, 28, 20, 29, tzinfo=timezone.utc)
+        atm = _market(
+            ticker="KXBTCD-26AUG2817-T77499.99",
+            event_ticker="KXBTCD-26AUG2817",
+            floor_strike=77499.99,
+            yes_bid_dollars="0.50",
+            yes_ask_dollars="0.51",
+            no_bid_dollars="0.49",
+            no_ask_dollars="0.52",
+            open_time="2026-08-27T21:00:00Z",
+            close_time="2026-08-28T21:00:00Z",
+        )
+        locked = _market(
+            ticker="KXBTCD-26AUG2817-T76999.99",
+            event_ticker="KXBTCD-26AUG2817",
+            floor_strike=76999.99,
+            yes_bid_dollars="0.97",
+            yes_ask_dollars="0.98",
+            no_bid_dollars="0.03",
+            no_ask_dollars="0.04",
+            open_time="2026-08-27T21:00:00Z",
+            close_time="2026-08-28T21:00:00Z",
+        )
+        punched = _market(
+            ticker="KXBTCD-26AUG2817-T77999.99",
+            event_ticker="KXBTCD-26AUG2817",
+            floor_strike=77999.99,
+            yes_bid_dollars="0.02",
+            yes_ask_dollars="0.03",
+            no_bid_dollars="0.98",
+            no_ask_dollars="0.99",
+            open_time="2026-08-27T21:00:00Z",
+            close_time="2026-08-28T21:00:00Z",
+        )
+        spot = SpotQuote(77500.16, "test", annual_vol=0.55, impulse=23)
+        opps = scan_markets([atm, locked, punched], spot, self.settings, now)
+        waits = [row for row in opps if row.play == "impulse_wait"]
+        self.assertEqual(len(waits), 1)
+        self.assertEqual(waits[0].ticker, atm.ticker)
+        self.assertEqual(waits[0].side, "yes")
+        self.assertAlmostEqual(waits[0].ask, 0.51)
+        self.assertAlmostEqual(waits[0].limit_price, 0.25)
+        self.assertFalse(waits[0].taker)
+
 
 class ImpulseWaitEngineTests(unittest.TestCase):
     def setUp(self):
@@ -1323,14 +1384,14 @@ class ImpulseWaitReplayTests(unittest.TestCase):
                 int(maturity - 1800),
                 78820,
                 0.55,
-                {taker: {"yes_ask": 0.50, "yes_bid": 0.49}},
+                {taker: {"yes_ask": 0.26, "yes_bid": 0.25}},
                 impulse=160,
             ),
             ReplayBar(
                 int(maturity - 1740),
                 78880,
                 0.55,
-                {taker: {"yes_ask": 0.62, "yes_bid": 0.60}},
+                {taker: {"yes_ask": 0.26, "yes_bid": 0.24}},
                 impulse=180,
             ),
             ReplayBar(
@@ -1377,14 +1438,14 @@ class ImpulseWaitReplayTests(unittest.TestCase):
                 int(maturity - 1800),
                 78820,
                 0.55,
-                {taker: {"yes_ask": 0.50, "yes_bid": 0.49}},
+                {taker: {"yes_ask": 0.26, "yes_bid": 0.25}},
                 impulse=160,
             ),
             ReplayBar(
                 int(maturity - 1740),
                 78740,
                 0.55,
-                {taker: {"yes_ask": 0.40, "yes_bid": 0.35}},
+                {taker: {"yes_ask": 0.22, "yes_bid": 0.18}},
                 impulse=40,
             ),
             ReplayBar(
