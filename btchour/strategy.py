@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from btchour.config import Settings
-from btchour.fees import fill_cost, lock_exit_price, max_entry_price
+from btchour.fees import TICK, fill_cost, lock_exit_price, max_entry_price
 from btchour.kalshi import Market
 from btchour.model import SpotQuote, digital_prob, effective_vol, sigma_cushion
 from btchour.tickers import is_hourly_window, next_event_ticker, next_session_event_ticker, parse_event_ticker
@@ -57,6 +57,15 @@ def impulse_wait_flipped(side: str, impulse: float, settings: Settings) -> bool:
     return True
 
 
+def _ask_at_rest(ask: float, rest: float, tick: float = TICK) -> bool:
+    """The offer is still at the rest, not already dumped through.
+
+    Paper AUG2802 filled T79599/T79499 NO at 0.25 after the book was 0.03.
+    That is not ask==rest. One tick through still counts as the rest print.
+    """
+    return rest - tick - 1e-12 <= float(ask) <= rest + 1e-12
+
+
 def wait_book_crossed(
     side: str,
     rest: float,
@@ -67,12 +76,13 @@ def wait_book_crossed(
     impulse: float | None = None,
     min_impulse: float | None = None,
 ) -> bool:
-    """Maker fill at rest if the close or minute extreme traded through while the dump is still on.
+    """Maker fill at rest if the close or minute extreme is still at the rest.
 
     A dump NO rest must not fill on the bounce rip (AUG2520 25¢ → marked 13¢)
     or on a faded ask==rest print (AUG2604 07:41, spot already +$42, then scratch).
     Keep the rest through fade; fill only while impulse is still a dump.
     YES needs the same-way |impulse| ≥ min_impulse; a +$90 print is not a fill.
+    Ask already through the rest (AUG2802 3¢) is not a fill. Do not eat taker.
     """
     if impulse is not None:
         if side == "no" and impulse >= 0:
@@ -81,12 +91,12 @@ def wait_book_crossed(
             return False
         if min_impulse is not None and abs(impulse) + 1e-9 < abs(min_impulse):
             return False
-    if close_ask is not None and close_ask <= rest + 1e-12:
+    if close_ask is not None and _ask_at_rest(close_ask, rest):
         return True
     if side == "no" and yes_bid_high is not None:
-        return (1.0 - yes_bid_high) <= rest + 1e-12
+        return _ask_at_rest(1.0 - float(yes_bid_high), rest)
     if side == "yes" and yes_ask_low is not None:
-        return yes_ask_low <= rest + 1e-12
+        return _ask_at_rest(yes_ask_low, rest)
     return False
 
 

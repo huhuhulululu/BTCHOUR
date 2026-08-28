@@ -28,7 +28,7 @@ EV = p · b − (1 − p)
 
 **`impulse_wait`**：跟趋势挂 25¢。跌/静只挂 NO（32–42¢，29¢ 飞刀不接）。涨挂 YES（28–42¢）——5 点日盘 $250 档常常没有 32–42¢ NO，中间价在 YES。成交仍只要同向 |impulse| ≥$100。不吃 taker。人手 `AUG2520` 同一小时多档 NO 0.20–0.29 是砸盘带子；涨势空仓才是错的。
 
-门：整条阶梯 $600。跌/静挂 NO **32–42¢**，涨挂 YES **28–42¢**，rest **$0.25**。不要求 |impulse| 才挂。已经反手 ≥$100 不挂、并撤对面。成交只要同向 |impulse| ≥$100。taker 过得了门也不再跳过 coupon。一小时最多同时 rest **3** 档近 ATM（人手 `AUG2520`）。第一笔 clip 后 dead，不 hop。3 分钟印淡了不撤；反弹/淡化 ask==rest 不成交。成交后 10%–50% 带兑现；**8 分钟还没摸到 +10% 就 `t_scratch`**。已经跑出 +10% 的，仍用 80% 硬止损扛反弹标记。`BTCHOUR_IMPULSE_WAIT=0` 可关。旧的宽 wait（26–48¢、$600、不 scratch）只留在 sweep 的 `flex_wait_loose`。
+门：整条阶梯 $600。跌/静挂 NO **32–42¢**，涨挂 YES **28–42¢**，rest **$0.25**。不要求 |impulse| 才挂。已经反手 ≥$100 不挂、并撤对面。成交只要同向 |impulse| ≥$100 且 ask 还在 rest（打穿到 3¢ 不成交）。taker 过得了门也不再跳过 coupon。一小时最多同时 rest **3** 档近 ATM（人手 `AUG2520`）。第一笔 clip 后 dead，不 hop。3 分钟印淡了不撤；反弹/淡化 ask==rest 不成交。成交后 10%–50% 带兑现；**8 分钟还没摸到 +10% 就 `t_scratch`**。已经跑出 +10% 的，仍用 80% 硬止损扛反弹标记。`BTCHOUR_IMPULSE_WAIT=0` 可关。旧的宽 wait（26–48¢、$600、不 scratch）只留在 sweep 的 `flex_wait_loose`。
 
 同一小时最多 3 档 coupon。不要在 clip 之后 hop 新行权价，也不要人累了猜反弹。
 

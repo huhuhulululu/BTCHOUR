@@ -890,6 +890,18 @@ class ImpulseWaitTests(unittest.TestCase):
             wait_book_crossed("no", 0.25, 0.32, yes_bid_high=0.76, impulse=-40, min_impulse=100)
         )
 
+    def test_already_through_rest_does_not_fill(self):
+        # AUG2802 01:56: T79599/T79499 NO rest 0.25, spot already through the
+        # strikes, NO ask 0.03–0.04, impulse finally −$100. Filling at 0.25
+        # then t_wait_stop is not ask==rest.
+        self.assertFalse(wait_book_crossed("no", 0.25, 0.03, impulse=-100, min_impulse=100))
+        self.assertFalse(wait_book_crossed("no", 0.25, 0.10, impulse=-120, min_impulse=100))
+        self.assertFalse(
+            wait_book_crossed("no", 0.25, 0.32, yes_bid_high=0.97, impulse=-120, min_impulse=100)
+        )
+        self.assertTrue(wait_book_crossed("no", 0.25, 0.25, impulse=-100, min_impulse=100))
+        self.assertTrue(wait_book_crossed("no", 0.25, 0.24, impulse=-100, min_impulse=100))
+
     def test_five_pm_daily_label_is_the_hourly_when_47_minutes_left(self):
         # 16:13 ET → next close is 17:00. Kalshi tags that print daily / ~25h life.
         now = datetime(2026, 8, 26, 20, 13, tzinfo=timezone.utc)
@@ -1039,13 +1051,22 @@ class ImpulseWaitEngineTests(unittest.TestCase):
                 still = refresh_working(db, self.settings, [_market()], self.spot, self.now)
                 self.assertEqual(db.open_trades(), [])
                 self.assertEqual(len(db.working_trades()), 1)
-                crossed = _market(
+                through = _market(
                     yes_bid_dollars="0.77",
                     yes_ask_dollars="0.78",
                     no_bid_dollars="0.22",
                     no_ask_dollars="0.23",
                 )
-                promoted = refresh_working(db, self.settings, [crossed], self.spot, self.now)
+                missed = refresh_working(db, self.settings, [through], self.spot, self.now)
+                self.assertEqual(missed, [])
+                self.assertEqual(len(db.working_trades()), 1)
+                at_rest = _market(
+                    yes_bid_dollars="0.75",
+                    yes_ask_dollars="0.76",
+                    no_bid_dollars="0.24",
+                    no_ask_dollars="0.25",
+                )
+                promoted = refresh_working(db, self.settings, [at_rest], self.spot, self.now)
                 self.assertEqual(promoted[0]["status"], "open")
                 row = db.open_trades()[0]
                 self.assertEqual(row["id"], trade_id)
