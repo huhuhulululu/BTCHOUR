@@ -12,7 +12,7 @@ from pathlib import Path
 from btchour.config import CATALOG_DIR, Settings, load_settings
 from btchour.fees import round_trip_roi
 from btchour.store import Store
-from btchour.strategy import impulse_wait_flipped
+from btchour.strategy import _ask_at_rest, impulse_wait_flipped
 from btchour.tickers import (
     ET,
     format_et,
@@ -240,7 +240,11 @@ def working_fill_label(
     if impulse_wait_flipped(side, float(impulse or 0.0), settings):
         return "反手撤"
     same = _same_dir(side, impulse, settings.impulse_min)
-    ask_ok = ask is not None and rest is not None and float(ask) <= float(rest) + 1e-12
+    ask_ok = (
+        ask is not None
+        and rest is not None
+        and _ask_at_rest(float(ask), float(rest))
+    )
     if same and ask_ok:
         return "可成交"
     if not same and not ask_ok:
