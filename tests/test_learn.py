@@ -50,7 +50,7 @@ class LearnTests(unittest.TestCase):
         )
         spot = SpotQuote(78200, "test", annual_vol=0.55, impulse=-250)
         report = diagnose_impulse([market], spot, Settings(), now)
-        self.assertEqual(report["status"], "blocked")
+        self.assertEqual(report["status"], "no_coupon")
         self.assertTrue(report["candidates"])
         self.assertTrue(any("ask" in reason for reason in report["candidates"][0]["reasons"]))
 
@@ -114,7 +114,7 @@ class LearnTests(unittest.TestCase):
                 "close_time": "2026-08-26T20:00:00Z",
             }
         )
-        spot = SpotQuote(78340, "test", annual_vol=0.55, impulse=-45)
+        spot = SpotQuote(78340, "test", annual_vol=0.55, impulse=-160)
         report = diagnose_impulse([market], spot, Settings(playbook="flex"), now)
         self.assertEqual(report["status"], "wait")
         self.assertEqual(report["wait"], "KXBTCD-26AUG2616-T78299.99")
@@ -202,7 +202,7 @@ class LearnTests(unittest.TestCase):
                 "close_time": "2026-08-26T21:00:00Z",
             }
         )
-        spot = SpotQuote(78423, "test", annual_vol=0.55, impulse=20)
+        spot = SpotQuote(78423, "test", annual_vol=0.55, impulse=160)
         report = diagnose_impulse([cheap, mid], spot, Settings(playbook="flex"), now)
         self.assertEqual(report["status"], "no_coupon")
         self.assertTrue(report["candidates"])
@@ -237,7 +237,7 @@ class LearnTests(unittest.TestCase):
                 "close_time": "2026-08-26T21:00:00Z",
             }
         )
-        spot = SpotQuote(78399.99, "test", annual_vol=0.55, impulse=-10)
+        spot = SpotQuote(78399.99, "test", annual_vol=0.55, impulse=-160)
         report = diagnose_impulse([far, near], spot, Settings(playbook="flex"), now)
         self.assertEqual(report["status"], "no_coupon")
         self.assertTrue(report["candidates"])
@@ -274,7 +274,7 @@ class LearnTests(unittest.TestCase):
                 "close_time": "2026-08-26T21:00:00Z",
             }
         )
-        spot = SpotQuote(78468, "test", annual_vol=0.55, impulse=-20)
+        spot = SpotQuote(78468, "test", annual_vol=0.55, impulse=-160)
         report = diagnose_impulse([fifteen, hourly], spot, Settings(playbook="flex"), now)
         self.assertEqual(report["status"], "wait")
         self.assertEqual(report["wait"], "KXBTCD-26AUG2617-T78499.99")

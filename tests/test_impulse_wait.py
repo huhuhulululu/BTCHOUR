@@ -178,11 +178,10 @@ class ImpulseWaitTests(unittest.TestCase):
         waits = [row for row in opps if row.play == "impulse_wait"]
         self.assertEqual(
             [row.ticker for row in waits],
-            ["KXBTCD-26AUG2602-T78599.99", "KXBTCD-26AUG2602-T78699.99"],
+            ["KXBTCD-26AUG2602-T78599.99"],
         )
         self.assertAlmostEqual(waits[0].ask, 0.42)
         self.assertAlmostEqual(waits[0].limit_price, 0.25)
-        self.assertAlmostEqual(waits[1].ask, 0.60)
 
     def test_scan_prefers_in_band_coupon_over_atm_mid_pad(self):
         now = datetime(2026, 8, 28, 22, 10, tzinfo=timezone.utc)
@@ -208,16 +207,50 @@ class ImpulseWaitTests(unittest.TestCase):
             open_time="2026-08-28T22:00:00Z",
             close_time="2026-08-28T23:00:00Z",
         )
-        spot = SpotQuote(77360, "test", annual_vol=0.55, impulse=-10)
+        spot = SpotQuote(77360, "test", annual_vol=0.55, impulse=-160)
         opps = scan_markets([pad, coupon], spot, self.settings, now)
         waits = [row for row in opps if row.play == "impulse_wait"]
         self.assertEqual(
             [row.ticker for row in waits],
-            ["KXBTCD-26AUG2819-T77499.99", "KXBTCD-26AUG2819-T77399.99"],
+            ["KXBTCD-26AUG2819-T77499.99"],
         )
         self.assertAlmostEqual(waits[0].ask, 0.32)
         self.assertAlmostEqual(waits[0].limit_price, 0.25)
         self.assertFalse(waits[0].taker)
+
+    def test_does_not_park_a_lonely_quarter_under_a_dead_book(self):
+        now = datetime(2026, 8, 28, 23, 46, tzinfo=timezone.utc)
+        pad = _market(
+            ticker="KXBTCD-26AUG2820-T77699.99",
+            event_ticker="KXBTCD-26AUG2820",
+            floor_strike=77699.99,
+            yes_bid_dollars="0.29",
+            yes_ask_dollars="0.30",
+            no_bid_dollars="0.69",
+            no_ask_dollars="0.70",
+            open_time="2026-08-28T23:00:00Z",
+            close_time="2026-08-29T00:00:00Z",
+        )
+        coupon = _market(
+            ticker="KXBTCD-26AUG2820-T77599.99",
+            event_ticker="KXBTCD-26AUG2820",
+            floor_strike=77599.99,
+            yes_bid_dollars="0.63",
+            yes_ask_dollars="0.64",
+            no_bid_dollars="0.35",
+            no_ask_dollars="0.36",
+            open_time="2026-08-28T23:00:00Z",
+            close_time="2026-08-29T00:00:00Z",
+        )
+        quiet = SpotQuote(77671, "test", annual_vol=0.55, impulse=-12)
+        self.assertEqual(evaluate_impulse_wait_market(pad, quiet, self.settings, now), [])
+        self.assertEqual(evaluate_impulse_wait_market(coupon, quiet, self.settings, now), [])
+        dump = SpotQuote(77671, "test", annual_vol=0.55, impulse=-160)
+        self.assertEqual(evaluate_impulse_wait_market(pad, dump, self.settings, now), [])
+        hung = evaluate_impulse_wait_market(coupon, dump, self.settings, now)
+        self.assertTrue(hung)
+        self.assertEqual(hung[0].side, "no")
+        self.assertAlmostEqual(hung[0].limit_price, 0.25)
 
     def test_dump_rests_under_a_forty_cent_no(self):
         opps = evaluate_impulse_wait_market(_market(), self.spot, self.settings, self.now)
@@ -243,30 +276,43 @@ class ImpulseWaitTests(unittest.TestCase):
             open_time="2026-08-26T19:00:00Z",
             close_time="2026-08-26T20:00:00Z",
         )
-        self.assertTrue(dump_wait_rest_ready(0, self.settings))
-        self.assertTrue(dump_wait_rest_ready(-20, self.settings))
-        self.assertTrue(dump_wait_rest_ready(80, self.settings))
+        self.assertFalse(dump_wait_rest_ready(0, self.settings))
+        self.assertFalse(dump_wait_rest_ready(-20, self.settings))
+        self.assertFalse(dump_wait_rest_ready(80, self.settings))
+        self.assertTrue(dump_wait_rest_ready(-100, self.settings))
+        self.assertTrue(dump_wait_rest_ready(-160, self.settings))
         self.assertFalse(dump_wait_rest_ready(100, self.settings))
         self.assertFalse(dump_wait_rest_ready(160, self.settings))
         quiet = SpotQuote(78340, "test", annual_vol=0.55, impulse=0)
-        opps = evaluate_impulse_wait_market(coupon, quiet, self.settings, now)
-        self.assertTrue(opps)
-        self.assertEqual(opps[0].side, "no")
-        self.assertAlmostEqual(opps[0].ask, 0.36)
-        self.assertAlmostEqual(opps[0].limit_price, 0.25)
+        self.assertEqual(evaluate_impulse_wait_market(coupon, quiet, self.settings, now), [])
         shallow = SpotQuote(78340, "test", annual_vol=0.55, impulse=-20)
-        self.assertTrue(evaluate_impulse_wait_market(coupon, shallow, self.settings, now))
+        self.assertEqual(evaluate_impulse_wait_market(coupon, shallow, self.settings, now), [])
         mild_rally = SpotQuote(78340, "test", annual_vol=0.55, impulse=80)
-        # Weak-up is still quiet. Do not hang YES on a +$80 print.
-        quiet_no = evaluate_impulse_wait_market(coupon, mild_rally, self.settings, now)
-        self.assertTrue(quiet_no)
-        self.assertEqual(quiet_no[0].side, "no")
-        self.assertAlmostEqual(quiet_no[0].limit_price, 0.25)
-        self.assertFalse(quiet_no[0].taker)
+        self.assertEqual(evaluate_impulse_wait_market(coupon, mild_rally, self.settings, now), [])
+        dump = SpotQuote(78340, "test", annual_vol=0.55, impulse=-160)
+        no_rest = evaluate_impulse_wait_market(coupon, dump, self.settings, now)
+        self.assertTrue(no_rest)
+        self.assertEqual(no_rest[0].side, "no")
+        self.assertAlmostEqual(no_rest[0].ask, 0.36)
+        self.assertAlmostEqual(no_rest[0].limit_price, 0.25)
+        self.assertFalse(no_rest[0].taker)
         flipped = SpotQuote(78340, "test", annual_vol=0.55, impulse=160)
-        yes_flip = evaluate_impulse_wait_market(coupon, flipped, self.settings, now)
+        self.assertEqual(evaluate_impulse_wait_market(coupon, flipped, self.settings, now), [])
+        yes_book = _market(
+            ticker="KXBTCD-26AUG2616-T78399.99",
+            event_ticker="KXBTCD-26AUG2616",
+            floor_strike=78399.99,
+            yes_bid_dollars="0.35",
+            yes_ask_dollars="0.36",
+            no_bid_dollars="0.64",
+            no_ask_dollars="0.65",
+            open_time="2026-08-26T19:00:00Z",
+            close_time="2026-08-26T20:00:00Z",
+        )
+        yes_flip = evaluate_impulse_wait_market(yes_book, flipped, self.settings, now)
         self.assertTrue(yes_flip)
         self.assertEqual(yes_flip[0].side, "yes")
+        self.assertAlmostEqual(yes_flip[0].ask, 0.36)
         self.assertAlmostEqual(yes_flip[0].limit_price, 0.25)
         self.assertFalse(yes_flip[0].taker)
 
@@ -286,7 +332,7 @@ class ImpulseWaitTests(unittest.TestCase):
             open_time="2026-08-26T19:00:00Z",
             close_time="2026-08-26T20:00:00Z",
         )
-        spot = SpotQuote(78280, "test", annual_vol=0.55, impulse=-20)
+        spot = SpotQuote(78280, "test", annual_vol=0.55, impulse=-160)
         model_p = 1.0 - digital_prob(78280, 78399.99, 39 * 60, 0.55)
         self.assertGreaterEqual(model_p, 0.52)
         self.assertTrue(_taker_impulse_qualifies(0.36, model_p, self.settings))
@@ -700,7 +746,7 @@ class ImpulseWaitTests(unittest.TestCase):
             play="impulse_wait",
         )
         now = datetime(2026, 8, 26, 21, 3, tzinfo=timezone.utc)
-        dump = SpotQuote(78428, "test", annual_vol=0.55, impulse=-12)
+        dump = SpotQuote(78428, "test", annual_vol=0.55, impulse=-160)
         other = _market(
             ticker="KXBTCD-26AUG2618-T78399.99",
             event_ticker="KXBTCD-26AUG2618",
@@ -1015,7 +1061,7 @@ class ImpulseWaitTests(unittest.TestCase):
         )
         self.assertFalse(is_fast_window(coupon.open_time, coupon.close_time))
         self.assertTrue(is_coupon_window(47 * 60, self.settings))
-        spot = SpotQuote(78468, "test", annual_vol=0.55, impulse=-20)
+        spot = SpotQuote(78468, "test", annual_vol=0.55, impulse=-160)
         opps = evaluate_impulse_wait_market(coupon, spot, self.settings, now)
         self.assertTrue(opps)
         self.assertEqual(opps[0].play, "impulse_wait")
@@ -1068,7 +1114,7 @@ class ImpulseWaitTests(unittest.TestCase):
             open_time="2026-08-25T20:00:00Z",
             close_time="2026-08-26T21:00:00Z",
         )
-        spot = SpotQuote(78468, "test", annual_vol=0.55, impulse=-20)
+        spot = SpotQuote(78468, "test", annual_vol=0.55, impulse=-160)
         self.assertAlmostEqual(abs(78249.99 - 78468), 218.01)
         tight = Settings(playbook="flex", max_contracts=1, allow_maker=True, impulse_wait_max_distance=150)
         self.assertEqual(evaluate_impulse_wait_market(coupon, spot, tight, now), [])
@@ -1089,7 +1135,7 @@ class ImpulseWaitTests(unittest.TestCase):
             open_time="2026-08-25T20:00:00Z",
             close_time="2026-08-26T21:00:00Z",
         )
-        spot = SpotQuote(78368, "test", annual_vol=0.90, impulse=-20)
+        spot = SpotQuote(78368, "test", annual_vol=0.90, impulse=-160)
         self.assertGreater(abs(77999.99 - 78368), 250)
         self.assertLess(abs(77999.99 - 78368), 600)
         opps = evaluate_impulse_wait_market(coupon, spot, self.settings, now)
@@ -1171,12 +1217,12 @@ class ImpulseWaitTests(unittest.TestCase):
         spot = SpotQuote(77500.16, "test", annual_vol=0.55, impulse=23)
         opps = scan_markets([atm, locked, punched], spot, self.settings, now)
         waits = [row for row in opps if row.play == "impulse_wait"]
-        self.assertEqual(len(waits), 1)
-        self.assertEqual(waits[0].ticker, atm.ticker)
-        self.assertEqual(waits[0].side, "no")
-        self.assertAlmostEqual(waits[0].ask, 0.52)
-        self.assertAlmostEqual(waits[0].limit_price, 0.25)
-        self.assertFalse(waits[0].taker)
+        self.assertEqual(waits, [])
+        dump = SpotQuote(77500.16, "test", annual_vol=0.55, impulse=-160)
+        self.assertEqual(
+            [row for row in scan_markets([atm, locked, punched], dump, self.settings, now) if row.play == "impulse_wait"],
+            [],
+        )
 
 
 class ImpulseWaitEngineTests(unittest.TestCase):
@@ -1464,19 +1510,19 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         self.assertGreater(take["pnl"], 0)
         self.assertGreaterEqual(take["roi"], 0.50)
 
-    def test_quiet_coupon_rest_then_dump_fill(self):
+    def test_dump_coupon_rest_then_dump_fill(self):
         settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
         maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
         strike = 78699.99
         bars = [
             ReplayBar(int(maturity - 1800), 78800, 0.55, {strike: {"yes_ask": 0.65, "yes_bid": 0.64}}, impulse=0),
-            ReplayBar(int(maturity - 1740), 78790, 0.55, {strike: {"yes_ask": 0.64, "yes_bid": 0.63}}, impulse=-20),
+            ReplayBar(int(maturity - 1740), 78790, 0.55, {strike: {"yes_ask": 0.64, "yes_bid": 0.63}}, impulse=-160),
             ReplayBar(
                 int(maturity - 1680),
                 78720,
                 0.55,
                 {strike: {"yes_ask": 0.65, "yes_bid": 0.64, "yes_bid_high": 0.76}},
-                impulse=-160,
+                impulse=-180,
             ),
             ReplayBar(int(maturity - 1620), 78640, 0.55, {strike: {"yes_ask": 0.60, "yes_bid": 0.59}}, impulse=-120),
         ]

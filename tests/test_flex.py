@@ -98,10 +98,7 @@ class FlexStrategyTests(unittest.TestCase):
         )
         opps = scan_markets([market], self.spot, settings, self.now)
         self.assertFalse(any(row.play in {"markout_scalp", "impulse_t", "swing_t"} for row in opps))
-        self.assertTrue(opps)
-        self.assertEqual(opps[0].play, "impulse_wait")
-        self.assertAlmostEqual(opps[0].limit_price, 0.25)
-        self.assertFalse(opps[0].taker)
+        self.assertFalse(any(row.play == "impulse_wait" for row in opps))
 
 
 class FlexReplayTests(unittest.TestCase):

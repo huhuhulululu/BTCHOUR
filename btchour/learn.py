@@ -8,6 +8,7 @@ from btchour.kalshi import Market
 from btchour.model import SpotQuote, digital_prob, effective_vol
 from btchour.strategy import (
     _seconds_left,
+    coupon_in_band,
     coupon_min_ask,
     coupon_rest_ready,
     coupon_sides,
@@ -98,8 +99,8 @@ def _coupon_ladder_rejects(
                     reasons.append(f"ask {ask:.2f}<=rest")
                 elif ask + 1e-12 < lo:
                     reasons.append(f"ask {ask:.2f}<{lo:.2f}")
-                elif ask > settings.impulse_wait_max_ask + 1e-12:
-                    reasons.append(f"ask {ask:.2f}>{settings.impulse_wait_max_ask:.2f}")
+                elif not coupon_in_band(ask, settings):
+                    reasons.append(f"ask {ask:.2f}>{settings.impulse_wait_coupon_ask:.2f}")
                 if model_p + 1e-12 < rest:
                     reasons.append(f"p {model_p:.2f}<{rest:.2f}")
             if reasons:
@@ -148,17 +149,16 @@ def diagnose_impulse(
             for wait in waits
         ]
         return report
-    if forming and not dump_on:
-        rejects = _coupon_ladder_rejects(markets, spot, settings, now)
-        if rejects:
-            report["status"] = "no_coupon"
-            report["open"] = 0
-            report["wait_count"] = 0
-            report["candidates"] = [
-                {"ticker": row.ticker, "side": row.side, "ask": row.ask, "p": row.model_p, "reasons": row.reasons}
-                for row in rejects[:8]
-            ]
-            return report
+    rejects = _coupon_ladder_rejects(markets, spot, settings, now)
+    if rejects:
+        report["status"] = "no_coupon"
+        report["open"] = 0
+        report["wait_count"] = 0
+        report["candidates"] = [
+            {"ticker": row.ticker, "side": row.side, "ask": row.ask, "p": row.model_p, "reasons": row.reasons}
+            for row in rejects[:8]
+        ]
+        return report
     if not dump_on:
         report["wait_count"] = 0
         report["open"] = 0
