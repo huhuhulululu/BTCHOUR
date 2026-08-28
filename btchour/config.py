@@ -82,6 +82,7 @@ class Settings:
     impulse_wait_rest_min: float = 0.0
     impulse_wait_min_ask: float = 0.32
     impulse_wait_max_ask: float = 0.70  # hang ATM mid; fill is still rest 0.25
+    impulse_wait_coupon_ask: float = 0.42  # fillable 32–42¢; ATM mid is leftover
     impulse_wait_max_distance: float = 600.0
     impulse_wait_stop: float = 0.80
     impulse_wait_scratch_seconds: float = 480.0
@@ -175,6 +176,7 @@ def load_settings() -> Settings:
         impulse_wait_rest_min=_env_float("BTCHOUR_IMPULSE_WAIT_REST_MIN", 0.0),
         impulse_wait_min_ask=_env_float("BTCHOUR_IMPULSE_WAIT_MIN_ASK", 0.32),
         impulse_wait_max_ask=_env_float("BTCHOUR_IMPULSE_WAIT_MAX_ASK", 0.70),
+        impulse_wait_coupon_ask=_env_float("BTCHOUR_IMPULSE_WAIT_COUPON_ASK", 0.42),
         impulse_wait_max_distance=_env_float("BTCHOUR_IMPULSE_WAIT_MAX_DISTANCE", 600.0),
         impulse_wait_stop=_env_float("BTCHOUR_IMPULSE_WAIT_STOP", 0.80),
         impulse_wait_scratch_seconds=_env_float("BTCHOUR_IMPULSE_WAIT_SCRATCH_SECONDS", 480.0),

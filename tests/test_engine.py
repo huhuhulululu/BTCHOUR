@@ -163,6 +163,30 @@ class LoopGuardTests(unittest.TestCase):
         self.assertEqual(client.calls, 10)
         self.assertEqual(len(items), 10)
 
+    def test_minute_extremes_read_the_forming_candle(self):
+        from datetime import datetime, timezone
+
+        from btchour.kalshi import market_minute_extremes
+
+        now = datetime(2026, 8, 28, 22, 18, 20, tzinfo=timezone.utc)
+        minute_end = (int(now.timestamp()) // 60 + 1) * 60
+
+        class Fake(KalshiClient):
+            def candlesticks(self, ticker, start_ts, end_ts, period_interval=1, timeout=4):
+                return [
+                    {
+                        "end_period_ts": minute_end,
+                        "yes_ask": {"low_dollars": "0.24", "close_dollars": "0.32"},
+                        "yes_bid": {"high_dollars": "0.76", "close_dollars": "0.68"},
+                    }
+                ]
+
+        self.assertTrue(hasattr(KalshiClient(), "exchange_status"))
+        self.assertEqual(
+            market_minute_extremes(Fake(), "KXBTCD-26AUG2819-T77299.99", now),
+            {"yes_ask_low": 0.24, "yes_bid_high": 0.76},
+        )
+
 
 class ExecuteWaitTests(unittest.TestCase):
     def _coupon(self) -> Opportunity:
@@ -252,6 +276,39 @@ class ExecuteWaitTests(unittest.TestCase):
                 fourth_fill = engine_mod._execute(fourth, object(), Settings(playbook="flex"), db)
                 self.assertTrue(fourth_fill.get("skipped"))
                 self.assertEqual(fourth_fill.get("reason"), "enough working coupons")
+
+    def test_in_band_coupon_replaces_an_atm_mid_pad(self):
+        pad = Opportunity(**{**self._coupon().__dict__, "ask": 0.61})
+        pad_two = Opportunity(
+            **{**pad.__dict__, "ticker": "KXBTCD-26AUG2617-T78399.99", "ask": 0.68}
+        )
+        pad_three = Opportunity(
+            **{**pad.__dict__, "ticker": "KXBTCD-26AUG2617-T78199.99", "ask": 0.55}
+        )
+        coupon = Opportunity(
+            **{**self._coupon().__dict__, "ticker": "KXBTCD-26AUG2617-T78099.99", "ask": 0.36}
+        )
+        settings = Settings(playbook="flex")
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                self.assertFalse(engine_mod._execute(pad, object(), settings, db).get("skipped"))
+                self.assertFalse(engine_mod._execute(pad_two, object(), settings, db).get("skipped"))
+                self.assertFalse(engine_mod._execute(pad_three, object(), settings, db).get("skipped"))
+                hung = engine_mod._execute(coupon, object(), settings, db)
+                self.assertFalse(hung.get("skipped"))
+                self.assertEqual(hung["ticker"], coupon.ticker)
+                working = {(row["ticker"], row["side"]) for row in db.working_trades()}
+                self.assertIn((coupon.ticker, "no"), working)
+                self.assertNotIn((pad_two.ticker, "no"), working)
+                self.assertEqual(len(working), 3)
+                cancelled = [
+                    row
+                    for row in db.conn.execute("SELECT * FROM trades WHERE status = 'cancelled'")
+                ]
+                self.assertEqual(len(cancelled), 1)
+                self.assertEqual(cancelled[0]["result"], "wait_replace")
+                self.assertEqual(cancelled[0]["ticker"], pad_two.ticker)
 
     def test_same_ticker_opposite_side_can_work(self):
         no_rest = self._coupon()

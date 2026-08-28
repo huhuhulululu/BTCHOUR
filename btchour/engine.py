@@ -12,7 +12,13 @@ from btchour.catalog import sync_catalog
 from btchour.config import ROOT, Settings, load_settings
 from btchour.exits import OpenPosition, evaluate_exit
 from btchour.fees import fill_cost
-from btchour.kalshi import KalshiClient, Market, market_from_api, read_exchange_status
+from btchour.kalshi import (
+    KalshiClient,
+    Market,
+    market_from_api,
+    market_minute_extremes,
+    read_exchange_status,
+)
 from btchour.model import SpotQuote, digital_prob, effective_vol, sigma_cushion
 from btchour.paper import paper_close, paper_fill, paper_settle
 from btchour.score import score_market
@@ -24,6 +30,7 @@ from btchour.strategy import (
     Opportunity,
     _seconds_left,
     apply_swing_memory,
+    coupon_in_band,
     is_next_session_book,
     pick_flex_entries,
     impulse_wait_flipped,
@@ -35,6 +42,8 @@ from btchour.strategy import (
 _LAST_FULL_SYNC = 0.0
 CYCLE_TIMEOUT_SECONDS = 25
 STALL_SECONDS = 60
+_EXTREME_CACHE: dict[str, tuple[float, dict]] = {}
+_EXTREME_TTL = 15.0
 
 
 def make_client(settings: Settings) -> KalshiClient:
@@ -184,7 +193,12 @@ def _execute(
         if opportunity.play == "impulse_wait":
             coupons = [row for row in working if _row_play(row) == "impulse_wait"]
             if len(coupons) >= 3:
-                return {"skipped": True, "reason": "enough working coupons", "ticker": opportunity.ticker}
+                pads = [row for row in coupons if not coupon_in_band(_row_ask(row), settings)]
+                if coupon_in_band(opportunity.ask, settings) and pads:
+                    worst = max(pads, key=_row_ask)
+                    store.cancel_trade(worst["id"], "wait_replace")
+                else:
+                    return {"skipped": True, "reason": "enough working coupons", "ticker": opportunity.ticker}
             if any(
                 row["ticker"] == opportunity.ticker and row["side"] == opportunity.side
                 for row in working
@@ -274,6 +288,32 @@ def _row_play(row) -> str:
     return str(raw.get("play") or "")
 
 
+def _row_ask(row) -> float:
+    try:
+        raw = json.loads(row["raw"] or "{}")
+    except Exception:
+        raw = {}
+    try:
+        return float(raw.get("ask") or 1.0)
+    except (TypeError, ValueError):
+        return 1.0
+
+
+def working_extremes(client: KalshiClient, tickers: list[str], now: datetime) -> dict[str, dict]:
+    """Cached minute wicks for working coupons. A miss must not stall the cycle."""
+    now_s = time.time()
+    out: dict[str, dict] = {}
+    for ticker in tickers:
+        hit = _EXTREME_CACHE.get(ticker)
+        if hit and hit[0] > now_s:
+            out[ticker] = hit[1]
+            continue
+        data = market_minute_extremes(client, ticker, now)
+        _EXTREME_CACHE[ticker] = (now_s + _EXTREME_TTL, data)
+        out[ticker] = data
+    return out
+
+
 def refresh_working(
     store: Store,
     settings: Settings,
@@ -281,9 +321,20 @@ def refresh_working(
     spot: SpotQuote,
     now: datetime | None = None,
     can_trade: bool = True,
+    *,
+    extremes: dict | None = None,
+    client: KalshiClient | None = None,
 ) -> list[dict]:
     now = now or datetime.now(timezone.utc)
     by_ticker = {item.ticker: item for item in markets}
+    if extremes is None and client is not None:
+        tickers = [
+            row["ticker"]
+            for row in store.working_trades()
+            if _row_play(row) == "impulse_wait"
+        ]
+        extremes = working_extremes(client, tickers, now) if tickers else {}
+    extremes = extremes or {}
     updates = []
     for row in store.working_trades():
         market = by_ticker.get(row["ticker"])
@@ -306,10 +357,13 @@ def refresh_working(
         ask = market.yes_ask_effective if row["side"] == "yes" else market.no_ask_effective
         seconds = _seconds_left(market.close_time, now)
         if play == "impulse_wait":
+            wick = extremes.get(row["ticker"]) or {}
             if can_trade and wait_book_crossed(
                 row["side"],
                 rest,
                 ask,
+                yes_bid_high=wick.get("yes_bid_high"),
+                yes_ask_low=wick.get("yes_ask_low"),
                 impulse=spot.impulse,
                 min_impulse=settings.impulse_min if play == "impulse_wait" else None,
             ):
@@ -455,7 +509,9 @@ def run_cycle(client: KalshiClient | None = None, settings: Settings | None = No
         impulse=float(spot_info.get("impulse") or 0.0),
     )
     markets = _markets_from_snapshot(scan.get("snapshot") or {})
-    waits = refresh_working(store, settings, markets, spot, can_trade=can_trade)
+    waits = refresh_working(
+        store, settings, markets, spot, can_trade=can_trade, client=client
+    )
     exits = manage_open(client, store, settings, markets, spot, can_trade=can_trade)
     taken = []
     event_ticker = (scan.get("event") or {}).get("event_ticker")

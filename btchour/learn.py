@@ -131,7 +131,7 @@ def diagnose_impulse(
         for market in markets:
             waits.extend(evaluate_impulse_wait_market(market, spot, settings, now))
     wait_count = len(waits)
-    waits = pick_dump_wait(waits, spot)
+    waits = pick_dump_wait(waits, spot, settings)
     if waits:
         report["status"] = "wait"
         report["wait"] = waits[0].ticker

@@ -48,6 +48,11 @@ def coupon_min_ask(side: str, settings: Settings) -> float:
     return settings.impulse_wait_min_ask
 
 
+def coupon_in_band(ask: float, settings: Settings) -> bool:
+    """32–42¢ can print rest 0.25. 0.50–0.70 ATM mid is only a leftover hang."""
+    return float(ask) <= settings.impulse_wait_coupon_ask + 1e-12
+
+
 def impulse_wait_flipped(side: str, impulse: float, settings: Settings) -> bool:
     """Pull a dump wait only when the tape has flipped, not when the 3-minute print fades."""
     if side == "no":
@@ -600,10 +605,11 @@ def evaluate_impulse_wait_market(
 
     Scan every nearby rung ($600). Rally hangs YES; dump/quiet hangs NO.
     NO still skips the 29¢ knife. YES may hang from 28¢. The hang ceiling
-    is the ATM mid (0.70), not the old 10¢ coupon window — a $500 daily
-    hourly only has one current book, often 0.50–0.55. Fill still needs
-    ask==rest and |impulse| ≥ $100. Do not take 0.45–0.70. Up to three
-    nearby rests. Clip 10–50%. If it will not come back, scratch or stop.
+    is the ATM mid (0.70) so a $500 daily hourly is not an empty book.
+    Pick the 32–42¢ coupons first; 0.50–0.70 only pads leftover slots.
+    Fill still needs ask==rest (close or the minute wick) and |impulse| ≥ $100.
+    Do not take 0.45–0.70. Up to three nearby rests. Clip 10–50%.
+    If it will not come back, scratch or stop.
     """
     now = now or datetime.now(timezone.utc)
     if not settings.impulse_wait or not settings.allow_maker:
@@ -807,11 +813,18 @@ def allow_swing(opportunity: Opportunity, memory: SwingMemory | None) -> bool:
     return opportunity.ticker == memory.ticker and opportunity.side != memory.side
 
 
-def pick_dump_wait(waits: list[Opportunity], spot: SpotQuote) -> list[Opportunity]:
-    """Up to three nearby in-band rests, nearest ATM first."""
+def pick_dump_wait(
+    waits: list[Opportunity], spot: SpotQuote, settings: Settings | None = None
+) -> list[Opportunity]:
+    """Up to three nearby rests. Fillable 32–42¢ first, nearest ATM inside the band.
+
+    0.50–0.70 ATM mid only pads empty hours. Far OTM pennies stay the knife.
+    """
     chosen = list(waits)
+    band = settings.impulse_wait_coupon_ask if settings is not None else 0.42
     chosen.sort(
         key=lambda row: (
+            0 if row.ask <= band + 1e-12 else 1,
             abs((row.strike or 0.0) - spot.price),
             row.ask - row.limit_price,
             -row.ev,
@@ -934,7 +947,7 @@ def scan_markets(markets: list[Market], spot: SpotQuote, settings: Settings, now
             if settings.playbook == "swing":
                 swings.extend(evaluate_swing_market(market, spot, settings, now))
         impulses.sort(key=lambda row: (abs(spot.impulse), row.ev, -row.seconds_left), reverse=True)
-        waits = pick_dump_wait(waits, spot)
+        waits = pick_dump_wait(waits, spot, settings)
         swings.sort(key=lambda row: ((row.model_p - row.ask), row.ev, -row.seconds_left), reverse=True)
         swings = waits + impulses + swings
     if settings.playbook == "hold":

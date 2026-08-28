@@ -118,9 +118,9 @@ class ImpulseWaitTests(unittest.TestCase):
         self.assertEqual([row.ticker for row in chosen], [row.ticker for row in waits])
 
     def test_scan_rests_the_near_atm_strike_not_the_cheapest_ask(self):
-        # Live AUG2602 05:06Z: T78499 ask 0.29 beat T78599 ask 0.42 because
-        # scan sorted by (ask - rest). Spot 78689 → T78499 is ~$190 away;
-        # bounce crushed that NO to 0.03. Human rests the dump ATM.
+        # Live AUG2602 05:06Z: T78499 ask 0.29 is the 29¢ knife. Human rests
+        # the 32–42¢ coupon (T78599), not the 0.60 ATM mid that never prints
+        # rest, and not the far OTM penny that bounce-crushed to 0.03.
         now = datetime(2026, 8, 26, 5, 6, tzinfo=timezone.utc)
         far = _market(
             ticker="KXBTCD-26AUG2602-T78499.99",
@@ -160,11 +160,46 @@ class ImpulseWaitTests(unittest.TestCase):
         waits = [row for row in opps if row.play == "impulse_wait"]
         self.assertEqual(
             [row.ticker for row in waits],
-            ["KXBTCD-26AUG2602-T78699.99", "KXBTCD-26AUG2602-T78599.99"],
+            ["KXBTCD-26AUG2602-T78599.99", "KXBTCD-26AUG2602-T78699.99"],
         )
-        self.assertAlmostEqual(waits[0].ask, 0.60)
+        self.assertAlmostEqual(waits[0].ask, 0.42)
         self.assertAlmostEqual(waits[0].limit_price, 0.25)
-        self.assertAlmostEqual(waits[1].ask, 0.42)
+        self.assertAlmostEqual(waits[1].ask, 0.60)
+
+    def test_scan_prefers_in_band_coupon_over_atm_mid_pad(self):
+        now = datetime(2026, 8, 28, 22, 10, tzinfo=timezone.utc)
+        coupon = _market(
+            ticker="KXBTCD-26AUG2819-T77499.99",
+            event_ticker="KXBTCD-26AUG2819",
+            floor_strike=77499.99,
+            yes_bid_dollars="0.67",
+            yes_ask_dollars="0.68",
+            no_bid_dollars="0.31",
+            no_ask_dollars="0.32",
+            open_time="2026-08-28T22:00:00Z",
+            close_time="2026-08-28T23:00:00Z",
+        )
+        pad = _market(
+            ticker="KXBTCD-26AUG2819-T77399.99",
+            event_ticker="KXBTCD-26AUG2819",
+            floor_strike=77399.99,
+            yes_bid_dollars="0.38",
+            yes_ask_dollars="0.39",
+            no_bid_dollars="0.60",
+            no_ask_dollars="0.61",
+            open_time="2026-08-28T22:00:00Z",
+            close_time="2026-08-28T23:00:00Z",
+        )
+        spot = SpotQuote(77360, "test", annual_vol=0.55, impulse=-10)
+        opps = scan_markets([pad, coupon], spot, self.settings, now)
+        waits = [row for row in opps if row.play == "impulse_wait"]
+        self.assertEqual(
+            [row.ticker for row in waits],
+            ["KXBTCD-26AUG2819-T77499.99", "KXBTCD-26AUG2819-T77399.99"],
+        )
+        self.assertAlmostEqual(waits[0].ask, 0.32)
+        self.assertAlmostEqual(waits[0].limit_price, 0.25)
+        self.assertFalse(waits[0].taker)
 
     def test_dump_rests_under_a_forty_cent_no(self):
         opps = evaluate_impulse_wait_market(_market(), self.spot, self.settings, self.now)
@@ -1196,6 +1231,52 @@ class ImpulseWaitEngineTests(unittest.TestCase):
                 updates = refresh_working(db, self.settings, [_market()], rally, self.now)
                 self.assertEqual(updates[0]["status"], "cancelled")
                 self.assertEqual(db.working_trades(), [])
+
+    def test_promotes_when_the_minute_wick_prints_rest(self):
+        opp = evaluate_impulse_wait_market(_market(), self.spot, self.settings, self.now)[0]
+        fill = paper_fill(opp)
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                trade_id = db.record_trade(fill)
+                still_open = _market(
+                    yes_bid_dollars="0.67",
+                    yes_ask_dollars="0.68",
+                    no_bid_dollars="0.31",
+                    no_ask_dollars="0.32",
+                )
+                missed = refresh_working(db, self.settings, [still_open], self.spot, self.now)
+                self.assertEqual(missed, [])
+                wick = {opp.ticker: {"yes_bid_high": 0.76}}
+                promoted = refresh_working(
+                    db, self.settings, [still_open], self.spot, self.now, extremes=wick
+                )
+                self.assertEqual(promoted[0]["status"], "open")
+                row = db.open_trades()[0]
+                self.assertEqual(row["id"], trade_id)
+                self.assertAlmostEqual(row["price"], 0.25)
+                self.assertEqual(row["taker"], 0)
+
+    def test_atm_mid_close_does_not_fill_without_a_rest_wick(self):
+        opp = evaluate_impulse_wait_market(_market(), self.spot, self.settings, self.now)[0]
+        fill = paper_fill(opp)
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                db.record_trade(fill)
+                mid = _market(
+                    yes_bid_dollars="0.54",
+                    yes_ask_dollars="0.55",
+                    no_bid_dollars="0.44",
+                    no_ask_dollars="0.45",
+                )
+                wick = {opp.ticker: {"yes_ask_low": 0.45, "yes_bid_high": 0.55}}
+                updates = refresh_working(
+                    db, self.settings, [mid], self.spot, self.now, extremes=wick
+                )
+                self.assertEqual(updates, [])
+                self.assertEqual(len(db.working_trades()), 1)
+                self.assertEqual(db.open_trades(), [])
 
 
 class ImpulseWaitReplayTests(unittest.TestCase):

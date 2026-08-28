@@ -7,6 +7,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 from urllib.parse import urlparse
 
@@ -143,11 +144,19 @@ class KalshiClient:
         }
         return self._request("DELETE", url, headers)
 
-    def _request(self, method: str, url: str, headers: dict, body: bytes | None = None) -> Any:
+    def _request(
+        self,
+        method: str,
+        url: str,
+        headers: dict,
+        body: bytes | None = None,
+        timeout: int | None = None,
+    ) -> Any:
         req = urllib.request.Request(url, data=body, headers=headers, method=method)
-        socket.setdefaulttimeout(self.timeout)
+        wait = timeout if timeout is not None else self.timeout
+        socket.setdefaulttimeout(wait)
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            with urllib.request.urlopen(req, timeout=wait) as resp:
                 raw = resp.read().decode()
                 return json.loads(raw) if raw else {}
         except urllib.error.HTTPError as exc:
@@ -221,6 +230,29 @@ class KalshiClient:
     def live_data(self, event_ticker: str, range_hint: str = "1h") -> dict:
         return self.get(f"/live_data/events/{event_ticker}", {"range": range_hint})
 
+    def candlesticks(
+        self,
+        ticker: str,
+        start_ts: int,
+        end_ts: int,
+        period_interval: int = 1,
+        timeout: int = 4,
+    ) -> list:
+        """One market's minute candles. Used for live rest wicks, same as replay."""
+        series = ticker.split("-", 1)[0]
+        path = f"/series/{series}/markets/{ticker}/candlesticks"
+        query = urllib.parse.urlencode(
+            {
+                "start_ts": start_ts,
+                "end_ts": end_ts,
+                "period_interval": period_interval,
+            }
+        )
+        url = self.base + path + "?" + query
+        headers = {"User-Agent": self.user_agent, "Accept": "application/json"}
+        data = self._request("GET", url, headers, timeout=timeout)
+        return data.get("candlesticks") or []
+
     def exchange_status(self) -> dict:
         return self.get("/exchange/status")
 
@@ -278,6 +310,40 @@ class KalshiClient:
             {"min_ts": min_ts, "ticker": ticker},
             signed=True,
         )
+
+
+def candlestick_extreme(stick: dict, side: str, field: str) -> float | None:
+    block = stick.get(side) or {}
+    if not isinstance(block, dict):
+        return None
+    return _money(block.get(field))
+
+
+def market_minute_extremes(client: KalshiClient, ticker: str, now: datetime) -> dict:
+    """Current (or last completed) minute wick. Same fields replay uses to fill."""
+    now_ts = int(now.timestamp())
+    minute_end = (now_ts // 60 + 1) * 60
+    try:
+        sticks = client.candlesticks(ticker, minute_end - 120, minute_end + 1)
+    except KalshiError:
+        return {}
+    by_end: dict[int, dict] = {}
+    for row in sticks:
+        try:
+            by_end[int(row["end_period_ts"])] = row
+        except (KeyError, TypeError, ValueError):
+            continue
+    stick = by_end.get(minute_end) or by_end.get(minute_end - 60)
+    if not stick:
+        return {}
+    out: dict[str, float] = {}
+    yes_ask_low = candlestick_extreme(stick, "yes_ask", "low_dollars")
+    yes_bid_high = candlestick_extreme(stick, "yes_bid", "high_dollars")
+    if yes_ask_low is not None:
+        out["yes_ask_low"] = yes_ask_low
+    if yes_bid_high is not None:
+        out["yes_bid_high"] = yes_bid_high
+    return out
 
 
 CRYPTO_EXCHANGE_INDEX = 2
