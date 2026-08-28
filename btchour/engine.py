@@ -338,6 +338,16 @@ def _cancel_working(store: Store, row, reason: str, client: KalshiClient | None 
     store.cancel_trade(row["id"], reason)
 
 
+def clear_paper_bulk_waits(store: Store) -> list[int]:
+    """Paper 10-lot hangs are not a test. One live contract at a time."""
+    cancelled = []
+    for row in store.working_trades():
+        if _row_play(row) == "impulse_wait" and not _is_live_one(row):
+            store.cancel_trade(row["id"], "paper_bulk")
+            cancelled.append(int(row["id"]))
+    return cancelled
+
+
 def cancel_stale_live_rests(client: KalshiClient, now: datetime | None = None) -> list[dict]:
     """A leftover hang on a closed hour must not block the next one-contract test."""
     now = now or datetime.now(timezone.utc)
@@ -710,6 +720,7 @@ def run_cycle(client: KalshiClient | None = None, settings: Settings | None = No
     can_trade = bool(exchange.get("can_trade"))
     if settings.live_one and settings.can_sign:
         cancel_stale_live_rests(client)
+        clear_paper_bulk_waits(store)
     settlements = settle_open(client, store)
     scan = scan_once(client, settings, persist=True)
     spot_info = scan["spot"]

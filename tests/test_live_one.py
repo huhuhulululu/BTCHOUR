@@ -95,6 +95,15 @@ class LiveRestHelpers(unittest.TestCase):
 
 
 class LiveOneExecuteTests(unittest.TestCase):
+    def test_clears_leftover_paper_bulk_waits(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                paper = engine_mod._execute(_coupon(10), object(), Settings(playbook="flex"), db)
+                self.assertAlmostEqual(paper["count"], 10)
+                self.assertEqual(engine_mod.clear_paper_bulk_waits(db), [paper["id"]])
+                self.assertEqual(db.working_trades(), [])
+
     def test_places_one_live_rest_and_refuses_a_second(self):
         placed = []
 
