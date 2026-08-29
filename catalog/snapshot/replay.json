@@ -1,5 +1,5 @@
 {
-  "replayed_at": "2026-08-29T01:07:07.907823+00:00",
+  "replayed_at": "2026-08-29T02:00:31.733106+00:00",
   "hours": 16,
   "playbook": "flex",
   "formula": "EV = p * b - (1 - p)",
@@ -39,6 +39,11 @@
     "allow_early_exit": true
   },
   "events": [
+    {
+      "event_ticker": "KXBTCD-26AUG2822",
+      "error": "incomplete data",
+      "takes": []
+    },
     {
       "event_ticker": "KXBTCD-26AUG2821",
       "settlement_band": [
@@ -933,61 +938,6 @@
         "model_p": 0.2347744778868895,
         "if_win_roi": 45.728971962616825,
         "ev": 9.970769994714463,
-        "vol": 0.55
-      },
-      "hold_candidates": 0,
-      "session": {
-        "last_loss_event": null,
-        "last_side": null,
-        "last_play": "",
-        "skip_next": false,
-        "skipped_event": null
-      }
-    },
-    {
-      "event_ticker": "KXBTCD-26AUG2806",
-      "settlement_band": [
-        79199.99,
-        79299.99
-      ],
-      "settle_mid": 79249.99,
-      "candles": {
-        "78499.99": 60,
-        "78599.99": 58,
-        "78699.99": 60,
-        "78799.99": 60,
-        "78899.99": 60,
-        "78999.99": 60,
-        "79099.99": 60,
-        "79199.99": 60,
-        "79299.99": 60,
-        "79399.99": 60,
-        "79499.99": 60,
-        "79599.99": 60,
-        "79699.99": 60,
-        "79799.99": 60,
-        "79899.99": 60,
-        "79999.99": 60,
-        "80099.99": 60,
-        "80199.99": 60,
-        "80299.99": 51,
-        "80399.99": 60,
-        "80499.99": 60,
-        "80599.99": 39
-      },
-      "playbook": "flex",
-      "takes": [],
-      "best": {
-        "ts": "2026-08-28T09:54:00+00:00",
-        "event_ticker": "KXBTCD-26AUG2806",
-        "strike": 79499.99,
-        "side": "yes",
-        "spot": 79337.36116666677,
-        "seconds_left": 360.0,
-        "ask": 0.01,
-        "model_p": 0.13495657944282913,
-        "if_win_roi": 92.45794392523365,
-        "ev": 11.612764433909264,
         "vol": 0.55
       },
       "hold_candidates": 0,
