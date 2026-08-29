@@ -204,6 +204,27 @@ class Store:
         self.conn.execute("UPDATE trades SET raw = ? WHERE id = ?", (json.dumps(raw), trade_id))
         self.conn.commit()
 
+    def update_pnl(self, trade_id: int, pnl: float, raw: dict | None = None) -> None:
+        if raw is None:
+            self.conn.execute("UPDATE trades SET pnl = ? WHERE id = ?", (pnl, trade_id))
+        else:
+            self.conn.execute(
+                "UPDATE trades SET pnl = ?, raw = ? WHERE id = ?",
+                (pnl, json.dumps(raw), trade_id),
+            )
+        self.conn.commit()
+
+    def live_one_rows(self, limit: int = 300) -> list[sqlite3.Row]:
+        rows = []
+        for row in self.conn.execute("SELECT * FROM trades ORDER BY id DESC LIMIT ?", (limit,)):
+            try:
+                raw = json.loads(row["raw"] or "{}")
+            except Exception:
+                raw = {}
+            if raw.get("live_one"):
+                rows.append(row)
+        return rows
+
     def cancel_trade(self, trade_id: int, reason: str = "cancelled") -> None:
         self.conn.execute(
             "UPDATE trades SET status = 'cancelled', result = ? WHERE id = ?",

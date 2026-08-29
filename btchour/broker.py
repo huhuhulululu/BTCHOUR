@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import uuid
 
-from btchour.fees import fill_cost
+from btchour.fees import TICK, fill_cost
 from btchour.kalshi import CRYPTO_EXCHANGE_INDEX, KalshiClient
 from btchour.strategy import Opportunity
+
+POSITION_FLAT = 0.5
 
 
 def yes_book_quote(side: str, price: float) -> tuple[str, float]:
@@ -23,6 +25,100 @@ def yes_book_exit(side: str, exit_price: float) -> tuple[str, float]:
     if side == "no":
         return "bid", round(max(0.01, min(0.99, 1.0 - float(exit_price))), 4)
     raise ValueError(f"side must be yes or no, got {side!r}")
+
+
+def crossing_flatten_price(
+    side: str,
+    exit_price: float,
+    market=None,
+    slip_ticks: int = 2,
+) -> tuple[str, float]:
+    """IOC must cross the live YES book. The clip mark alone is not a fill.
+
+    378 sold the mark (YES 0.64) while the ask was worse; IOC canceled and the
+    ledger still booked t_clip. Buy YES at >= ask, sell YES at <= bid, plus slip.
+    """
+    book_side, mark = yes_book_exit(side, exit_price)
+    slip = max(0, int(slip_ticks)) * TICK
+    if market is not None:
+        if book_side == "ask":
+            bid = getattr(market, "yes_bid_effective", None)
+            if bid is not None:
+                mark = min(mark, float(bid))
+            mark = mark - slip
+        else:
+            ask = getattr(market, "yes_ask_effective", None)
+            if ask is not None:
+                mark = max(mark, float(ask))
+            mark = mark + slip
+    return book_side, round(max(0.01, min(0.99, mark)), 4)
+
+
+def _order_src(order: dict | None) -> dict:
+    if not isinstance(order, dict):
+        return {}
+    nested = order.get("order")
+    return nested if isinstance(nested, dict) else order
+
+
+def order_fill_count(order: dict | None) -> float:
+    src = _order_src(order)
+    if not src:
+        return 0.0
+    for key in ("fill_count_fp", "fill_count"):
+        raw = src.get(key)
+        if raw in (None, ""):
+            continue
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            continue
+    return 0.0
+
+
+def order_average_fill_price(order: dict | None) -> float | None:
+    src = _order_src(order)
+    for key in ("average_fill_price", "avg_fill_price"):
+        raw = src.get(key)
+        if raw in (None, ""):
+            continue
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def flatten_contract_exit(side: str, response: dict | None) -> float | None:
+    """YES-leg average fill → contract-side exit. Missing fill is not an exit."""
+    yes_px = order_average_fill_price(response)
+    if yes_px is None:
+        return None
+    if side == "yes":
+        return round(max(0.01, min(0.99, yes_px)), 4)
+    if side == "no":
+        return round(max(0.01, min(0.99, 1.0 - yes_px)), 4)
+    raise ValueError(f"side must be yes or no, got {side!r}")
+
+
+def market_position_map(client: KalshiClient) -> dict[str, float]:
+    """Signed YES size by ticker. Long NO shows up negative."""
+    try:
+        data = client.positions()
+    except Exception:
+        return {}
+    out: dict[str, float] = {}
+    for item in data.get("market_positions") or []:
+        ticker = item.get("ticker")
+        if not ticker:
+            continue
+        try:
+            fp = float(item.get("position_fp") or 0)
+        except (TypeError, ValueError):
+            continue
+        if abs(fp) >= POSITION_FLAT:
+            out[str(ticker)] = fp
+    return out
 
 
 def live_submit(client: KalshiClient, opportunity: Opportunity) -> dict:
@@ -87,20 +183,6 @@ def exchange_index_from_response(response: dict | None) -> int | None:
     return None
 
 
-def order_fill_count(order: dict | None) -> float:
-    if not order:
-        return 0.0
-    for key in ("fill_count_fp", "fill_count"):
-        raw = order.get(key)
-        if raw in (None, ""):
-            continue
-        try:
-            return float(raw)
-        except (TypeError, ValueError):
-            continue
-    return 0.0
-
-
 def live_rest_one(client: KalshiClient, opportunity: Opportunity) -> dict:
     """One live post-only rest. Loop stays paper; this is the only real size."""
     one = opportunity
@@ -124,10 +206,18 @@ def live_rest_one(client: KalshiClient, opportunity: Opportunity) -> dict:
     return trade
 
 
-def live_flatten(client: KalshiClient, trade: dict, exit_price: float) -> dict:
-    """Close a long: sell YES (book ask) or sell NO (book bid at 1 - no_price)."""
+def live_flatten(
+    client: KalshiClient,
+    trade: dict,
+    exit_price: float,
+    market=None,
+    slip_ticks: int = 2,
+) -> dict:
+    """IOC flatten. Cross the live book when we have it; never treat a cancel as a fill."""
     client_order_id = str(uuid.uuid4())
-    book_side, price = yes_book_exit(trade["side"], exit_price)
+    book_side, price = crossing_flatten_price(
+        trade["side"], exit_price, market=market, slip_ticks=slip_ticks
+    )
     response = client.create_order(
         ticker=trade["ticker"],
         side=book_side,
@@ -136,4 +226,10 @@ def live_flatten(client: KalshiClient, trade: dict, exit_price: float) -> dict:
         time_in_force="immediate_or_cancel",
         client_order_id=client_order_id,
     )
-    return {"client_order_id": client_order_id, "response": response, "book_side": book_side, "price": price}
+    return {
+        "client_order_id": client_order_id,
+        "response": response,
+        "book_side": book_side,
+        "price": price,
+        "slip_ticks": slip_ticks,
+    }

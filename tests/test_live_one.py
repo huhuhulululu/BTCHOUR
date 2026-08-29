@@ -16,7 +16,7 @@ from btchour.broker import (
     order_id_from_response,
 )
 from btchour.config import Settings
-from btchour.engine import refresh_working
+from btchour.engine import leftover_live_one_positions, reconcile_live_one, refresh_working
 from btchour.exits import ExitAction
 from btchour.kalshi import market_from_api
 from btchour.model import SpotQuote
@@ -70,6 +70,25 @@ def _market():
             "no_ask_dollars": "0.64",
             "open_time": "2026-08-28T23:00:00Z",
             "close_time": "2026-08-29T00:00:00Z",
+            "result": "",
+        }
+    )
+
+
+def _no_market(ask: str = "0.70"):
+    return market_from_api(
+        {
+            "ticker": "KXBTCD-26AUG2918-T78099.99",
+            "event_ticker": "KXBTCD-26AUG2918",
+            "title": "Bitcoin price",
+            "subtitle": "$78,099.99 or above",
+            "status": "active",
+            "floor_strike": 78099.99,
+            "strike_type": "greater",
+            "yes_bid_dollars": f"{float(ask) - 0.01:.2f}",
+            "yes_ask_dollars": ask,
+            "open_time": "2026-08-29T21:00:00Z",
+            "close_time": "2026-08-29T22:00:00Z",
             "result": "",
         }
     )
@@ -327,59 +346,137 @@ class LiveOneRefreshTests(unittest.TestCase):
                 self.assertEqual(cancelled, ["ord-pad"])
                 self.assertEqual(db.working_trades(), [])
 
+    def _live_no(self, db):
+        return db.record_trade(
+            {
+                "ticker": "KXBTCD-26AUG2918-T78099.99",
+                "event_ticker": "KXBTCD-26AUG2918",
+                "side": "no",
+                "price": 0.25,
+                "count": 1.0,
+                "fee": 0.0,
+                "cost": 0.25,
+                "mode": "paper",
+                "taker": 0,
+                "model_p": 0.47,
+                "if_win_roi": 3.0,
+                "expected_roi": 0.9,
+                "status": "open",
+                "raw": {
+                    "live_one": True,
+                    "live_order_id": "ord-378",
+                    "exchange_index": 2,
+                },
+            }
+        )
+
     def test_unfilled_live_flatten_does_not_paper_close(self):
         class Fake:
-            def __init__(self):
-                self.n = 0
-
             def create_order(self, **kwargs):
-                self.n += 1
-                if self.n == 1:
-                    return {"order_id": "flat-miss", "fill_count": "0.00", "remaining_count": "0.00"}
-                return {
-                    "order_id": "flat-hit",
-                    "fill_count": "1.00",
-                    "average_fill_price": "0.5600",
-                }
+                return {"order_id": "flat-miss", "fill_count": "0.00", "remaining_count": "0.00"}
 
-        fake = Fake()
         action = ExitAction(reason="t_clip", price=0.36, note="band")
         with tempfile.TemporaryDirectory() as tmp:
             with patch.object(store_mod, "DATA_DIR", Path(tmp)):
                 db = store_mod.Store(Path(tmp) / "t.sqlite")
-                trade_id = db.record_trade(
-                    {
-                        "ticker": "KXBTCD-26AUG2918-T78099.99",
-                        "event_ticker": "KXBTCD-26AUG2918",
-                        "side": "no",
-                        "price": 0.25,
-                        "count": 1.0,
-                        "fee": 0.0,
-                        "cost": 0.25,
-                        "mode": "paper",
-                        "taker": 0,
-                        "model_p": 0.47,
-                        "if_win_roi": 3.0,
-                        "expected_roi": 0.9,
-                        "status": "open",
-                        "raw": {
-                            "live_one": True,
-                            "live_order_id": "ord-378",
-                            "exchange_index": 2,
-                        },
-                    }
-                )
+                trade_id = self._live_no(db)
                 row = db.conn.execute("SELECT * FROM trades WHERE id = ?", (trade_id,)).fetchone()
-                missed = engine_mod._close_position(row, action, fake, _signed(), db)
+                missed = engine_mod._close_position(
+                    row, action, Fake(), _signed(), db, market=_no_market()
+                )
                 self.assertTrue(missed.get("skipped"))
                 self.assertEqual(missed.get("reason"), "flatten_unfilled")
                 left = db.conn.execute("SELECT status, result FROM trades WHERE id = ?", (trade_id,)).fetchone()
                 self.assertEqual(left["status"], "open")
                 self.assertIsNone(left["result"])
+
+    def test_live_flatten_books_the_exchange_fill_not_the_clip_mark(self):
+        class Fake:
+            def create_order(self, **kwargs):
+                return {
+                    "order_id": "flat-hit",
+                    "fill_count": "1.00",
+                    "average_fill_price": "0.5000",
+                }
+
+        action = ExitAction(reason="t_clip", price=0.36, note="band")
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                trade_id = self._live_no(db)
                 row = db.conn.execute("SELECT * FROM trades WHERE id = ?", (trade_id,)).fetchone()
-                closed = engine_mod._close_position(row, action, fake, _signed(), db)
+                closed = engine_mod._close_position(
+                    row, action, Fake(), _signed(), db, market=_no_market("0.50")
+                )
                 self.assertFalse(closed.get("skipped"))
-                self.assertEqual(closed.get("id"), trade_id)
-                done = db.conn.execute("SELECT status, result FROM trades WHERE id = ?", (trade_id,)).fetchone()
+                self.assertAlmostEqual(closed["exit_price"], 0.50)
+                done = db.conn.execute(
+                    "SELECT status, result, pnl, raw FROM trades WHERE id = ?", (trade_id,)
+                ).fetchone()
                 self.assertEqual(done["status"], "closed")
                 self.assertEqual(done["result"], "t_clip")
+                raw = json.loads(done["raw"])
+                self.assertAlmostEqual(raw["exit_price"], 0.50)
+                self.assertNotAlmostEqual(done["pnl"], 0.0938)
+
+    def test_reconcile_flattens_a_closed_ledger_with_a_live_position(self):
+        class Fake:
+            def __init__(self):
+                self.held = -1.0
+
+            def positions(self):
+                return {
+                    "market_positions": [
+                        {"ticker": "KXBTCD-26AUG2918-T78099.99", "position_fp": f"{self.held:.2f}"}
+                    ]
+                }
+
+            def create_order(self, **kwargs):
+                self.held = 0.0
+                return {
+                    "order_id": "flat-retry",
+                    "fill_count": "1.00",
+                    "average_fill_price": "0.5000",
+                }
+
+            def markets_by_event(self, event_ticker):
+                return [_no_market("0.50")]
+
+        fake = Fake()
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                trade_id = self._live_no(db)
+                db.close_trade(trade_id, "t_clip", 0.0938)
+                updates = reconcile_live_one(fake, db, _signed(), markets=[_no_market("0.50")])
+                self.assertEqual(updates[0]["result"], "flatten_reconcile")
+                row = db.conn.execute("SELECT pnl, raw FROM trades WHERE id = ?", (trade_id,)).fetchone()
+                self.assertGreater(row["pnl"], 0.09)
+                raw = json.loads(row["raw"])
+                self.assertAlmostEqual(raw["exit_price"], 0.50)
+                self.assertEqual(leftover_live_one_positions(fake, db), {})
+
+    def test_leftover_live_blocks_a_second_live_one(self):
+        class Fake:
+            def positions(self):
+                return {
+                    "market_positions": [
+                        {"ticker": "KXBTCD-26AUG2918-T78099.99", "position_fp": "-1.00"}
+                    ]
+                }
+
+            def create_order(self, **kwargs):
+                return {"order_id": "should-not", "fill_count": "0.00"}
+
+            def orders(self, status=None, ticker=None, min_ts=None):
+                return []
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                self._live_no(db)
+                db.conn.execute("UPDATE trades SET status = 'closed', result = 't_clip' WHERE id = 1")
+                db.conn.commit()
+                skipped = engine_mod._execute(_coupon(1), Fake(), _signed(), db)
+                self.assertTrue(skipped.get("skipped"))
+                self.assertEqual(skipped.get("reason"), "leftover_live")

@@ -106,3 +106,15 @@
   - CMD 心跳和用户指令里先自己判阶梯；专员只做 010 复盘和改门对抗。
   - **不因此回退**：看见 32–42¢ 就挂、成交门 0.45、吃 taker、放宽 `p=0.30`、整条 loop 切 live。
 - 理由: 用户要的是这张桌的敏锐度和实际操作，不是另一个仓库的坐等。
+
+### 013 真单出场必须交易所成交后才落账
+
+- 日期: 2026-08-29
+- 状态: accepted
+- 背景: 378 第一次 flatten IOC 买 YES 0.64 被撤（盘口更差），`fill_count=0`，引擎仍 `paper_close`。用户在 Kalshi 看见仓还在。
+- 决策:
+  - live flatten **按现价交叉**（买 YES ≥ ask，卖 YES ≤ bid），不按 clip 标记价傻挂。
+  - `fill_count=0` **不得** `paper_close`。账上的出场价用交易所 `average_fill_price`。
+  - 每轮对账：sqlite 已平但交易所还持有我们的 `live_one` → 再 flatten。残留未平禁止再挂第二张。
+  - 开仓仍不吃 taker。平仓 IOC 可以交叉。
+- 理由: 账平仓在是愚蠢错误，不是策略。

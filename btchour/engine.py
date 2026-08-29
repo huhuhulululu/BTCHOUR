@@ -7,7 +7,14 @@ import threading
 import time
 from datetime import datetime, timezone
 
-from btchour.broker import live_flatten, live_rest_one, live_submit, order_fill_count
+from btchour.broker import (
+    flatten_contract_exit,
+    live_flatten,
+    live_rest_one,
+    live_submit,
+    market_position_map,
+    order_fill_count,
+)
 from btchour.catalog import sync_catalog
 from btchour.config import ROOT, Settings, load_settings
 from btchour.exits import OpenPosition, evaluate_exit
@@ -228,6 +235,14 @@ def _execute(
                 }
             if any(_is_live_one(row) for row in working):
                 return {"skipped": True, "reason": "already_one_live", "ticker": opportunity.ticker}
+            leftover = leftover_live_one_positions(client, store)
+            if leftover:
+                return {
+                    "skipped": True,
+                    "reason": "leftover_live",
+                    "ticker": opportunity.ticker,
+                    "leftover": leftover,
+                }
             if _live_resting(client, opportunity.event_ticker):
                 return {"skipped": True, "reason": "already_one_live", "ticker": opportunity.ticker}
             if any(_row_play(row) == "impulse_wait" for row in working):
@@ -271,6 +286,7 @@ def _close_position(
     settings: Settings,
     store: Store,
     can_trade: bool = True,
+    market: Market | None = None,
 ) -> dict:
     trade = dict(row)
     raw = {}
@@ -280,16 +296,17 @@ def _close_position(
         raw = {}
     if not can_trade:
         return {"id": row["id"], "ticker": trade["ticker"], "skipped": True, "reason": "exchange_not_trading"}
+    exit_price = float(action.price)
     if settings.live or raw.get("live_one"):
         if not settings.can_sign:
             raise RuntimeError("live flatten needs KALSHI_API_KEY_ID and a private key")
-        try:
-            flatten = live_flatten(client, trade, action.price)
-        except Exception as exc:
-            return {"id": row["id"], "ticker": trade["ticker"], "skipped": True, "error": str(exc)}
+        if market is None:
+            market = _lookup_market(client, trade, [])
+        if market is None:
+            return {"id": row["id"], "ticker": trade["ticker"], "skipped": True, "reason": "flatten_no_book"}
+        flatten, filled, actual = _live_flatten_until_fill(client, trade, exit_price, market)
         raw["flatten"] = flatten
-        filled = order_fill_count(flatten.get("response") or {})
-        if filled <= 0:
+        if filled <= 0 or actual is None:
             store.update_raw(row["id"], raw)
             return {
                 "id": row["id"],
@@ -297,11 +314,12 @@ def _close_position(
                 "skipped": True,
                 "reason": "flatten_unfilled",
             }
-    closed = paper_close(trade, action.price, action.reason)
+        exit_price = actual
+    closed = paper_close(trade, exit_price, action.reason)
     raw.update(
         {
             "exit_reason": action.reason,
-            "exit_price": action.price,
+            "exit_price": exit_price,
             "exit_note": action.note,
             "exit_fee": closed["exit_fee"],
         }
@@ -310,6 +328,101 @@ def _close_position(
     closed["id"] = row["id"]
     closed["note"] = action.note
     return closed
+
+
+def _live_flatten_until_fill(
+    client: KalshiClient,
+    trade: dict,
+    exit_price: float,
+    market: Market,
+) -> tuple[dict, float, float | None]:
+    """Cross the book, retry once harder. Fill count 0 is not a close."""
+    last = {}
+    for slip in (2, 8):
+        try:
+            last = live_flatten(client, trade, exit_price, market=market, slip_ticks=slip)
+        except Exception as exc:
+            last = {"error": str(exc), "slip_ticks": slip}
+            continue
+        response = last.get("response") or {}
+        filled = order_fill_count(response)
+        if filled <= 0:
+            continue
+        actual = flatten_contract_exit(trade["side"], response)
+        if actual is None:
+            yes_px = last.get("price")
+            try:
+                yes_px = float(yes_px)
+            except (TypeError, ValueError):
+                continue
+            actual = yes_px if trade["side"] == "yes" else round(max(0.01, min(0.99, 1.0 - yes_px)), 4)
+        return last, filled, actual
+    return last, 0.0, None
+
+
+def leftover_live_one_positions(client: KalshiClient, store: Store) -> dict[str, float]:
+    ours = {row["ticker"] for row in store.live_one_rows()}
+    if not ours:
+        return {}
+    held = market_position_map(client)
+    return {ticker: size for ticker, size in held.items() if ticker in ours}
+
+
+def reconcile_live_one(
+    client: KalshiClient,
+    store: Store,
+    settings: Settings,
+    markets: list[Market] | None = None,
+    can_trade: bool = True,
+) -> list[dict]:
+    """If sqlite is flat but the exchange still holds our live_one, flatten it."""
+    if not can_trade or not settings.live_one or not settings.can_sign:
+        return []
+    leftover = leftover_live_one_positions(client, store)
+    if not leftover:
+        return []
+    markets = markets or []
+    updates = []
+    for ticker, size in leftover.items():
+        row = next((item for item in store.live_one_rows() if item["ticker"] == ticker), None)
+        if row is None:
+            continue
+        trade = dict(row)
+        market = _lookup_market(client, trade, markets)
+        if market is None:
+            updates.append({"ticker": ticker, "skipped": True, "reason": "flatten_no_book", "size": size})
+            continue
+        mark = 0.50 if trade["side"] == "yes" else 0.50
+        if trade["side"] == "yes" and market.yes_bid_effective is not None:
+            mark = float(market.yes_bid_effective)
+        if trade["side"] == "no" and market.no_bid_effective is not None:
+            mark = float(market.no_bid_effective)
+        flatten, filled, actual = _live_flatten_until_fill(client, trade, mark, market)
+        raw = _row_raw(row)
+        raw["flatten_reconcile"] = flatten
+        raw["leftover_size"] = size
+        if filled <= 0 or actual is None:
+            store.update_raw(row["id"], raw)
+            updates.append({"id": row["id"], "ticker": ticker, "skipped": True, "reason": "flatten_unfilled"})
+            continue
+        closed = paper_close(trade, actual, row["result"] or "flatten_reconcile")
+        raw["exit_price"] = actual
+        raw["exit_fee"] = closed["exit_fee"]
+        raw["exit_note"] = f"reconcile leftover {size:+.2f} at {actual:.2f}"
+        if row["status"] == "closed":
+            store.update_pnl(row["id"], closed["pnl"], raw)
+        else:
+            store.close_trade(row["id"], row["result"] or "flatten_reconcile", closed["pnl"], raw)
+        updates.append(
+            {
+                "id": row["id"],
+                "ticker": ticker,
+                "result": "flatten_reconcile",
+                "pnl": closed["pnl"],
+                "exit_price": actual,
+            }
+        )
+    return updates
 
 
 def _row_play(row) -> str:
@@ -728,7 +841,11 @@ def manage_open(
             raw["peak_bid"] = decision.peak_bid
             store.update_raw(row["id"], raw)
         if decision.action:
-            updates.append(_close_position(row, decision.action, client, settings, store))
+            updates.append(
+                _close_position(
+                    row, decision.action, client, settings, store, market=market
+                )
+            )
     return updates
 
 
@@ -762,9 +879,11 @@ def run_cycle(client: KalshiClient | None = None, settings: Settings | None = No
     store = Store()
     exchange = read_exchange_status(client)
     can_trade = bool(exchange.get("can_trade"))
+    reconciled = []
     if settings.live_one and settings.can_sign:
         cancel_stale_live_rests(client)
         clear_paper_bulk_waits(store)
+        reconciled = reconcile_live_one(client, store, settings, can_trade=can_trade)
     settlements = settle_open(client, store)
     scan = scan_once(client, settings, persist=True)
     spot_info = scan["spot"]
@@ -809,6 +928,7 @@ def run_cycle(client: KalshiClient | None = None, settings: Settings | None = No
         "waits": waits,
         "exits": exits,
         "settlements": settlements,
+        "reconciled": reconciled,
         "summary": store.summary(),
     }
 
@@ -875,6 +995,8 @@ def run_loop(settings: Settings | None = None) -> None:
                 print(f"  reject {row.get('side')} {row.get('ticker')} ask={row.get('ask')} p={row.get('p')} {row.get('reasons')}", flush=True)
         for item in cycle["exits"]:
             print(f"  exit {item.get('ticker')} {item.get('result')} pnl={item.get('pnl')}", flush=True)
+        for item in cycle.get("reconciled") or []:
+            print(f"  reconcile {item.get('ticker')} {item.get('result') or item.get('reason')}", flush=True)
         time.sleep(max(2, settings.poll_seconds))
 
 
