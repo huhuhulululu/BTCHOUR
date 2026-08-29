@@ -361,6 +361,11 @@ def _live_flatten_until_fill(
 
 
 def leftover_live_one_positions(client: KalshiClient, store: Store) -> dict[str, float]:
+    """Exchange inventory on any of our live_one tickers.
+
+    Used to block a second ticket. Reconcile flatten is narrower: only
+    sqlite-closed leftovers (378). A working/open fill is not leftover.
+    """
     ours = {row["ticker"] for row in store.live_one_rows()}
     if not ours:
         return {}
@@ -375,7 +380,7 @@ def reconcile_live_one(
     markets: list[Market] | None = None,
     can_trade: bool = True,
 ) -> list[dict]:
-    """If sqlite is flat but the exchange still holds our live_one, flatten it."""
+    """If sqlite is already closed but the exchange still holds our live_one, flatten it."""
     if not can_trade or not settings.live_one or not settings.can_sign:
         return []
     leftover = leftover_live_one_positions(client, store)
@@ -386,6 +391,9 @@ def reconcile_live_one(
     for ticker, size in leftover.items():
         row = next((item for item in store.live_one_rows() if item["ticker"] == ticker), None)
         if row is None:
+            continue
+        if str(row["status"] or "") != "closed":
+            # 379: working just filled. refresh_working / manage_open own it.
             continue
         trade = dict(row)
         market = _lookup_market(client, trade, markets)

@@ -456,6 +456,70 @@ class LiveOneRefreshTests(unittest.TestCase):
                 self.assertAlmostEqual(raw["exit_price"], 0.50)
                 self.assertEqual(leftover_live_one_positions(fake, db), {})
 
+    def test_reconcile_does_not_flatten_a_working_live_fill(self):
+        class Fake:
+            def __init__(self):
+                self.orders_created = []
+
+            def positions(self):
+                return {
+                    "market_positions": [
+                        {"ticker": "KXBTCD-26AUG2918-T78099.99", "position_fp": "-1.00"}
+                    ]
+                }
+
+            def create_order(self, **kwargs):
+                self.orders_created.append(kwargs)
+                return {
+                    "order_id": "should-not",
+                    "fill_count": "1.00",
+                    "average_fill_price": "0.7500",
+                }
+
+            def markets_by_event(self, event_ticker):
+                return [_no_market("0.75")]
+
+        fake = Fake()
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                trade_id = db.record_trade(
+                    {
+                        "ticker": "KXBTCD-26AUG2918-T78099.99",
+                        "event_ticker": "KXBTCD-26AUG2918",
+                        "side": "no",
+                        "price": 0.25,
+                        "count": 1.0,
+                        "fee": 0.0,
+                        "cost": 0.25,
+                        "mode": "paper",
+                        "taker": 0,
+                        "model_p": 0.47,
+                        "if_win_roi": 3.0,
+                        "expected_roi": 0.9,
+                        "status": "working",
+                        "raw": {
+                            "live_one": True,
+                            "live_order_id": "ord-379",
+                            "exchange_index": 2,
+                            "live_status": "resting",
+                            "live_fill": 0,
+                        },
+                    }
+                )
+                updates = reconcile_live_one(fake, db, _signed(), markets=[_no_market("0.75")])
+                self.assertEqual(updates, [])
+                self.assertEqual(fake.orders_created, [])
+                left = db.conn.execute(
+                    "SELECT status, result FROM trades WHERE id = ?", (trade_id,)
+                ).fetchone()
+                self.assertEqual(left["status"], "working")
+                self.assertIsNone(left["result"])
+                self.assertEqual(
+                    leftover_live_one_positions(fake, db),
+                    {"KXBTCD-26AUG2918-T78099.99": -1.0},
+                )
+
     def test_leftover_live_blocks_a_second_live_one(self):
         class Fake:
             def positions(self):
