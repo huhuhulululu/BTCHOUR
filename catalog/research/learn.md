@@ -435,7 +435,7 @@ session 已清。**`AUG2611` 真挂 coupon**。
 
 两道还在砍窗口的门，这一轮拆掉：
 
-1. **挂单曾经不要砸盘动量。** 那会变成 0.70 底下孤零零停一个 25¢。人手限价是顺势挂进带子。`impulse_wait_rest_min` 默认改回 $100；静/弱阳不挂。成交、淡化、反手撤不变。
+1. **孤零零的 25¢ 是 0.50–0.70 ATM 垫档，不是「看见 32–42¢ 就挂」。** `coupon_in_band` 已经拒垫档。`a07170b` 把挂单门也收成 3 分钟 |impulse|≥$100 之后，AUG2821 起 journal 只剩 `no_impulse`，AUG2903/05 动量到 −98.9 仍不看盘口。默认 `impulse_wait_rest_min` 回到 0：32–42¢ 看见就挂；成交、淡化、反手撤仍要同向 $100。
 2. **`_taker_impulse_qualifies` 不再跳过 coupon。** 默认 taker 关着时，p≥52% 的 32–42¢ 会变成「wait 跳过 + taker 也不吃」。那是最好的 coupon。
 
 第三道是执行层，不是策略：`AUG2617` 16:04 ET 扫描已经看见 `dump_gap NO 0.40`，`taken=1`，但 `_execute` 用「最多 3 张 working wait」把 leftover `lock_wait`（T75999 / T76499 / T76749 的 0.83）和 coupon 算在一起，coupon 没写进账本。剩锁仓单不再挡住 dump coupon。

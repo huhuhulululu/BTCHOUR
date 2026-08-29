@@ -244,7 +244,10 @@ class ImpulseWaitTests(unittest.TestCase):
         )
         quiet = SpotQuote(77671, "test", annual_vol=0.55, impulse=-12)
         self.assertEqual(evaluate_impulse_wait_market(pad, quiet, self.settings, now), [])
-        self.assertEqual(evaluate_impulse_wait_market(coupon, quiet, self.settings, now), [])
+        seen = evaluate_impulse_wait_market(coupon, quiet, self.settings, now)
+        self.assertTrue(seen)
+        self.assertEqual(seen[0].side, "no")
+        self.assertAlmostEqual(seen[0].limit_price, 0.25)
         dump = SpotQuote(77671, "test", annual_vol=0.55, impulse=-160)
         self.assertEqual(evaluate_impulse_wait_market(pad, dump, self.settings, now), [])
         hung = evaluate_impulse_wait_market(coupon, dump, self.settings, now)
@@ -276,19 +279,33 @@ class ImpulseWaitTests(unittest.TestCase):
             open_time="2026-08-26T19:00:00Z",
             close_time="2026-08-26T20:00:00Z",
         )
-        self.assertFalse(dump_wait_rest_ready(0, self.settings))
-        self.assertFalse(dump_wait_rest_ready(-20, self.settings))
-        self.assertFalse(dump_wait_rest_ready(80, self.settings))
+        self.assertTrue(dump_wait_rest_ready(0, self.settings))
+        self.assertTrue(dump_wait_rest_ready(-20, self.settings))
+        self.assertTrue(dump_wait_rest_ready(80, self.settings))
         self.assertTrue(dump_wait_rest_ready(-100, self.settings))
         self.assertTrue(dump_wait_rest_ready(-160, self.settings))
         self.assertFalse(dump_wait_rest_ready(100, self.settings))
         self.assertFalse(dump_wait_rest_ready(160, self.settings))
         quiet = SpotQuote(78340, "test", annual_vol=0.55, impulse=0)
-        self.assertEqual(evaluate_impulse_wait_market(coupon, quiet, self.settings, now), [])
+        hung_quiet = evaluate_impulse_wait_market(coupon, quiet, self.settings, now)
+        self.assertTrue(hung_quiet)
+        self.assertEqual(hung_quiet[0].side, "no")
         shallow = SpotQuote(78340, "test", annual_vol=0.55, impulse=-20)
-        self.assertEqual(evaluate_impulse_wait_market(coupon, shallow, self.settings, now), [])
+        hung_shallow = evaluate_impulse_wait_market(coupon, shallow, self.settings, now)
+        self.assertTrue(hung_shallow)
+        self.assertEqual(hung_shallow[0].side, "no")
         mild_rally = SpotQuote(78340, "test", annual_vol=0.55, impulse=80)
-        self.assertEqual(evaluate_impulse_wait_market(coupon, mild_rally, self.settings, now), [])
+        hung_mild = evaluate_impulse_wait_market(coupon, mild_rally, self.settings, now)
+        self.assertTrue(hung_mild)
+        self.assertEqual(hung_mild[0].side, "no")
+        tight = Settings(
+            playbook="flex",
+            max_contracts=1,
+            allow_maker=True,
+            impulse_wait_rest_min=100,
+        )
+        self.assertFalse(dump_wait_rest_ready(-20, tight))
+        self.assertEqual(evaluate_impulse_wait_market(coupon, shallow, tight, now), [])
         dump = SpotQuote(78340, "test", annual_vol=0.55, impulse=-160)
         no_rest = evaluate_impulse_wait_market(coupon, dump, self.settings, now)
         self.assertTrue(no_rest)
@@ -315,6 +332,7 @@ class ImpulseWaitTests(unittest.TestCase):
         self.assertAlmostEqual(yes_flip[0].ask, 0.36)
         self.assertAlmostEqual(yes_flip[0].limit_price, 0.25)
         self.assertFalse(yes_flip[0].taker)
+        self.assertEqual(evaluate_impulse_wait_market(yes_book, mild_rally, self.settings, now), [])
 
     def test_high_p_coupon_is_not_swallowed_by_taker_qualify(self):
         # Taker-off + coupon-first: a 32–42¢ NO with p≥52% used to return []

@@ -98,6 +98,27 @@ class LearnTests(unittest.TestCase):
         self.assertEqual(report["wait"], "KXBTCD-26AUG2618-T78499.99")
         self.assertEqual(report["candidates"][0]["side"], "yes")
 
+    def test_diagnose_journals_wait_when_coupon_is_visible(self):
+        now = datetime(2026, 8, 26, 19, 21, tzinfo=timezone.utc)
+        market = market_from_api(
+            {
+                "ticker": "KXBTCD-26AUG2616-T78299.99",
+                "event_ticker": "KXBTCD-26AUG2616",
+                "floor_strike": 78299.99,
+                "strike_type": "greater",
+                "yes_bid_dollars": "0.63",
+                "yes_ask_dollars": "0.64",
+                "no_bid_dollars": "0.35",
+                "no_ask_dollars": "0.36",
+                "open_time": "2026-08-26T19:00:00Z",
+                "close_time": "2026-08-26T20:00:00Z",
+            }
+        )
+        spot = SpotQuote(78340, "test", annual_vol=0.55, impulse=-12)
+        report = diagnose_impulse([market], spot, Settings(playbook="flex"), now)
+        self.assertEqual(report["status"], "wait")
+        self.assertEqual(report["wait"], "KXBTCD-26AUG2616-T78299.99")
+
     def test_diagnose_journals_wait_on_a_forming_dump(self):
         now = datetime(2026, 8, 26, 19, 21, tzinfo=timezone.utc)
         market = market_from_api(

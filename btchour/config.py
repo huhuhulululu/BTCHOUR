@@ -79,7 +79,7 @@ class Settings:
     impulse_taker: bool = False
     impulse_wait: bool = True
     impulse_rest: float = 0.25
-    impulse_wait_rest_min: float = 100.0  # hang with the tape; do not park 0.25
+    impulse_wait_rest_min: float = 0.0  # hang when 32–42¢ is visible; $100 is the fill
     impulse_wait_min_ask: float = 0.32
     impulse_wait_max_ask: float = 0.70  # diagnose only; hangs stay 32–42¢
     impulse_wait_coupon_ask: float = 0.42  # only hang under a live coupon book
@@ -174,7 +174,7 @@ def load_settings() -> Settings:
         impulse_taker=_env_bool("BTCHOUR_IMPULSE_TAKER", False),
         impulse_wait=_env_bool("BTCHOUR_IMPULSE_WAIT", True),
         impulse_rest=_env_float("BTCHOUR_IMPULSE_REST", 0.25),
-        impulse_wait_rest_min=_env_float("BTCHOUR_IMPULSE_WAIT_REST_MIN", 100.0),
+        impulse_wait_rest_min=_env_float("BTCHOUR_IMPULSE_WAIT_REST_MIN", 0.0),
         impulse_wait_min_ask=_env_float("BTCHOUR_IMPULSE_WAIT_MIN_ASK", 0.32),
         impulse_wait_max_ask=_env_float("BTCHOUR_IMPULSE_WAIT_MAX_ASK", 0.70),
         impulse_wait_coupon_ask=_env_float("BTCHOUR_IMPULSE_WAIT_COUPON_ASK", 0.42),
