@@ -1,5 +1,5 @@
 {
-  "replayed_at": "2026-08-29T14:02:21.355445+00:00",
+  "replayed_at": "2026-08-29T15:00:47.767419+00:00",
   "hours": 16,
   "playbook": "flex",
   "formula": "EV = p * b - (1 - p)",
@@ -26,7 +26,7 @@
     "impulse_taker": false,
     "impulse_wait": true,
     "impulse_rest": 0.25,
-    "impulse_wait_rest_min": 100.0,
+    "impulse_wait_rest_min": 0.0,
     "impulse_wait_min_ask": 0.32,
     "impulse_wait_max_ask": 0.7,
     "impulse_wait_max_distance": 600.0,
@@ -39,6 +39,11 @@
     "allow_early_exit": true
   },
   "events": [
+    {
+      "event_ticker": "KXBTCD-26AUG2911",
+      "error": "incomplete data",
+      "takes": []
+    },
     {
       "event_ticker": "KXBTCD-26AUG2910",
       "settlement_band": [
@@ -787,58 +792,6 @@
         "model_p": 0.19276149490114497,
         "if_win_roi": 92.45794392523365,
         "ev": 17.015092981415417,
-        "vol": 0.55
-      },
-      "hold_candidates": 0,
-      "session": {
-        "last_loss_event": null,
-        "last_side": null,
-        "last_play": "",
-        "skip_next": false,
-        "skipped_event": null
-      }
-    },
-    {
-      "event_ticker": "KXBTCD-26AUG2819",
-      "settlement_band": [
-        77699.99,
-        77799.99
-      ],
-      "settle_mid": 77749.99,
-      "candles": {
-        "76699.99": 60,
-        "76799.99": 60,
-        "76899.99": 60,
-        "76999.99": 60,
-        "77099.99": 60,
-        "77199.99": 60,
-        "77299.99": 60,
-        "77399.99": 60,
-        "77499.99": 60,
-        "77599.99": 60,
-        "77699.99": 60,
-        "77799.99": 60,
-        "77899.99": 60,
-        "77999.99": 59,
-        "78099.99": 59,
-        "78199.99": 55,
-        "78299.99": 49,
-        "78399.99": 54,
-        "78499.99": 50
-      },
-      "playbook": "flex",
-      "takes": [],
-      "best": {
-        "ts": "2026-08-28T22:52:00+00:00",
-        "event_ticker": "KXBTCD-26AUG2819",
-        "strike": 77899.99,
-        "side": "yes",
-        "spot": 77745.01349999991,
-        "seconds_left": 480.0,
-        "ask": 0.01,
-        "model_p": 0.17632526222988965,
-        "if_win_roi": 92.45794392523365,
-        "ev": 15.478996470083144,
         "vol": 0.55
       },
       "hold_candidates": 0,
