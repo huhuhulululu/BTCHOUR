@@ -69,3 +69,14 @@
 - 日期: 2026-08-28
 - 状态: accepted
 - 决策: `python3 -m btchour board`。不画图。不提交 `latest.json` / `index.json` / `probe.json` / `.env` / `data/` / keys。整点 sweep 只强制提交 `catalog/snapshot/sweep.json` + `replay.json`。
+
+### 010 用户只跟 CMD 说话；每笔实盘单必须复盘
+
+- 日期: 2026-08-29
+- 状态: accepted
+- 背景: 用户裁决：以后只跟主控沟通，由 CMD 做角色调用和分工。第一条指令是每一笔实盘单都要仔细分析。
+- 决策:
+  - 对外频道只有 CMD。专员不对用户直接说话。
+  - 每笔 `live_one`（成交或撤单）CMD 必须派 **LEARN**（像不像金带子）和 **RISK**（该不该挂），抽查后用表格复盘。
+  - 复盘不是改门许可。改门仍走 LEARN→ADV→用户。
+  - 样本：372 撤、373 stop、374 clip。漏复盘 = 违规。

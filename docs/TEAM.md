@@ -92,6 +92,7 @@ MON = loop 还在扫吗；**RISK = 还该不该按现行门挂**。
 | 工程可否合并 | A | | | | | | C | **R** | | |
 | 文档对齐 | A | C | | | | | C | | **R** | |
 | 用户表格 | **A** | | | C | C | | | | | **R** |
+| **实盘单复盘（010）** | **A** | I | I | **R**姿态 | **R**对照 | I | | | | C |
 | 升级清单请示用户 | **A/R** | I | | **C起草理由** | C | | | | | I |
 
 **动钱：** 任何专员都不是下单者。唯一可碰交易所写接口的是已在跑的 paper loop 里的 `live_one`（CMD 托管，不新开武装进程）。CMD 不另开第二 loop。
@@ -123,6 +124,21 @@ timer → CMD 看队列 → python3 -m btchour board
 `滞留/死了 → MON → CMD → ENG(+QA) 或问用户`
 
 MON **不** `pkill -f btchour`。已恢复的旧 gap 不重启。429 / `exchange_hold` 自己恢复。
+
+### 5.5 每笔实盘单（用户 2026-08-29，decisions 010）
+
+用户只跟 CMD 说话。CMD 负责调用。
+
+```
+live_one 成交或撤单 → CMD 写 brief
+  → LEARN（像不像 AUG2520/AUG2608；判决词；不是达成）
+  ∥ RISK（绿|黄|红；该不该挂；菜单）
+  → CMD 抽查 ≥1 数字对 sqlite raw
+  → 对用户只出复盘表
+  → 若要改门：ADV → 用户批准 → ENG
+```
+
+15 分钟空仓心跳仍不派专员。有新的实盘结果才派。
 
 ### 5.4 市场/门是否还让挂
 
@@ -178,6 +194,7 @@ Task(
 - [x] TEAM 索引 + `docs/roles/*` 细卡 + 模型矩阵 + RACI（从 kalshi 客制）
 - [x] brief 模板强制模型 + 角色卡路径
 - [x] GOALS / decisions 记小时盘门，不抄 15m 美元阶段
+- [x] 实战：010 每笔 live_one 派 LEARN∥RISK（372/373/374 首批）
 - [ ] 实战：改门走 LEARN→ADV，不在心跳里改
 - [ ] 实战：滞留只派 MON
 
@@ -186,6 +203,7 @@ Task(
 ## 9. 反模式
 
 - 专员越权改 live / 对用户抢播报 / 把成交门放到 0.45
+- 专员自己 push（交付写 `ops/notes/`，合入由 CMD；ENG 仅在 brief 允许时提交代码）
 - LEARN 与 ADV 同家族
 - 全家 Grok；或用 Fable 跑 15 分钟 board
 - 15 分钟心跳每次都派 RISK（噪音）

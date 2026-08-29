@@ -6,7 +6,8 @@
 **客制**：心跳里的 board / skip / hop **CMD 自己做**，不空转派 RISK/LEARN。
 
 ## 独占所有权（权）
-- timer `btchour-auto-loop`（`*/15 * * * *`）与对用户播报频道
+- timer `btchour-auto-loop`（`*/15 * * * *`）与对用户播报频道（**用户只跟 CMD 说话**）
+- 每笔 `live_one` 的复盘派发（decisions 010：LEARN∥RISK）
 - 专员派发与模型选型（按 `TEAM.md` §2）
 - 将专员结论写入主叙事 / 允许合入的意图
 - `docs/decisions.md` **定稿**（ARCH 只交草稿）
