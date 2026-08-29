@@ -17,6 +17,7 @@ from btchour.broker import (
 )
 from btchour.config import Settings
 from btchour.engine import refresh_working
+from btchour.exits import ExitAction
 from btchour.kalshi import market_from_api
 from btchour.model import SpotQuote
 from btchour.strategy import Opportunity
@@ -325,3 +326,60 @@ class LiveOneRefreshTests(unittest.TestCase):
                 self.assertEqual(updates[0]["reason"], "pad_not_live")
                 self.assertEqual(cancelled, ["ord-pad"])
                 self.assertEqual(db.working_trades(), [])
+
+    def test_unfilled_live_flatten_does_not_paper_close(self):
+        class Fake:
+            def __init__(self):
+                self.n = 0
+
+            def create_order(self, **kwargs):
+                self.n += 1
+                if self.n == 1:
+                    return {"order_id": "flat-miss", "fill_count": "0.00", "remaining_count": "0.00"}
+                return {
+                    "order_id": "flat-hit",
+                    "fill_count": "1.00",
+                    "average_fill_price": "0.5600",
+                }
+
+        fake = Fake()
+        action = ExitAction(reason="t_clip", price=0.36, note="band")
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                trade_id = db.record_trade(
+                    {
+                        "ticker": "KXBTCD-26AUG2918-T78099.99",
+                        "event_ticker": "KXBTCD-26AUG2918",
+                        "side": "no",
+                        "price": 0.25,
+                        "count": 1.0,
+                        "fee": 0.0,
+                        "cost": 0.25,
+                        "mode": "paper",
+                        "taker": 0,
+                        "model_p": 0.47,
+                        "if_win_roi": 3.0,
+                        "expected_roi": 0.9,
+                        "status": "open",
+                        "raw": {
+                            "live_one": True,
+                            "live_order_id": "ord-378",
+                            "exchange_index": 2,
+                        },
+                    }
+                )
+                row = db.conn.execute("SELECT * FROM trades WHERE id = ?", (trade_id,)).fetchone()
+                missed = engine_mod._close_position(row, action, fake, _signed(), db)
+                self.assertTrue(missed.get("skipped"))
+                self.assertEqual(missed.get("reason"), "flatten_unfilled")
+                left = db.conn.execute("SELECT status, result FROM trades WHERE id = ?", (trade_id,)).fetchone()
+                self.assertEqual(left["status"], "open")
+                self.assertIsNone(left["result"])
+                row = db.conn.execute("SELECT * FROM trades WHERE id = ?", (trade_id,)).fetchone()
+                closed = engine_mod._close_position(row, action, fake, _signed(), db)
+                self.assertFalse(closed.get("skipped"))
+                self.assertEqual(closed.get("id"), trade_id)
+                done = db.conn.execute("SELECT status, result FROM trades WHERE id = ?", (trade_id,)).fetchone()
+                self.assertEqual(done["status"], "closed")
+                self.assertEqual(done["result"], "t_clip")

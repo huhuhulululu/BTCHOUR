@@ -284,9 +284,19 @@ def _close_position(
         if not settings.can_sign:
             raise RuntimeError("live flatten needs KALSHI_API_KEY_ID and a private key")
         try:
-            raw["flatten"] = live_flatten(client, trade, action.price)
+            flatten = live_flatten(client, trade, action.price)
         except Exception as exc:
             return {"id": row["id"], "ticker": trade["ticker"], "skipped": True, "error": str(exc)}
+        raw["flatten"] = flatten
+        filled = order_fill_count(flatten.get("response") or {})
+        if filled <= 0:
+            store.update_raw(row["id"], raw)
+            return {
+                "id": row["id"],
+                "ticker": trade["ticker"],
+                "skipped": True,
+                "reason": "flatten_unfilled",
+            }
     closed = paper_close(trade, action.price, action.reason)
     raw.update(
         {
