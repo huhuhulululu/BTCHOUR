@@ -1,9 +1,9 @@
 # LEARN — 对照与总判（客制，替代 15m 的 DATA+LEAD+WORKER）
 
 ## 使命
-把「回放绿了 / 0/0/0 / 偶然 1 张小 clip」冻成**可证伪**的对照结论：现行门还够不够打出人手 clip。自己尽量不改代码。
+把「回放绿了 / 0/0/0 / 偶然 1 张小 clip / **188 档只做成 1 笔**」冻成**可证伪**的对照结论：现行门还够不够打出人手 clip，以及有没有用上整条近 ATM 阶梯。自己尽量不改代码。
 
-15m 仓库把这拆成 DATA / MODEL-LEAD / MODEL-WORKER。小时盘没有 phase 网格，**一个 LEARN 足够**；苦力回放由 LEARN 自己跑 `python3 -m btchour sweep` / `learn`，不要另设 WORKER 常驻。
+15m 仓库把这拆成 DATA / MODEL-LEAD / MODEL-WORKER，结论偏坐等。小时盘没有 phase 网格，**一个 LEARN 足够**；苦力回放由 LEARN 自己跑 `python3 -m btchour sweep` / `learn`，不要另设 WORKER 常驻。**禁止**把 15m「没边就坐着」写成小时盘默认（011）。
 
 ## 独占所有权（权）
 - `catalog/research/learn.md` 的对照段（CMD 合入）
@@ -27,10 +27,11 @@
 
 ## 触发
 **每笔 `live_one` 成交或撤单**（decisions 010，与 RISK 并行）。  
-用户要审计策略 / 换策略；CMD 怀疑门找不到点或乱挂；整点 sweep 出现**新的真路径**对照（不是窗口滚动 0/0/0）。
+用户要审计策略 / 换策略；CMD 怀疑门找不到点或乱挂；整点 sweep 出现**新的真路径**对照（不是窗口滚动 0/0/0）。  
+**空仓而近 ATM 32–42¢ 阶梯活着**（011）：立题「为什么没用上阶梯 / 怎么用满最多 3 纸 1 真」，**不是**每个 timer 必派。
 
 ## 必读 / 可写
-- **必读**：`docs/GOALS.md`、`docs/decisions.md`、`catalog/rules/plays.md`、`catalog/research/manual.md`、最近 `catalog/snapshot/sweep.json`、本卡
+- **必读**：`docs/GOALS.md`、`docs/decisions.md`（005–008、011）、`catalog/rules/plays.md`、`catalog/research/manual.md`、最近 `catalog/snapshot/sweep.json`、本卡
 - **可写**：brief 列出的 `catalog/research/learn.md` 段；`ops/notes/learn-*.md`
 
 ## 输入 → 输出 → 完成定义
@@ -50,7 +51,7 @@
 角色=LEARN。先读 docs/roles/LEARN.md 与 docs/GOALS.md。
 立题: …
 必读: catalog/snapshot/sweep.json ； catalog/research/manual.md
-禁区: 不改门；不改代码；不把回放绿当达成；不把 flex_nowait 当现行路径；不对用户播报。
+禁区: 不改门；不改代码；不把回放绿当达成；不把 flex_nowait 当现行路径；不建议看见就挂 / 0.45 / taker / p=0.30；不对用户播报。
 交付: 判决词 + ≤3 数字 + 路径；是否建议进 ADV。
 模型: claude-fable-5-thinking-high
 ```

@@ -30,4 +30,4 @@ python3 -m btchour sync
 
 公开 API 根：`https://external-api.kalshi.com/trade-api/v2`。每轮先读 `GET /exchange/status`；`exchange_active` 或 Crypto 的 `trading_active` 为假时不挂单、不成交。这不是切 live 的许可。
 
-Agent 编制与改门流程：[`docs/TEAM.md`](../docs/TEAM.md)（角色卡在 `docs/roles/`）。不要从 15 分钟盘仓库抄 C1 或日均美元阶段。
+Agent 编制与改门流程：[`docs/TEAM.md`](../docs/TEAM.md)（角色卡在 `docs/roles/`）。不要从 15 分钟盘仓库抄 C1、日均美元阶段，或「没边就坐着」。小时盘阶梯操作权更高（decisions 011）。

@@ -17,7 +17,9 @@
 
 15m 仓库有 DATA-BULK / MODEL-WORKER / `live_c1 --arm` / 日均美元阶段。本仓库**没有那些东西**，不设对应常驻角色。
 
-**原则：CMD 瘦身只路由；15 分钟核盘 CMD 自己跑 board，不空转派专员；改门必须 LEARN→ADV→用户；模型按能力选型。**
+**提权（decisions 011）：** 15m 仓结论偏坐等；小时盘每小时一整条近 ATM 阶梯（常 100+ 档）。本仓库的敏锐度和实际操作可能性更高，编制必须把阶梯当工作盘，不能把「没机会 / 坐着」从那边抄过来。
+
+**原则：CMD 瘦身只路由；15 分钟核盘 CMD 自己跑 board（必须报活档数，不能只报空仓），不空转派专员；改门必须 LEARN→ADV→用户；模型按能力选型。**
 
 ---
 
@@ -46,7 +48,7 @@
 
 | 代号 | 完整角色卡 | 默认模型 | 一句话权责 |
 |---|---|---|---|
-| **CMD** | [`roles/CMD.md`](roles/CMD.md) | `inherit` | 唯一前台；15 分钟 board；路由；抽查 |
+| **CMD** | [`roles/CMD.md`](roles/CMD.md) | `inherit` | 唯一前台；board（含阶梯活档）；路由；抽查 |
 | **ARCH** | [`roles/ARCH.md`](roles/ARCH.md) | Fable / Opus / GPT-xhigh | 改门 ADR 草稿；不跑数 |
 | **MON** | [`roles/MON.md`](roles/MON.md) | Grok-fast | 进程/滞留根因；不修代码；不重启 |
 | **RISK** | [`roles/RISK.md`](roles/RISK.md) | Sonnet | 还该不该按现行门继续挂；不擅自改门 |
@@ -185,7 +187,7 @@ Task(
 | `live_one` | 唯一真单通道；不是切 live |
 | `catalog/rules/` | 策略正文；DOC 对齐这里，不另写第二套门 |
 | `catalog/snapshot/sweep.json` | 整点对照；LEARN 读，CMD 提交 |
-| `huhuhulululu/kalshi` | 15m 研究仓库；角色 schema 来源；**不**把 C1/日均美元搬过来 |
+| `huhuhulululu/kalshi` | 15m 研究仓库；角色 schema 来源；**不**把 C1/日均美元搬过来；**不**把「没边就坐着」搬过来。小时盘阶梯操作权更高（011） |
 
 ---
 
@@ -195,6 +197,8 @@ Task(
 - [x] brief 模板强制模型 + 角色卡路径
 - [x] GOALS / decisions 记小时盘门，不抄 15m 美元阶段
 - [x] 实战：010 每笔 live_one 派 LEARN∥RISK（372/373/374 首批）
+- [x] 制度：011 小时盘阶梯提权；board 报整点档 / $600 内 / 32–42¢ 活档
+- [ ] 实战：LEARN 用满阶梯提案（最多 3 纸 / 1 真；**不**回退看见就挂）
 - [ ] 实战：改门走 LEARN→ADV，不在心跳里改
 - [ ] 实战：滞留只派 MON
 
@@ -202,6 +206,7 @@ Task(
 
 ## 9. 反模式
 
+- 把小时盘当 15m 坐等；只报空仓不报整点档 / $600 内 / 32–42¢ 活档
 - 专员越权改 live / 对用户抢播报 / 把成交门放到 0.45
 - 专员自己 push（交付写 `ops/notes/`，合入由 CMD；ENG 仅在 brief 允许时提交代码）
 - LEARN 与 ADV 同家族

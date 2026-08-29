@@ -12,7 +12,15 @@ from pathlib import Path
 from btchour.config import CATALOG_DIR, Settings, load_settings
 from btchour.fees import round_trip_roi
 from btchour.store import Store
-from btchour.strategy import _ask_at_rest, impulse_wait_flipped, impulse_wait_wrong_side
+from btchour.strategy import (
+    _ask_at_rest,
+    coupon_in_band,
+    coupon_min_ask,
+    coupon_rest_ready,
+    coupon_sides,
+    impulse_wait_flipped,
+    impulse_wait_wrong_side,
+)
 from btchour.tickers import (
     ET,
     format_et,
@@ -156,6 +164,157 @@ def recent_hour_tickers(current: str, count: int = HOUR_WINDOW) -> list[str]:
         ticker = format_event_ticker(close - timedelta(hours=1))
         tickers.append(ticker)
     return tickers
+
+
+def market_strike(market: dict | None) -> float | None:
+    if not market:
+        return None
+    for key in ("strike", "floor_strike", "cap_strike"):
+        value = market.get(key)
+        if value is None or value == "":
+            continue
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            continue
+    ticker = market.get("ticker")
+    if not ticker:
+        return None
+    try:
+        return float(parse_market_ticker(ticker)["strike"])
+    except (ValueError, KeyError, TypeError):
+        return None
+
+
+def current_hour_markets(snapshot: dict | None, event_ticker: str) -> list[dict]:
+    """All rungs of the next-hour KXBTCD book. That ladder is the work surface."""
+    if not snapshot or not event_ticker:
+        return []
+    found: list[dict] = []
+    seen: set[str] = set()
+
+    def add(markets) -> None:
+        for market in markets or []:
+            ticker = market.get("ticker")
+            event = market.get("event_ticker") or ""
+            if event and event != event_ticker:
+                continue
+            if not event and ticker and not str(ticker).startswith(event_ticker):
+                continue
+            if ticker and ticker not in seen:
+                seen.add(ticker)
+                found.append(market)
+
+    current = snapshot.get("current_hour") or {}
+    current_event = (current.get("event") or {}).get("event_ticker")
+    if current_event in {None, "", event_ticker}:
+        add(current.get("markets"))
+    for block in snapshot.get("tradable") or []:
+        event = ((block.get("event") or {}).get("event_ticker")) or ""
+        if event == event_ticker:
+            add(block.get("markets"))
+    if not found:
+        add(snapshot.get("markets"))
+    return found
+
+
+def coupon_ask_live(side: str, ask: float | None, settings: Settings) -> bool:
+    if ask is None:
+        return False
+    price = float(ask)
+    if price <= settings.impulse_rest + 1e-12:
+        return False
+    if price + 1e-12 < coupon_min_ask(side, settings):
+        return False
+    return coupon_in_band(price, settings)
+
+
+def ladder_posture(
+    *,
+    skip: bool,
+    clipped: bool,
+    resting: int,
+    live_n: int,
+    ready_n: int,
+) -> str:
+    if skip:
+        return "skip小时"
+    if clipped:
+        return "已clip不hop"
+    if resting:
+        return f"挂着{resting}"
+    if live_n > 0 and ready_n > 0:
+        return "空仓·阶梯活着"
+    if live_n > 0:
+        return "空仓·带在边未到"
+    return "空仓·带塌了"
+
+
+def ladder_census(
+    markets: list[dict],
+    spot: float | None,
+    impulse: float | None,
+    settings: Settings,
+    *,
+    skip: bool = False,
+    clipped: bool = False,
+    resting: int = 0,
+) -> dict:
+    """Count the hourly ladder. Empty + live ATM band is a strategy miss."""
+    reach = settings.impulse_wait_max_distance or settings.swing_max_distance
+    move = None if impulse is None else float(impulse)
+    yes_n = 0
+    no_n = 0
+    ready_n = 0
+    atm_n = 0
+    live: list[dict] = []
+    for market in markets:
+        strike = market_strike(market)
+        dist = None
+        if strike is not None and spot is not None:
+            dist = abs(float(strike) - float(spot))
+            if dist <= reach + 1e-9:
+                atm_n += 1
+        if dist is None or dist > reach + 1e-9:
+            continue
+        for side in ("yes", "no"):
+            ask = side_ask(market, side)
+            if not coupon_ask_live(side, ask, settings):
+                continue
+            ready = move is not None and coupon_rest_ready(side, move, settings)
+            if side == "yes":
+                yes_n += 1
+            else:
+                no_n += 1
+            if ready:
+                ready_n += 1
+            live.append(
+                {
+                    "strike": short_strike(market.get("ticker")),
+                    "side": side.upper(),
+                    "dist": dist,
+                    "ask": ask,
+                    "ready": ready,
+                }
+            )
+    live.sort(key=lambda row: (row["dist"] if row["dist"] is not None else 1e18, row["ask"] or 1.0))
+    live_n = yes_n + no_n
+    return {
+        "n": len(markets),
+        "atm": atm_n,
+        "yes": yes_n,
+        "no": no_n,
+        "ready": ready_n,
+        "live": live_n,
+        "posture": ladder_posture(
+            skip=skip,
+            clipped=clipped,
+            resting=resting,
+            live_n=live_n,
+            ready_n=ready_n,
+        ),
+        "rungs": live[:8],
+    }
 
 
 def _index_markets(snapshot: dict | None) -> dict[str, dict]:
@@ -422,6 +581,18 @@ def collect_board(
             "pnl": replay.get("realized_pnl"),
         }
 
+    hour_fills = fills_by_event.get(current) or []
+    clipped = bool(hour_fills) and all(item.get("result") == "t_clip" for item in hour_fills)
+    ladder = ladder_census(
+        current_hour_markets(snapshot, current),
+        None if spot is None else float(spot),
+        None if impulse is None else float(impulse),
+        settings,
+        skip=session.skipped_event == current,
+        clipped=clipped,
+        resting=len(rests),
+    )
+
     return {
         "clock": clock,
         "clock_short": clock_short,
@@ -439,6 +610,7 @@ def collect_board(
         "replay": replay_row,
         "slots": f"{len(rests)}/3",
         "rests": rests,
+        "ladder": ladder,
         "hours": hours,
         "coupons": coupons,
     }
@@ -493,6 +665,33 @@ def render_board(payload: dict) -> str:
             ],
         ],
     )
+    ladder = payload.get("ladder") or {}
+    ladder_table = md_table(
+        ["整点档", "$600内", "YES 28–42", "NO 32–42", "可挂", "姿态"],
+        [
+            [
+                str(ladder.get("n") if ladder.get("n") is not None else "—"),
+                str(ladder.get("atm") if ladder.get("atm") is not None else "—"),
+                str(ladder.get("yes") if ladder.get("yes") is not None else "—"),
+                str(ladder.get("no") if ladder.get("no") is not None else "—"),
+                str(ladder.get("ready") if ladder.get("ready") is not None else "—"),
+                ladder.get("posture") or "—",
+            ]
+        ],
+    )
+    rung_rows = [
+        [
+            row["strike"],
+            row["side"],
+            f"{row['dist']:.0f}" if row.get("dist") is not None else "—",
+            fmt_px(row.get("ask")),
+            "是" if row.get("ready") else "否",
+        ]
+        for row in ladder.get("rungs") or []
+    ]
+    if not rung_rows:
+        rung_rows = [["—", "—", "—", "—", "—"]]
+    rungs = md_table(["档", "边", "距", "ask", "可挂"], rung_rows)
     rest_rows = [
         [
             str(row["id"]),
@@ -541,14 +740,20 @@ def render_board(payload: dict) -> str:
         ],
     )
     title = (
-        f"档位 {payload.get('slots') or '0/3'} · {payload.get('event')} · "
+        f"档位 {payload.get('slots') or '0/3'} · "
+        f"{ladder.get('n', '—')}档 / $600内{ladder.get('atm', '—')} / "
+        f"活档{ladder.get('live', '—')} · {payload.get('event')} · "
         f"成交要同向 |impulse|≥$100 且 ask==rest"
     )
-    note = "10%–50% 是兑现带，不是每笔保证。回放绿不是达成。默认 paper，不切 live。"
+    note = (
+        "10%–50% 是兑现带，不是每笔保证。回放绿不是达成。默认 paper，不切 live。"
+        " 空仓而阶梯活着是策略失败，不是没机会。"
+    )
     return "\n\n".join(
         [
             f"**{payload['clock']}**  {title}",
             tape,
+            f"本小时阶梯（工作盘，不是 15m 坐等）\n\n{ladder_table}\n\n{rungs}",
             books,
             f"本小时挂单（最多 3）\n\n{rests}",
             f"近几小时\n\n{hours}",

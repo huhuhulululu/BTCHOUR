@@ -27,4 +27,4 @@ python3 -m btchour fills
 
 只要锁仓：`--playbook lock`。只要短线：`--playbook swing`。
 
-多角色编制（从 `huhuhulululu/kalshi` 客制，小时盘瘦编制）：[`docs/TEAM.md`](docs/TEAM.md)。目标只在 [`docs/GOALS.md`](docs/GOALS.md)。冻结门：[`docs/decisions.md`](docs/decisions.md)。
+多角色编制（从 `huhuhulululu/kalshi` 客制，小时盘瘦编制）：[`docs/TEAM.md`](docs/TEAM.md)。目标只在 [`docs/GOALS.md`](docs/GOALS.md)。冻结门：[`docs/decisions.md`](docs/decisions.md)。小时盘整条近 ATM 阶梯是工作盘，操作权高于 15 分钟研究仓的坐等（011）；`board` 必须报活档数。

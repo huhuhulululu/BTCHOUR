@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 from btchour.board import (
     collect_board,
     is_true_coupon,
+    ladder_census,
     md_table,
     render_board,
     short_hour,
@@ -139,6 +140,8 @@ class BoardLedgerTests(unittest.TestCase):
                 "markets": [
                     {
                         "ticker": "KXBTCD-26AUG2802-T79499.99",
+                        "event_ticker": "KXBTCD-26AUG2802",
+                        "strike": 79499.99,
                         "yes_ask": 0.64,
                         "no_ask": 0.36,
                     }
@@ -158,6 +161,11 @@ class BoardLedgerTests(unittest.TestCase):
         self.assertEqual(payload["true"]["n"], 1)
         self.assertEqual(payload["old_taker"]["n"], 1)
         self.assertEqual(payload["slots"], "1/3")
+        self.assertEqual(payload["ladder"]["n"], 1)
+        self.assertEqual(payload["ladder"]["atm"], 1)
+        self.assertEqual(payload["ladder"]["no"], 1)
+        self.assertEqual(payload["ladder"]["yes"], 0)
+        self.assertEqual(payload["ladder"]["posture"], "挂着1")
         self.assertEqual(payload["rests"][0]["fill"], "等动量/ask")
         hours = {row["hour"]: row for row in payload["hours"]}
         self.assertEqual(hours["AUG2723"]["result"], "stop")
@@ -172,6 +180,74 @@ class BoardLedgerTests(unittest.TestCase):
         self.assertIn("不算样本", text)
         self.assertIn("不是达成", text)
         self.assertIn("旧 taker 不进这张表", text)
+        self.assertIn("本小时阶梯", text)
+        self.assertIn("| 1 | 1 | 0 | 1 | 0 | 挂着1 |", text)
+
+
+class LadderCensusTests(unittest.TestCase):
+    def test_empty_with_live_band_is_strategy_miss(self):
+        settings = Settings(impulse_min=100, impulse_wait_max_distance=600)
+        markets = [
+            {
+                "ticker": "KXBTCD-26AUG2915-T77999.99",
+                "event_ticker": "KXBTCD-26AUG2915",
+                "strike": 77999.99,
+                "yes_ask": 0.64,
+                "no_ask": 0.36,
+            },
+            {
+                "ticker": "KXBTCD-26AUG2915-T78099.99",
+                "event_ticker": "KXBTCD-26AUG2915",
+                "strike": 78099.99,
+                "yes_ask": 0.70,
+                "no_ask": 0.33,
+            },
+            {
+                "ticker": "KXBTCD-26AUG2915-T70099.99",
+                "event_ticker": "KXBTCD-26AUG2915",
+                "strike": 70099.99,
+                "yes_ask": 0.99,
+                "no_ask": 0.01,
+            },
+        ]
+        census = ladder_census(markets, 78040.0, -12.0, settings, resting=0)
+        self.assertEqual(census["n"], 3)
+        self.assertEqual(census["atm"], 2)
+        self.assertEqual(census["no"], 2)
+        self.assertEqual(census["yes"], 0)
+        self.assertEqual(census["ready"], 2)
+        self.assertEqual(census["posture"], "空仓·阶梯活着")
+
+    def test_clip_hour_is_not_a_miss(self):
+        settings = Settings(impulse_min=100)
+        markets = [
+            {
+                "ticker": "KXBTCD-26AUG2914-T77999.99",
+                "strike": 77999.99,
+                "yes_ask": 0.68,
+                "no_ask": 0.34,
+            }
+        ]
+        census = ladder_census(
+            markets, 78040.0, -20.0, settings, clipped=True, resting=0
+        )
+        self.assertEqual(census["posture"], "已clip不hop")
+        self.assertEqual(census["live"], 1)
+
+    def test_weak_up_band_is_not_ready(self):
+        settings = Settings(impulse_min=100)
+        markets = [
+            {
+                "ticker": "KXBTCD-26AUG2915-T77999.99",
+                "strike": 77999.99,
+                "yes_ask": 0.64,
+                "no_ask": 0.36,
+            }
+        ]
+        census = ladder_census(markets, 78040.0, 42.0, settings)
+        self.assertEqual(census["no"], 1)
+        self.assertEqual(census["ready"], 0)
+        self.assertEqual(census["posture"], "空仓·带在边未到")
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@
 ## 独占所有权（权）
 - **风险姿态报告**：`ops/notes/risk-YYYYMMDD.md`（或回 CMD 的结构化短表）
 - 对下列闸门的**解读与建议**（执行仍走已有代码 / CMD / 用户）：
-  - `docs/decisions.md` 005–008（挂单边、成交 $100、skip、hop、不放宽）
+  - `docs/decisions.md` 005–008、011（挂单边、成交 $100、skip、hop、不放宽；阶梯是工作盘）
   - 本小时已 clip → 不 hop
   - 已有 1 张 live resting → 不再挂第二张
   - 静/弱阳 / 看见 32–42¢ 不等于可挂
@@ -40,7 +40,7 @@
 - **不是**每个 timer 必派
 
 ## 必读 / 可写
-- **必读**：`docs/decisions.md` 005–008、`catalog/rules/plays.md`、最近 board、本卡
+- **必读**：`docs/decisions.md` 005–008、011、`catalog/rules/plays.md`、最近 board、本卡
 - **可写**：`ops/notes/risk-*.md`；建议清单（无代码）
 
 ## 输入 → 输出 → 完成定义
