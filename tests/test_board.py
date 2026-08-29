@@ -246,6 +246,22 @@ class LadderCensusTests(unittest.TestCase):
         ]
         census = ladder_census(markets, 78040.0, 42.0, settings)
         self.assertEqual(census["no"], 1)
+        self.assertEqual(census["yes"], 0)
+        self.assertEqual(census["ready"], 0)
+        self.assertEqual(census["posture"], "空仓·带在边未到")
+
+    def test_weak_up_yes_band_is_not_ready(self):
+        settings = Settings(impulse_min=100)
+        markets = [
+            {
+                "ticker": "KXBTCD-26AUG2915-T78199.99",
+                "strike": 78199.99,
+                "yes_ask": 0.32,
+                "no_ask": 0.70,
+            }
+        ]
+        census = ladder_census(markets, 78121.0, 40.0, settings)
+        self.assertEqual(census["yes"], 1)
         self.assertEqual(census["ready"], 0)
         self.assertEqual(census["posture"], "空仓·带在边未到")
 

@@ -281,7 +281,11 @@ def ladder_census(
             ask = side_ask(market, side)
             if not coupon_ask_live(side, ask, settings):
                 continue
-            ready = move is not None and coupon_rest_ready(side, move, settings)
+            ready = (
+                move is not None
+                and side in coupon_sides(move, settings)
+                and coupon_rest_ready(side, move, settings)
+            )
             if side == "yes":
                 yes_n += 1
             else:
