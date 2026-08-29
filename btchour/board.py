@@ -149,6 +149,7 @@ def result_label(result: str | None, status: str | None = None) -> str:
         "t_wait_stop": "stop",
         "t_stop": "stop",
         "t_fade": "fade",
+        "t_trail": "trail",
         "wait_invalid": "反手撤",
     }
     if result in labels:
@@ -452,7 +453,9 @@ def _hour_note(
     results = [fill["result"] for fill in fills]
     if results and all(item == "t_clip" for item in results):
         return "clip", "可做"
-    if any(item in {"t_wait_stop", "t_stop", "t_scratch", "t_fade"} for item in results):
+    if _lost_fills(fills) or any(
+        item in {"t_wait_stop", "t_stop", "t_scratch", "t_fade", "t_trail"} for item in results
+    ):
         return result_label(results[-1]), "skip下一小时"
     return result_label(results[-1]), "—"
 
