@@ -1,11 +1,12 @@
 {
-  "swept_at": "2026-08-29T12:00:54.672889+00:00",
+  "swept_at": "2026-08-29T13:01:01.164008+00:00",
   "hours": 24,
   "windows": [
     16,
     24
   ],
   "events": [
+    "KXBTCD-26AUG2909",
     "KXBTCD-26AUG2908",
     "KXBTCD-26AUG2907",
     "KXBTCD-26AUG2906",
@@ -28,8 +29,7 @@
     "KXBTCD-26AUG2813",
     "KXBTCD-26AUG2812",
     "KXBTCD-26AUG2811",
-    "KXBTCD-26AUG2810",
-    "KXBTCD-26AUG2809"
+    "KXBTCD-26AUG2810"
   ],
   "formula": "EV = p * b - (1 - p)",
   "runs": [
@@ -409,12 +409,12 @@
       "impulse_max_ask": 0.35,
       "impulse_wait": true,
       "impulse_taker": true,
-      "take_count": 6,
+      "take_count": 5,
       "wins": 4,
-      "realized_pnl": 3.0251,
+      "realized_pnl": 3.4944000000000006,
       "exit_reasons": {
         "t_clip": 4,
-        "t_stop": 2
+        "t_stop": 1
       },
       "takes": [
         {
@@ -461,15 +461,6 @@
           "exit": "t_clip",
           "roi": 0.8500799999999998,
           "pnl": 2.1251999999999995
-        },
-        {
-          "event": "KXBTCD-26AUG2809",
-          "side": "yes",
-          "ask": 0.27,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.16536293164200142,
-          "pnl": -0.46930000000000005
         }
       ]
     },
@@ -482,12 +473,12 @@
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
       "impulse_taker": true,
-      "take_count": 6,
+      "take_count": 5,
       "wins": 4,
-      "realized_pnl": 3.0251,
+      "realized_pnl": 3.4944000000000006,
       "exit_reasons": {
         "t_clip": 4,
-        "t_stop": 2
+        "t_stop": 1
       },
       "takes": [
         {
@@ -534,15 +525,6 @@
           "exit": "t_clip",
           "roi": 0.8500799999999998,
           "pnl": 2.1251999999999995
-        },
-        {
-          "event": "KXBTCD-26AUG2809",
-          "side": "yes",
-          "ask": 0.27,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.16536293164200142,
-          "pnl": -0.46930000000000005
         }
       ]
     },
