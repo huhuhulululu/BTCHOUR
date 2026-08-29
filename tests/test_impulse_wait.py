@@ -279,25 +279,21 @@ class ImpulseWaitTests(unittest.TestCase):
             open_time="2026-08-26T19:00:00Z",
             close_time="2026-08-26T20:00:00Z",
         )
-        self.assertTrue(dump_wait_rest_ready(0, self.settings))
+        self.assertFalse(dump_wait_rest_ready(0, self.settings))
         self.assertTrue(dump_wait_rest_ready(-20, self.settings))
-        self.assertTrue(dump_wait_rest_ready(80, self.settings))
+        self.assertFalse(dump_wait_rest_ready(80, self.settings))
         self.assertTrue(dump_wait_rest_ready(-100, self.settings))
         self.assertTrue(dump_wait_rest_ready(-160, self.settings))
         self.assertFalse(dump_wait_rest_ready(100, self.settings))
         self.assertFalse(dump_wait_rest_ready(160, self.settings))
         quiet = SpotQuote(78340, "test", annual_vol=0.55, impulse=0)
-        hung_quiet = evaluate_impulse_wait_market(coupon, quiet, self.settings, now)
-        self.assertTrue(hung_quiet)
-        self.assertEqual(hung_quiet[0].side, "no")
+        self.assertEqual(evaluate_impulse_wait_market(coupon, quiet, self.settings, now), [])
         shallow = SpotQuote(78340, "test", annual_vol=0.55, impulse=-20)
         hung_shallow = evaluate_impulse_wait_market(coupon, shallow, self.settings, now)
         self.assertTrue(hung_shallow)
         self.assertEqual(hung_shallow[0].side, "no")
         mild_rally = SpotQuote(78340, "test", annual_vol=0.55, impulse=80)
-        hung_mild = evaluate_impulse_wait_market(coupon, mild_rally, self.settings, now)
-        self.assertTrue(hung_mild)
-        self.assertEqual(hung_mild[0].side, "no")
+        self.assertEqual(evaluate_impulse_wait_market(coupon, mild_rally, self.settings, now), [])
         tight = Settings(
             playbook="flex",
             max_contracts=1,
@@ -333,6 +329,25 @@ class ImpulseWaitTests(unittest.TestCase):
         self.assertAlmostEqual(yes_flip[0].limit_price, 0.25)
         self.assertFalse(yes_flip[0].taker)
         self.assertEqual(evaluate_impulse_wait_market(yes_book, mild_rally, self.settings, now), [])
+
+    def test_does_not_hang_no_on_a_flat_atm_forty_two(self):
+        # AUG2911 10:05 ET: impulse +0, ATM T77699 NO 0.42, then t_wait_stop −85%.
+        now = datetime(2026, 8, 29, 14, 5, tzinfo=timezone.utc)
+        atm = _market(
+            ticker="KXBTCD-26AUG2911-T77699.99",
+            event_ticker="KXBTCD-26AUG2911",
+            floor_strike=77699.99,
+            yes_bid_dollars="0.57",
+            yes_ask_dollars="0.58",
+            no_bid_dollars="0.41",
+            no_ask_dollars="0.42",
+            open_time="2026-08-29T14:00:00Z",
+            close_time="2026-08-29T15:00:00Z",
+        )
+        flat = SpotQuote(77703.59, "test", annual_vol=0.55, impulse=0)
+        self.assertEqual(evaluate_impulse_wait_market(atm, flat, self.settings, now), [])
+        weak_up = SpotQuote(77703.59, "test", annual_vol=0.55, impulse=6)
+        self.assertEqual(evaluate_impulse_wait_market(atm, weak_up, self.settings, now), [])
 
     def test_high_p_coupon_is_not_swallowed_by_taker_qualify(self):
         # Taker-off + coupon-first: a 32–42¢ NO with p≥52% used to return []

@@ -98,6 +98,7 @@ class LiveRestHelpers(unittest.TestCase):
         self.assertAlmostEqual(trade["count"], 1.0)
         self.assertTrue(trade["raw"]["live_one"])
         self.assertEqual(trade["raw"]["live_order_id"], "ord-1")
+        self.assertEqual(trade["raw"]["exchange_index"], 2)
 
 
 class LiveOneExecuteTests(unittest.TestCase):

@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from btchour.fees import fill_cost
-from btchour.kalshi import KalshiClient
+from btchour.kalshi import CRYPTO_EXCHANGE_INDEX, KalshiClient
 from btchour.strategy import Opportunity
 
 
@@ -114,6 +114,8 @@ def live_rest_one(client: KalshiClient, opportunity: Opportunity) -> dict:
     raw["live_one"] = True
     raw["live_order_id"] = order_id_from_response(raw.get("response") or {})
     raw["exchange_index"] = exchange_index_from_response(raw.get("response") or {})
+    if raw["exchange_index"] is None and str(one.ticker).startswith("KXBTCD"):
+        raw["exchange_index"] = CRYPTO_EXCHANGE_INDEX
     raw["rest"] = one.limit_price
     raw["ask"] = one.ask
     raw["play"] = one.play

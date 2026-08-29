@@ -19,11 +19,10 @@ def dump_wait_rest_ready(impulse: float, settings: Settings) -> bool:
 
 
 def coupon_sides(impulse: float, settings: Settings) -> list[str]:
-    """Follow the tape. Only a real rally rests YES; dump, quiet, or weak-up rest NO.
+    """Follow the tape. Only a real rally is the YES side; otherwise NO.
 
-    涨 means |impulse| ≥ impulse_min. A +$6 / +$80 print is not a rally.
-    Hanging YES on that weak-up, then eating the dump, is 乱挂.
-    Do not rest both sides at once.
+    Hang still needs coupon_rest_ready: quiet / weak-up do not park.
+    涨 means |impulse| ≥ impulse_min. Do not rest both sides at once.
     """
     if impulse + 1e-9 >= settings.impulse_min:
         return ["yes"]
@@ -31,16 +30,20 @@ def coupon_sides(impulse: float, settings: Settings) -> list[str]:
 
 
 def coupon_rest_ready(side: str, impulse: float, settings: Settings) -> bool:
-    """Hang when the 32–42¢ book is visible. Dump/rally is the fill filter.
+    """Hang with the tape under a live 32–42¢ book. Quiet / weak-up do not park.
 
-    A lonely 0.25 under a 0.50–0.70 ATM mid is not a limit — that is
-    coupon_in_band, not this gate. Fill still needs the same-way
-    |impulse| ≥ impulse_min and ask==rest.
+    Paper AUG2911 hung NO on ATM 0.42 with impulse +0, sat 34 minutes, and
+    t_wait_stop −85%. 看见 32–42¢ is not enough if the print is flat or up.
+    NO needs a down print. YES only exists on a real rally (coupon_sides).
+    Fill still needs the same-way |impulse| ≥ impulse_min and ask==rest.
+    0.50–0.70 ATM mid is coupon_in_band, not this gate.
     """
     if impulse_wait_flipped(side, impulse, settings):
         return False
     need = settings.impulse_wait_rest_min
     if need <= 0:
+        if side == "no":
+            return impulse < 0
         return True
     if side == "no":
         return impulse < 0 and abs(impulse) + 1e-9 >= need
@@ -684,15 +687,15 @@ def evaluate_impulse_wait_market(
     settings: Settings,
     now: datetime | None = None,
 ) -> list[Opportunity]:
-    """Rest 25¢ on the next hourly ladder when the coupon book is live.
+    """Rest 25¢ on the next hourly ladder, with the tape.
 
-    Scan every nearby rung ($600). A real rally hangs YES; dump / quiet /
-    weak-up hang NO. NO still skips the 29¢ knife. YES may hang from 28¢.
-    Only the 32–42¢ book; 0.50–0.70 ATM mid is a lonely 0.25, not a hang.
-    Fill still needs ask==rest (close or the minute wick), |impulse| ≥ $100,
-    and a real print at the rest after the hang. Do not take 0.45–0.70.
-    Paper size is min(rest, tape). Up to three nearby rests. Clip 10–50%.
-    If it will not come back, scratch or stop.
+    Scan every nearby rung ($600). A real rally hangs YES; a down print
+    hangs NO under 32–42¢. Quiet and weak-up do not park. NO still skips
+    the 29¢ knife. YES may hang from 28¢. 0.50–0.70 ATM mid is a lonely
+    0.25, not a hang. Fill still needs ask==rest (close or the minute wick),
+    |impulse| ≥ $100, and a real print at the rest after the hang. Do not
+    take 0.45–0.70. Paper size is min(rest, tape). Up to three nearby rests.
+    Clip 10–50%. If it will not come back, scratch or stop.
     """
     now = now or datetime.now(timezone.utc)
     if not settings.impulse_wait or not settings.allow_maker:
