@@ -1,0 +1,23 @@
+{
+  "as_of": "2026-08-25T18:04:00Z",
+  "note": "Official band is the last YES strike and first NO strike after BRTI 60s TWAP.",
+  "hours": [
+    {"event_ticker": "KXBTCD-26AUG2514", "close": "2026-08-25T18:00:00Z", "band": [79199.99, 79299.99]},
+    {"event_ticker": "KXBTCD-26AUG2513", "close": "2026-08-25T17:00:00Z", "band": [79099.99, 79199.99], "twap": 79147.04},
+    {"event_ticker": "KXBTCD-26AUG2512", "close": "2026-08-25T16:00:00Z", "band": [79499.99, 79599.99]},
+    {"event_ticker": "KXBTCD-26AUG2511", "close": "2026-08-25T15:00:00Z", "band": [79199.99, 79299.99]},
+    {"event_ticker": "KXBTCD-26AUG2510", "close": "2026-08-25T14:00:00Z", "band": [78499.99, 78599.99]},
+    {"event_ticker": "KXBTCD-26AUG2509", "close": "2026-08-25T13:00:00Z", "band": [78899.99, 78999.99]},
+    {"event_ticker": "KXBTCD-26AUG2508", "close": "2026-08-25T12:00:00Z", "band": [79099.99, 79199.99]},
+    {"event_ticker": "KXBTCD-26AUG2507", "close": "2026-08-25T11:00:00Z", "band": [79299.99, 79399.99]},
+    {"event_ticker": "KXBTCD-26AUG2506", "close": "2026-08-25T10:00:00Z", "band": [79099.99, 79199.99]},
+    {"event_ticker": "KXBTCD-26AUG2505", "close": "2026-08-25T09:00:00Z", "band": [79899.99, 79999.99]},
+    {"event_ticker": "KXBTCD-26AUG2504", "close": "2026-08-25T08:00:00Z", "band": [79699.99, 79799.99]},
+    {"event_ticker": "KXBTCD-26AUG2503", "close": "2026-08-25T07:00:00Z", "band": [80499.99, 80599.99]},
+    {"event_ticker": "KXBTCD-26AUG2502", "close": "2026-08-25T06:00:00Z", "band": [80699.99, 80799.99]},
+    {"event_ticker": "KXBTCD-26AUG2501", "close": "2026-08-25T05:00:00Z", "band": [80299.99, 80399.99]},
+    {"event_ticker": "KXBTCD-26AUG2500", "close": "2026-08-25T04:00:00Z", "band": [80399.99, 80499.99]},
+    {"event_ticker": "KXBTCD-26AUG2423", "close": "2026-08-25T03:00:00Z", "band": [80599.99, 80699.99]},
+    {"event_ticker": "KXBTCD-26AUG2422", "close": "2026-08-25T02:00:00Z", "band": [79799.99, 79899.99]}
+  ]
+}

@@ -1,0 +1,444 @@
+from __future__ import annotations
+
+import json
+import socket
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+from urllib.parse import urlparse
+
+PAGINATE_MAX_PAGES = 10
+
+
+class KalshiError(RuntimeError):
+    def __init__(self, message: str, status: int | None = None, body: str = ""):
+        super().__init__(message)
+        self.status = status
+        self.body = body
+
+
+def _money(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    return float(value)
+
+
+@dataclass
+class Market:
+    ticker: str
+    event_ticker: str
+    title: str
+    subtitle: str
+    status: str
+    strike: float | None
+    strike_type: str
+    yes_bid: float | None
+    yes_ask: float | None
+    no_bid: float | None
+    no_ask: float | None
+    last: float | None
+    volume: float | None
+    open_interest: float | None
+    open_time: str | None
+    close_time: str | None
+    rules_primary: str
+    result: str
+    raw: dict
+
+    @property
+    def no_ask_effective(self) -> float | None:
+        if self.no_ask is not None:
+            return self.no_ask
+        if self.yes_bid is not None:
+            return round(1.0 - self.yes_bid, 4)
+        return None
+
+    @property
+    def yes_ask_effective(self) -> float | None:
+        return self.yes_ask
+
+    @property
+    def yes_bid_effective(self) -> float | None:
+        return self.yes_bid
+
+    @property
+    def no_bid_effective(self) -> float | None:
+        if self.no_bid is not None:
+            return self.no_bid
+        if self.yes_ask is not None:
+            return round(1.0 - self.yes_ask, 4)
+        return None
+
+
+def market_from_api(item: dict) -> Market:
+    strike = item.get("floor_strike")
+    if strike is None:
+        strike = item.get("cap_strike")
+    return Market(
+        ticker=item["ticker"],
+        event_ticker=item.get("event_ticker") or "",
+        title=item.get("title") or "",
+        subtitle=item.get("subtitle") or item.get("yes_sub_title") or "",
+        status=item.get("status") or "",
+        strike=float(strike) if strike is not None else None,
+        strike_type=item.get("strike_type") or "",
+        yes_bid=_money(item.get("yes_bid_dollars")),
+        yes_ask=_money(item.get("yes_ask_dollars")),
+        no_bid=_money(item.get("no_bid_dollars")),
+        no_ask=_money(item.get("no_ask_dollars")),
+        last=_money(item.get("last_price_dollars")),
+        volume=_money(item.get("volume_fp")),
+        open_interest=_money(item.get("open_interest_fp")),
+        open_time=item.get("open_time"),
+        close_time=item.get("close_time"),
+        rules_primary=item.get("rules_primary") or "",
+        result=(item.get("result") or "").lower(),
+        raw=item,
+    )
+
+
+class KalshiClient:
+    def __init__(
+        self,
+        base: str = "https://external-api.kalshi.com/trade-api/v2",
+        user_agent: str = "BTCHOUR/0.1",
+        api_key_id: str = "",
+        private_key_pem: str = "",
+        timeout: int = 15,
+    ):
+        self.base = base.rstrip("/")
+        self.user_agent = user_agent
+        self.api_key_id = api_key_id
+        self.private_key_pem = private_key_pem
+        self.timeout = timeout
+
+    def get(self, path: str, params: dict | None = None, signed: bool = False) -> Any:
+        query = urllib.parse.urlencode({k: v for k, v in (params or {}).items() if v is not None})
+        url = self.base + path + (("?" + query) if query else "")
+        headers = {"User-Agent": self.user_agent, "Accept": "application/json"}
+        if signed:
+            headers.update(self._sign_headers("GET", path))
+        return self._request("GET", url, headers)
+
+    def post(self, path: str, payload: dict) -> Any:
+        url = self.base + path
+        body = json.dumps(payload).encode()
+        headers = {
+            "User-Agent": self.user_agent,
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            **self._sign_headers("POST", path),
+        }
+        return self._request("POST", url, headers, body)
+
+    def delete(self, path: str, params: dict | None = None) -> Any:
+        query = urllib.parse.urlencode({k: v for k, v in (params or {}).items() if v is not None})
+        url = self.base + path + (("?" + query) if query else "")
+        headers = {
+            "User-Agent": self.user_agent,
+            "Accept": "application/json",
+            **self._sign_headers("DELETE", path),
+        }
+        return self._request("DELETE", url, headers)
+
+    def _request(
+        self,
+        method: str,
+        url: str,
+        headers: dict,
+        body: bytes | None = None,
+        timeout: int | None = None,
+    ) -> Any:
+        req = urllib.request.Request(url, data=body, headers=headers, method=method)
+        wait = timeout if timeout is not None else self.timeout
+        socket.setdefaulttimeout(wait)
+        try:
+            with urllib.request.urlopen(req, timeout=wait) as resp:
+                raw = resp.read().decode()
+                return json.loads(raw) if raw else {}
+        except urllib.error.HTTPError as exc:
+            text = exc.read().decode() if exc.fp else ""
+            raise KalshiError(f"{method} {url} -> {exc.code}: {text[:400]}", exc.code, text) from exc
+        except urllib.error.URLError as exc:
+            raise KalshiError(f"{method} {url} failed: {exc}") from exc
+        except (TimeoutError, socket.timeout, OSError) as exc:
+            raise KalshiError(f"{method} {url} timed out: {exc}") from exc
+
+    def _sign_headers(self, method: str, path: str) -> dict:
+        if not self.api_key_id or not self.private_key_pem:
+            raise KalshiError("Kalshi API key and private key are required for signed requests")
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import padding
+
+        timestamp = str(int(time.time() * 1000))
+        sign_path = urlparse(self.base + path).path.split("?")[0]
+        message = (timestamp + method.upper() + sign_path).encode()
+        key = serialization.load_pem_private_key(self.private_key_pem.encode(), password=None)
+        signature = key.sign(
+            message,
+            padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.DIGEST_LENGTH),
+            hashes.SHA256(),
+        )
+        import base64
+
+        return {
+            "KALSHI-ACCESS-KEY": self.api_key_id,
+            "KALSHI-ACCESS-TIMESTAMP": timestamp,
+            "KALSHI-ACCESS-SIGNATURE": base64.b64encode(signature).decode(),
+        }
+
+    def paginate(
+        self,
+        path: str,
+        list_key: str,
+        params: dict | None = None,
+        limit: int = 200,
+        signed: bool = False,
+    ) -> list:
+        items: list = []
+        cursor = None
+        for _ in range(PAGINATE_MAX_PAGES):
+            query = dict(params or {})
+            query["limit"] = limit
+            if cursor:
+                query["cursor"] = cursor
+            payload = self.get(path, query, signed=signed)
+            items.extend(payload.get(list_key) or [])
+            cursor = payload.get("cursor")
+            if not cursor:
+                break
+        return items
+
+    def series(self, ticker: str) -> dict:
+        return self.get(f"/series/{ticker}").get("series") or {}
+
+    def events(self, series_ticker: str, status: str | None = None) -> list[dict]:
+        return self.paginate("/events", "events", {"series_ticker": series_ticker, "status": status})
+
+    def markets(self, series_ticker: str, status: str | None = None) -> list[Market]:
+        raw = self.paginate("/markets", "markets", {"series_ticker": series_ticker, "status": status})
+        return [market_from_api(item) for item in raw]
+
+    def markets_by_event(self, event_ticker: str) -> list[Market]:
+        payload = self.get(f"/events/{event_ticker}")
+        markets = payload.get("markets") or []
+        return [market_from_api(item) for item in markets]
+
+    def live_data(self, event_ticker: str, range_hint: str = "1h") -> dict:
+        return self.get(f"/live_data/events/{event_ticker}", {"range": range_hint})
+
+    def candlesticks(
+        self,
+        ticker: str,
+        start_ts: int,
+        end_ts: int,
+        period_interval: int = 1,
+        timeout: int = 4,
+    ) -> list:
+        """One market's minute candles. Used for live rest wicks, same as replay."""
+        series = ticker.split("-", 1)[0]
+        path = f"/series/{series}/markets/{ticker}/candlesticks"
+        query = urllib.parse.urlencode(
+            {
+                "start_ts": start_ts,
+                "end_ts": end_ts,
+                "period_interval": period_interval,
+            }
+        )
+        url = self.base + path + "?" + query
+        headers = {"User-Agent": self.user_agent, "Accept": "application/json"}
+        data = self._request("GET", url, headers, timeout=timeout)
+        return data.get("candlesticks") or []
+
+    def exchange_status(self) -> dict:
+        return self.get("/exchange/status")
+
+    def market_trades(self, ticker: str, min_ts: int | None = None, limit: int = 200) -> list:
+        """Public prints on one market. Paper hangs use this as the only counterparty."""
+        return self.get(
+            "/markets/trades",
+            {"ticker": ticker, "min_ts": min_ts, "limit": limit},
+        ).get("trades") or []
+
+    def create_order(
+        self,
+        ticker: str,
+        side: str,
+        price: float,
+        count: float,
+        time_in_force: str = "immediate_or_cancel",
+        client_order_id: str = "",
+        post_only: bool = False,
+    ) -> dict:
+        payload = {
+            "ticker": ticker,
+            "side": side,
+            "count": f"{float(count):.2f}",
+            "price": f"{float(price):.4f}",
+            "time_in_force": time_in_force,
+            "self_trade_prevention_type": "taker_at_cross",
+            "post_only": bool(post_only),
+        }
+        if client_order_id:
+            payload["client_order_id"] = client_order_id
+        return self.post("/portfolio/events/orders", payload)
+
+    def get_order(self, order_id: str) -> dict | None:
+        try:
+            data = self.get(f"/portfolio/orders/{order_id}", signed=True)
+        except KalshiError as exc:
+            if exc.status == 404:
+                return None
+            raise
+        if isinstance(data, dict) and isinstance(data.get("order"), dict):
+            return data["order"]
+        return data if isinstance(data, dict) else None
+
+    def cancel_order(
+        self,
+        order_id: str,
+        market_ticker: str | None = None,
+        exchange_index: int | None = None,
+    ) -> dict:
+        """Cancel on the shard that holds the order. Crypto KXBTCD is index 2.
+
+        DELETE without exchange_index lands on shard 0 and 404s, leaving the
+        rest live. Look the order up when the caller did not pass the shard.
+        """
+        ticker = market_ticker
+        idx = exchange_index
+        if idx is None:
+            order = self.get_order(order_id)
+            if order:
+                if order.get("exchange_index") is not None:
+                    idx = int(order["exchange_index"])
+                ticker = ticker or order.get("ticker")
+            else:
+                idx = -1
+        params: dict = {"exchange_index": idx}
+        if ticker:
+            params["market_ticker"] = ticker
+        return self.delete(f"/portfolio/events/orders/{order_id}", params)
+
+    def balance(self) -> dict:
+        return self.get("/portfolio/balance", signed=True)
+
+    def fills(self, min_ts: int | None = None, max_ts: int | None = None, ticker: str | None = None) -> list:
+        return self.paginate(
+            "/portfolio/fills",
+            "fills",
+            {"min_ts": min_ts, "max_ts": max_ts, "ticker": ticker},
+            signed=True,
+        )
+
+    def orders(self, min_ts: int | None = None, status: str | None = None, ticker: str | None = None) -> list:
+        return self.paginate(
+            "/portfolio/orders",
+            "orders",
+            {"min_ts": min_ts, "status": status, "ticker": ticker},
+            signed=True,
+        )
+
+    def positions(self, event_ticker: str | None = None, ticker: str | None = None) -> dict:
+        return self.get(
+            "/portfolio/positions",
+            {"event_ticker": event_ticker, "ticker": ticker, "limit": 200},
+            signed=True,
+        )
+
+    def settlements(self, min_ts: int | None = None, ticker: str | None = None) -> list:
+        return self.paginate(
+            "/portfolio/settlements",
+            "settlements",
+            {"min_ts": min_ts, "ticker": ticker},
+            signed=True,
+        )
+
+
+def candlestick_extreme(stick: dict, side: str, field: str) -> float | None:
+    block = stick.get(side) or {}
+    if not isinstance(block, dict):
+        return None
+    return _money(block.get(field))
+
+
+def market_minute_extremes(client: KalshiClient, ticker: str, now: datetime) -> dict:
+    """Current (or last completed) minute wick. Same fields replay uses to fill."""
+    now_ts = int(now.timestamp())
+    minute_end = (now_ts // 60 + 1) * 60
+    try:
+        sticks = client.candlesticks(ticker, minute_end - 120, minute_end + 1)
+    except KalshiError:
+        return {}
+    by_end: dict[int, dict] = {}
+    for row in sticks:
+        try:
+            by_end[int(row["end_period_ts"])] = row
+        except (KeyError, TypeError, ValueError):
+            continue
+    stick = by_end.get(minute_end) or by_end.get(minute_end - 60)
+    if not stick:
+        return {}
+    out: dict[str, float] = {}
+    yes_ask_low = candlestick_extreme(stick, "yes_ask", "low_dollars")
+    yes_bid_high = candlestick_extreme(stick, "yes_bid", "high_dollars")
+    if yes_ask_low is not None:
+        out["yes_ask_low"] = yes_ask_low
+    if yes_bid_high is not None:
+        out["yes_bid_high"] = yes_bid_high
+    return out
+
+
+CRYPTO_EXCHANGE_INDEX = 2
+
+
+def _select_index_status(payload: dict) -> dict | None:
+    """BTC lives on the Crypto index when Kalshi publishes the breakdown."""
+    rows = payload.get("exchange_index_statuses") or []
+    for row in rows:
+        if str(row.get("description") or "").strip().lower() == "crypto":
+            return row
+    for row in rows:
+        if row.get("exchange_index") == CRYPTO_EXCHANGE_INDEX:
+            return row
+    return None
+
+
+def parse_exchange_status(payload: dict | None) -> dict:
+    """Normalize GET /exchange/status. can_trade needs both flags on Crypto."""
+    payload = payload or {}
+    chosen = _select_index_status(payload)
+    source = chosen if chosen is not None else payload
+    exchange_active = bool(source.get("exchange_active"))
+    trading_active = bool(source.get("trading_active"))
+    return {
+        "exchange_active": exchange_active,
+        "trading_active": trading_active,
+        "can_trade": exchange_active and trading_active,
+        "resume_time": payload.get("exchange_estimated_resume_time"),
+        "index": source.get("exchange_index") if chosen is not None else 0,
+        "description": (chosen or {}).get("description") or "default",
+    }
+
+
+def read_exchange_status(client: KalshiClient) -> dict:
+    """Fail closed on 5xx / timeout. A pause is not permission to go live."""
+    try:
+        parsed = parse_exchange_status(client.exchange_status())
+        parsed["ok"] = True
+        return parsed
+    except KalshiError as exc:
+        return {
+            "ok": False,
+            "exchange_active": False,
+            "trading_active": False,
+            "can_trade": False,
+            "resume_time": None,
+            "index": None,
+            "description": "unreachable",
+            "error": str(exc)[:200],
+        }

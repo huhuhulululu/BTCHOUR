@@ -1,0 +1,3 @@
+# Runtime uses the stdlib HTTP client for public market data.
+# cryptography is only required for live (signed) Kalshi orders.
+cryptography>=42.0.0
