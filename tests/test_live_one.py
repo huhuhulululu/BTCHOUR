@@ -15,7 +15,7 @@ from btchour.broker import (
     order_fill_count,
     order_id_from_response,
 )
-from btchour.config import Settings
+from btchour.config import Settings, load_settings
 from btchour.engine import leftover_live_one_positions, reconcile_live_one, refresh_working
 from btchour.exits import ExitAction
 from btchour.kalshi import market_from_api
@@ -92,6 +92,14 @@ def _no_market(ask: str = "0.70"):
             "result": "",
         }
     )
+
+
+class LiveOneConfigTests(unittest.TestCase):
+    def test_load_settings_defaults_live_one_off_and_rest_min_100(self):
+        with patch.dict("os.environ", {}, clear=True):
+            settings = load_settings()
+        self.assertFalse(settings.live_one)
+        self.assertAlmostEqual(settings.impulse_wait_rest_min, 100.0)
 
 
 class LiveRestHelpers(unittest.TestCase):
@@ -289,6 +297,82 @@ class LiveOneRefreshTests(unittest.TestCase):
                 )
                 self.assertEqual(updates[0]["reason"], "wait_through")
                 self.assertEqual(cancelled, ["ord-1"])
+                self.assertEqual(db.working_trades(), [])
+
+    def test_cancels_a_live_no_when_the_dump_fades(self):
+        now = datetime(2026, 8, 26, 19, 30, tzinfo=timezone.utc)
+        dump = SpotQuote(78340, "test", annual_vol=0.55, impulse=-160)
+        faded = SpotQuote(78340, "test", annual_vol=0.55, impulse=-20)
+        cancelled = []
+
+        class Fake:
+            def create_order(self, **kwargs):
+                return {"order_id": "ord-no", "status": "resting", "fill_count": "0.00"}
+
+            def orders(self, status=None, ticker=None, min_ts=None):
+                return [{"order_id": "ord-no", "status": "resting", "fill_count_fp": "0.00"}]
+
+            def cancel_order(self, order_id, market_ticker=None, exchange_index=None):
+                cancelled.append(order_id)
+                return {}
+
+        no_coupon = Opportunity(
+            ticker="KXBTCD-26AUG2616-T78299.99",
+            event_ticker="KXBTCD-26AUG2616",
+            subtitle="$78,299.99 or above",
+            side="no",
+            book_side="ask",
+            strike=78299.99,
+            spot=78340,
+            seconds_left=2400,
+            model_p=0.55,
+            ask=0.36,
+            max_price=0.70,
+            limit_price=0.25,
+            taker=False,
+            b=3.0,
+            if_win_roi=3.0,
+            expected_roi=0.6,
+            ev=0.6,
+            fee=0.0,
+            count=1,
+            play="impulse_wait",
+            reason="dump_gap NO 看见 0.36 rest 0.25",
+            lock_price=0.32,
+        )
+        market = market_from_api(
+            {
+                "ticker": "KXBTCD-26AUG2616-T78299.99",
+                "event_ticker": "KXBTCD-26AUG2616",
+                "title": "Bitcoin price",
+                "subtitle": "$78,299.99 or above",
+                "status": "active",
+                "floor_strike": 78299.99,
+                "strike_type": "greater",
+                "yes_bid_dollars": "0.63",
+                "yes_ask_dollars": "0.64",
+                "no_bid_dollars": "0.35",
+                "no_ask_dollars": "0.36",
+                "open_time": "2026-08-26T19:00:00Z",
+                "close_time": "2026-08-26T20:00:00Z",
+                "result": "",
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(store_mod, "DATA_DIR", Path(tmp)):
+                db = store_mod.Store(Path(tmp) / "t.sqlite")
+                db.record_trade(live_rest_one(Fake(), no_coupon))
+                self.assertEqual(
+                    refresh_working(
+                        db, _signed(), [market], dump, now, extremes={}, client=Fake()
+                    ),
+                    [],
+                )
+                updates = refresh_working(
+                    db, _signed(), [market], faded, now, extremes={}, client=Fake()
+                )
+                self.assertEqual(updates[0]["reason"], "wait_fade")
+                self.assertEqual(cancelled, ["ord-no"])
                 self.assertEqual(db.working_trades(), [])
 
     def test_cancels_a_weak_up_yes_when_the_tape_is_not_a_rally(self):

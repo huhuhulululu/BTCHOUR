@@ -33,8 +33,9 @@ def coupon_rest_ready(side: str, impulse: float, settings: Settings) -> bool:
     """Hang with the tape under a live 32–42¢ book. Quiet / weak-up do not park.
 
     Paper AUG2911 hung NO on ATM 0.42 with impulse +0, sat 34 minutes, and
-    t_wait_stop −85%. 看见 32–42¢ is not enough if the print is flat or up.
-    NO needs a down print. YES only exists on a real rally (coupon_sides).
+    t_wait_stop −85%. Live 373–388 then hung NO on −0 to −36 and the
+    exchange filled without $100. 014: default hang needs the same-way
+    |impulse| ≥ impulse_min. AUG2608 hung at −226 / filled at −191.
     Fill still needs the same-way |impulse| ≥ impulse_min and ask==rest.
     0.50–0.70 ATM mid is coupon_in_band, not this gate.
     """
