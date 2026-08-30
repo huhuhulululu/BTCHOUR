@@ -38,6 +38,7 @@ from btchour.strategy import (
     _seconds_left,
     apply_swing_memory,
     coupon_in_band,
+    coupon_rest_ready,
     is_next_session_book,
     pick_flex_entries,
     impulse_wait_wrong_side,
@@ -455,7 +456,11 @@ def _is_live_one(row) -> bool:
 
 
 def _wait_cancel_reason(row, impulse: float, settings: Settings, seconds: float) -> str | None:
-    """Wrong-side and ATM-pad live rests come off. Fade on the right side stays."""
+    """Wrong-side and ATM-pad live rests come off. Paper fade on the dump stays.
+
+    014: a live_one rest that is no longer a same-way $100 dump/rally comes off
+    before the exchange can fill the noise (382–388). Paper waits still sit.
+    """
     raw = _row_raw(row)
     if settings.live_one and _is_live_one(row):
         hung_ask = raw.get("ask")
@@ -463,6 +468,8 @@ def _wait_cancel_reason(row, impulse: float, settings: Settings, seconds: float)
             return "pad_not_live"
     if impulse_wait_wrong_side(row["side"], impulse, settings):
         return "wait_wrong_side"
+    if settings.live_one and _is_live_one(row) and not coupon_rest_ready(row["side"], impulse, settings):
+        return "wait_fade"
     if seconds + 1e-12 < settings.swing_min_seconds:
         return "wait_invalid"
     return None
