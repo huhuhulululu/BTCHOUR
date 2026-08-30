@@ -1,11 +1,12 @@
 {
-  "swept_at": "2026-08-30T14:00:25.454948+00:00",
+  "swept_at": "2026-08-30T15:00:21.448296+00:00",
   "hours": 24,
   "windows": [
     16,
     24
   ],
   "events": [
+    "KXBTCD-26AUG3011",
     "KXBTCD-26AUG3010",
     "KXBTCD-26AUG3009",
     "KXBTCD-26AUG3008",
@@ -28,8 +29,7 @@
     "KXBTCD-26AUG2915",
     "KXBTCD-26AUG2914",
     "KXBTCD-26AUG2913",
-    "KXBTCD-26AUG2912",
-    "KXBTCD-26AUG2911"
+    "KXBTCD-26AUG2912"
   ],
   "formula": "EV = p * b - (1 - p)",
   "runs": [
@@ -293,12 +293,11 @@
       "impulse_max_ask": 0.52,
       "impulse_wait": false,
       "impulse_taker": true,
-      "take_count": 2,
-      "wins": 1,
-      "realized_pnl": -0.8441000000000001,
+      "take_count": 1,
+      "wins": 0,
+      "realized_pnl": -2.0145,
       "exit_reasons": {
-        "t_stop": 1,
-        "t_clip": 1
+        "t_stop": 1
       },
       "takes": [
         {
@@ -309,15 +308,6 @@
           "exit": "t_stop",
           "roi": -0.43106584212440885,
           "pnl": -2.0145
-        },
-        {
-          "event": "KXBTCD-26AUG2911",
-          "side": "yes",
-          "ask": 0.52,
-          "play": "impulse_t",
-          "exit": "t_clip",
-          "roi": 0.21775693979310853,
-          "pnl": 1.1703999999999999
         }
       ]
     },
@@ -476,12 +466,11 @@
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
       "impulse_taker": false,
-      "take_count": 2,
-      "wins": 1,
-      "realized_pnl": -0.8441000000000001,
+      "take_count": 1,
+      "wins": 0,
+      "realized_pnl": -2.0145,
       "exit_reasons": {
-        "t_stop": 1,
-        "t_clip": 1
+        "t_stop": 1
       },
       "takes": [
         {
@@ -492,15 +481,6 @@
           "exit": "t_stop",
           "roi": -0.43106584212440885,
           "pnl": -2.0145
-        },
-        {
-          "event": "KXBTCD-26AUG2911",
-          "side": "yes",
-          "ask": 0.52,
-          "play": "impulse_t",
-          "exit": "t_clip",
-          "roi": 0.21775693979310853,
-          "pnl": 1.1703999999999999
         }
       ]
     },
