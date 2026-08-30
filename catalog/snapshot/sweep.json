@@ -1,11 +1,12 @@
 {
-  "swept_at": "2026-08-30T07:00:30.062589+00:00",
+  "swept_at": "2026-08-30T08:00:52.539901+00:00",
   "hours": 24,
   "windows": [
     16,
     24
   ],
   "events": [
+    "KXBTCD-26AUG3004",
     "KXBTCD-26AUG3003",
     "KXBTCD-26AUG3002",
     "KXBTCD-26AUG3001",
@@ -28,8 +29,7 @@
     "KXBTCD-26AUG2908",
     "KXBTCD-26AUG2907",
     "KXBTCD-26AUG2906",
-    "KXBTCD-26AUG2905",
-    "KXBTCD-26AUG2904"
+    "KXBTCD-26AUG2905"
   ],
   "formula": "EV = p * b - (1 - p)",
   "runs": [
