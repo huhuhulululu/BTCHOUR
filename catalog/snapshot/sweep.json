@@ -1,11 +1,12 @@
 {
-  "swept_at": "2026-08-31T13:12:07.949867+00:00",
+  "swept_at": "2026-08-31T14:00:55.524783+00:00",
   "hours": 24,
   "windows": [
     16,
     24
   ],
   "events": [
+    "KXBTCD-26AUG3110",
     "KXBTCD-26AUG3109",
     "KXBTCD-26AUG3108",
     "KXBTCD-26AUG3107",
@@ -28,8 +29,7 @@
     "KXBTCD-26AUG3014",
     "KXBTCD-26AUG3013",
     "KXBTCD-26AUG3012",
-    "KXBTCD-26AUG3011",
-    "KXBTCD-26AUG3010"
+    "KXBTCD-26AUG3011"
   ],
   "formula": "EV = p * b - (1 - p)",
   "runs": [
@@ -386,13 +386,13 @@
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
       "impulse_taker": false,
-      "take_count": 7,
-      "wins": 2,
-      "realized_pnl": -4.028000000000002,
+      "take_count": 6,
+      "wins": 1,
+      "realized_pnl": -4.6826000000000025,
       "exit_reasons": {
         "t_stop": 4,
         "t_fade": 1,
-        "t_clip": 2
+        "t_clip": 1
       },
       "takes": [
         {
@@ -448,15 +448,6 @@
           "exit": "t_clip",
           "roi": 0.17425859810904398,
           "pnl": 0.9713000000000003
-        },
-        {
-          "event": "KXBTCD-26AUG3018",
-          "side": "yes",
-          "ask": 0.48,
-          "play": "swing_t",
-          "exit": "t_clip",
-          "roi": 0.13158317922328525,
-          "pnl": 0.6545999999999994
         }
       ]
     },
@@ -919,13 +910,13 @@
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
       "impulse_taker": false,
-      "take_count": 11,
-      "wins": 4,
-      "realized_pnl": -3.155400000000004,
+      "take_count": 10,
+      "wins": 3,
+      "realized_pnl": -4.923600000000004,
       "exit_reasons": {
         "t_stop": 6,
         "t_fade": 1,
-        "t_clip": 4
+        "t_clip": 3
       },
       "takes": [
         {
@@ -1017,15 +1008,6 @@
           "exit": "t_stop",
           "roi": -0.20503007107709148,
           "pnl": -0.9375000000000009
-        },
-        {
-          "event": "KXBTCD-26AUG3010",
-          "side": "no",
-          "ask": 0.44,
-          "play": "swing_t",
-          "exit": "t_clip",
-          "roi": 0.38670311645708016,
-          "pnl": 1.7681999999999993
         }
       ]
     },
