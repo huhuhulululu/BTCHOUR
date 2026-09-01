@@ -1,11 +1,12 @@
 {
-  "swept_at": "2026-09-01T03:00:49.161032+00:00",
+  "swept_at": "2026-09-01T04:00:51.243036+00:00",
   "hours": 24,
   "windows": [
     16,
     24
   ],
   "events": [
+    "KXBTCD-26SEP0100",
     "KXBTCD-26AUG3123",
     "KXBTCD-26AUG3122",
     "KXBTCD-26AUG3121",
@@ -28,8 +29,7 @@
     "KXBTCD-26AUG3104",
     "KXBTCD-26AUG3103",
     "KXBTCD-26AUG3102",
-    "KXBTCD-26AUG3101",
-    "KXBTCD-26AUG3100"
+    "KXBTCD-26AUG3101"
   ],
   "formula": "EV = p * b - (1 - p)",
   "runs": [
@@ -410,11 +410,11 @@
       "impulse_wait": true,
       "impulse_taker": false,
       "take_count": 4,
-      "wins": 1,
-      "realized_pnl": -2.2437,
+      "wins": 2,
+      "realized_pnl": -0.7671999999999994,
       "exit_reasons": {
-        "t_clip": 1,
-        "t_stop": 2,
+        "t_clip": 2,
+        "t_stop": 1,
         "t_fade": 1
       },
       "takes": [
@@ -446,13 +446,13 @@
           "pnl": -0.23740000000000006
         },
         {
-          "event": "KXBTCD-26AUG3108",
+          "event": "KXBTCD-26AUG3109",
           "side": "yes",
-          "ask": 0.37,
+          "ask": 0.41,
           "play": "swing_t",
-          "exit": "t_stop",
-          "roi": -0.16056636984882983,
-          "pnl": -0.6202999999999994
+          "exit": "t_clip",
+          "roi": 0.2005434018831689,
+          "pnl": 0.8562000000000012
         }
       ]
     },
