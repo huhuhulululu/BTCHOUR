@@ -1,11 +1,12 @@
 {
-  "swept_at": "2026-09-01T20:00:54.625298+00:00",
+  "swept_at": "2026-09-01T21:00:49.098211+00:00",
   "hours": 24,
   "windows": [
     16,
     24
   ],
   "events": [
+    "KXBTCD-26SEP0117",
     "KXBTCD-26SEP0116",
     "KXBTCD-26SEP0115",
     "KXBTCD-26SEP0114",
@@ -28,8 +29,7 @@
     "KXBTCD-26AUG3121",
     "KXBTCD-26AUG3120",
     "KXBTCD-26AUG3119",
-    "KXBTCD-26AUG3118",
-    "KXBTCD-26AUG3117"
+    "KXBTCD-26AUG3118"
   ],
   "formula": "EV = p * b - (1 - p)",
   "runs": [
@@ -509,15 +509,24 @@
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
       "impulse_taker": false,
-      "take_count": 6,
-      "wins": 2,
-      "realized_pnl": -4.2401,
+      "take_count": 7,
+      "wins": 3,
+      "realized_pnl": -4.561,
       "exit_reasons": {
         "t_stop": 4,
         "t_fade": 1,
-        "t_clip": 1
+        "t_clip": 2
       },
       "takes": [
+        {
+          "event": "KXBTCD-26SEP0116",
+          "side": "yes",
+          "ask": 0.48,
+          "play": "swing_t",
+          "exit": "t_stop",
+          "roi": -0.36777357883734013,
+          "pnl": -1.8295999999999997
+        },
         {
           "event": "KXBTCD-26SEP0114",
           "side": "no",
@@ -564,13 +573,13 @@
           "pnl": -1.6363000000000003
         },
         {
-          "event": "KXBTCD-26SEP0101",
+          "event": "KXBTCD-26SEP0102",
           "side": "yes",
-          "ask": 0.47,
-          "play": "swing_t",
-          "exit": "t_stop",
-          "roi": -0.13271376989988504,
-          "pnl": -0.6468999999999996
+          "ask": 0.51,
+          "play": "impulse_t",
+          "exit": "t_clip",
+          "roi": 0.1633744075829385,
+          "pnl": 0.8618000000000006
         }
       ]
     },
@@ -899,11 +908,11 @@
       "impulse_max_ask": 0.35,
       "impulse_wait": true,
       "impulse_taker": true,
-      "take_count": 14,
-      "wins": 8,
-      "realized_pnl": 3.8263000000000016,
+      "take_count": 13,
+      "wins": 7,
+      "realized_pnl": 3.175300000000001,
       "exit_reasons": {
-        "t_clip": 8,
+        "t_clip": 7,
         "t_scratch": 1,
         "t_stop": 5
       },
@@ -1024,15 +1033,6 @@
           "exit": "t_stop",
           "roi": -0.2745822210845797,
           "pnl": -0.7509000000000001
-        },
-        {
-          "event": "KXBTCD-26AUG3117",
-          "side": "yes",
-          "ask": 0.19,
-          "play": "impulse_t",
-          "exit": "t_clip",
-          "roi": 0.3242354816216756,
-          "pnl": 0.6510000000000002
         }
       ]
     },
@@ -1045,11 +1045,11 @@
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
       "impulse_taker": true,
-      "take_count": 14,
-      "wins": 8,
-      "realized_pnl": 3.8263000000000016,
+      "take_count": 13,
+      "wins": 7,
+      "realized_pnl": 3.175300000000001,
       "exit_reasons": {
-        "t_clip": 8,
+        "t_clip": 7,
         "t_scratch": 1,
         "t_stop": 5
       },
@@ -1170,15 +1170,6 @@
           "exit": "t_stop",
           "roi": -0.2745822210845797,
           "pnl": -0.7509000000000001
-        },
-        {
-          "event": "KXBTCD-26AUG3117",
-          "side": "yes",
-          "ask": 0.19,
-          "play": "impulse_t",
-          "exit": "t_clip",
-          "roi": 0.3242354816216756,
-          "pnl": 0.6510000000000002
         }
       ]
     },
@@ -1191,15 +1182,24 @@
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
       "impulse_taker": false,
-      "take_count": 7,
+      "take_count": 8,
       "wins": 3,
-      "realized_pnl": -3.5861000000000005,
+      "realized_pnl": -5.4157,
       "exit_reasons": {
-        "t_stop": 4,
+        "t_stop": 5,
         "t_fade": 1,
         "t_clip": 2
       },
       "takes": [
+        {
+          "event": "KXBTCD-26SEP0116",
+          "side": "yes",
+          "ask": 0.48,
+          "play": "swing_t",
+          "exit": "t_stop",
+          "roi": -0.36777357883734013,
+          "pnl": -1.8295999999999997
+        },
         {
           "event": "KXBTCD-26SEP0114",
           "side": "no",
