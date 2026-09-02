@@ -1,11 +1,12 @@
 {
-  "swept_at": "2026-09-02T18:02:41.591716+00:00",
+  "swept_at": "2026-09-02T19:01:14.254499+00:00",
   "hours": 24,
   "windows": [
     16,
     24
   ],
   "events": [
+    "KXBTCD-26SEP0215",
     "KXBTCD-26SEP0214",
     "KXBTCD-26SEP0213",
     "KXBTCD-26SEP0212",
@@ -28,8 +29,7 @@
     "KXBTCD-26SEP0119",
     "KXBTCD-26SEP0118",
     "KXBTCD-26SEP0117",
-    "KXBTCD-26SEP0116",
-    "KXBTCD-26SEP0115"
+    "KXBTCD-26SEP0116"
   ],
   "formula": "EV = p * b - (1 - p)",
   "runs": [
@@ -436,12 +436,12 @@
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
       "impulse_taker": false,
-      "take_count": 8,
-      "wins": 3,
-      "realized_pnl": -2.499600000000001,
+      "take_count": 7,
+      "wins": 2,
+      "realized_pnl": -5.2986,
       "exit_reasons": {
         "t_stop": 5,
-        "t_clip": 3
+        "t_clip": 2
       },
       "takes": [
         {
@@ -506,15 +506,6 @@
           "exit": "t_clip",
           "roi": 0.12695652173913044,
           "pnl": 0.657
-        },
-        {
-          "event": "KXBTCD-26SEP0123",
-          "side": "yes",
-          "ask": 0.45,
-          "play": "swing_t",
-          "exit": "t_clip",
-          "roi": 0.5989343718571458,
-          "pnl": 2.7989999999999995
         }
       ]
     },
@@ -606,11 +597,11 @@
       "impulse_max_ask": 0.52,
       "impulse_wait": false,
       "impulse_taker": true,
-      "take_count": 6,
+      "take_count": 5,
       "wins": 0,
-      "realized_pnl": -10.1974,
+      "realized_pnl": -7.006200000000001,
       "exit_reasons": {
-        "t_stop": 6
+        "t_stop": 5
       },
       "takes": [
         {
@@ -657,15 +648,6 @@
           "exit": "t_stop",
           "roi": -0.3355169082125604,
           "pnl": -1.7363
-        },
-        {
-          "event": "KXBTCD-26SEP0115",
-          "side": "no",
-          "ask": 0.5,
-          "play": "impulse_t",
-          "exit": "t_stop",
-          "roi": -0.6166570048309179,
-          "pnl": -3.1912
         }
       ]
     },
@@ -1073,7 +1055,7 @@
       "impulse_taker": false,
       "take_count": 10,
       "wins": 3,
-      "realized_pnl": -9.6353,
+      "realized_pnl": -8.2737,
       "exit_reasons": {
         "t_stop": 7,
         "t_clip": 2,
@@ -1162,13 +1144,13 @@
           "pnl": -1.7363
         },
         {
-          "event": "KXBTCD-26SEP0115",
-          "side": "no",
-          "ask": 0.5,
-          "play": "impulse_t",
+          "event": "KXBTCD-26SEP0116",
+          "side": "yes",
+          "ask": 0.48,
+          "play": "swing_t",
           "exit": "t_stop",
-          "roi": -0.6166570048309179,
-          "pnl": -3.1912
+          "roi": -0.36777357883734013,
+          "pnl": -1.8295999999999997
         }
       ]
     },
