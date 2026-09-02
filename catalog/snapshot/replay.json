@@ -1,5 +1,5 @@
 {
-  "replayed_at": "2026-09-02T02:03:16.801760+00:00",
+  "replayed_at": "2026-09-02T03:01:07.808213+00:00",
   "hours": 16,
   "playbook": "flex",
   "formula": "EV = p * b - (1 - p)",
@@ -39,6 +39,11 @@
     "allow_early_exit": true
   },
   "events": [
+    {
+      "event_ticker": "KXBTCD-26SEP0123",
+      "error": "incomplete data",
+      "takes": []
+    },
     {
       "event_ticker": "KXBTCD-26SEP0122",
       "settlement_band": [
@@ -961,94 +966,13 @@
         "skip_next": false,
         "skipped_event": null
       }
-    },
-    {
-      "event_ticker": "KXBTCD-26SEP0107",
-      "settlement_band": [
-        77999.99,
-        78099.99
-      ],
-      "settle_mid": 78049.99,
-      "candles": {
-        "77099.99": 60,
-        "77199.99": 60,
-        "77299.99": 60,
-        "77399.99": 59,
-        "77499.99": 60,
-        "77599.99": 60,
-        "77699.99": 60,
-        "77799.99": 60,
-        "77899.99": 60,
-        "77999.99": 60,
-        "78099.99": 60,
-        "78199.99": 60,
-        "78299.99": 60,
-        "78399.99": 60,
-        "78499.99": 60,
-        "78599.99": 59,
-        "78699.99": 57,
-        "78799.99": 60,
-        "78899.99": 60,
-        "78999.99": 33,
-        "79099.99": 37,
-        "79199.99": 35,
-        "79299.99": 37
-      },
-      "playbook": "flex",
-      "takes": [
-        {
-          "ts": "2026-09-01T10:33:00+00:00",
-          "event_ticker": "KXBTCD-26SEP0107",
-          "ticker": "KXBTCD-26SEP0107-T78199.99",
-          "strike": 78199.99,
-          "side": "yes",
-          "spot": 78120.01883333325,
-          "seconds_left": 1620.0,
-          "ask": 0.25,
-          "model_p": 0.3968088479156547,
-          "if_win_roi": 3.0,
-          "ev": 0.5872353916626187,
-          "vol": 0.55,
-          "play": "impulse_wait",
-          "lock_price": 0.32,
-          "filled_ts": "2026-09-01T10:33:00+00:00",
-          "exit_ts": "2026-09-01T10:40:00+00:00",
-          "exit_reason": "t_clip",
-          "exit_price": 0.33,
-          "exit_note": "\u505aT clip 25.8% at bid 0.33 (band 10%-50%); gap 8.7% gone, \u843d\u888b",
-          "pnl": 0.6452000000000004,
-          "roi": 0.2580800000000002,
-          "result": "t_clip"
-        }
-      ],
-      "best": {
-        "ts": "2026-09-01T10:01:00+00:00",
-        "event_ticker": "KXBTCD-26SEP0107",
-        "strike": 78499.99,
-        "side": "yes",
-        "spot": 77889.4265,
-        "seconds_left": 3540.0,
-        "ask": 0.01,
-        "model_p": 0.08958092742646628,
-        "if_win_roi": 92.45794392523365,
-        "ev": 7.372049292193111,
-        "vol": 0.55
-      },
-      "hold_candidates": 0,
-      "session": {
-        "last_loss_event": null,
-        "last_side": null,
-        "last_play": "",
-        "skip_next": false,
-        "skipped_event": null
-      }
     }
   ],
-  "take_count": 6,
-  "wins": 5,
+  "take_count": 5,
+  "wins": 4,
   "exit_reasons": {
-    "t_clip": 5,
+    "t_clip": 4,
     "t_scratch": 1
   },
-  "realized_pnl": 9.0871
+  "realized_pnl": 8.4419
 }
