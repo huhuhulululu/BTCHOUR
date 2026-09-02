@@ -1,5 +1,5 @@
 {
-  "replayed_at": "2026-09-02T12:01:03.034715+00:00",
+  "replayed_at": "2026-09-02T13:00:53.199759+00:00",
   "hours": 16,
   "playbook": "flex",
   "formula": "EV = p * b - (1 - p)",
@@ -40,9 +40,62 @@
   },
   "events": [
     {
-      "event_ticker": "KXBTCD-26SEP0208",
+      "event_ticker": "KXBTCD-26SEP0209",
       "error": "incomplete data",
       "takes": []
+    },
+    {
+      "event_ticker": "KXBTCD-26SEP0208",
+      "settlement_band": [
+        76699.99,
+        76799.99
+      ],
+      "settle_mid": 76749.99,
+      "candles": {
+        "75699.99": 59,
+        "75799.99": 60,
+        "75899.99": 60,
+        "75999.99": 60,
+        "76099.99": 60,
+        "76199.99": 60,
+        "76299.99": 60,
+        "76399.99": 60,
+        "76499.99": 60,
+        "76599.99": 60,
+        "76699.99": 60,
+        "76799.99": 60,
+        "76899.99": 60,
+        "76999.99": 60,
+        "77099.99": 60,
+        "77199.99": 60,
+        "77299.99": 60,
+        "77399.99": 56,
+        "77499.99": 54,
+        "77599.99": 51
+      },
+      "playbook": "flex",
+      "takes": [],
+      "best": {
+        "ts": "2026-09-02T11:59:00+00:00",
+        "event_ticker": "KXBTCD-26SEP0208",
+        "strike": 76799.99,
+        "side": "yes",
+        "spot": 76727.009,
+        "seconds_left": 60.0,
+        "ask": 0.01,
+        "model_p": 0.10491966325505142,
+        "if_win_roi": 92.45794392523365,
+        "ev": 8.805576005144994,
+        "vol": 0.55
+      },
+      "hold_candidates": 0,
+      "session": {
+        "last_loss_event": null,
+        "last_side": null,
+        "last_play": "",
+        "skip_next": false,
+        "skipped_event": null
+      }
     },
     {
       "event_ticker": "KXBTCD-26SEP0207",
@@ -839,48 +892,6 @@
         "model_p": 0.13545657310018688,
         "if_win_roi": 45.728971962616825,
         "ev": 5.32974640655079,
-        "vol": 0.55
-      },
-      "hold_candidates": 0,
-      "session": {
-        "last_loss_event": null,
-        "last_side": null,
-        "last_play": "",
-        "skip_next": false,
-        "skipped_event": null
-      }
-    },
-    {
-      "event_ticker": "KXBTCD-26SEP0117",
-      "settlement_band": [
-        77249.99,
-        77499.99
-      ],
-      "settle_mid": 77374.99,
-      "candles": {
-        "75999.99": 61,
-        "76249.99": 61,
-        "76499.99": 61,
-        "76749.99": 61,
-        "76999.99": 61,
-        "77249.99": 61,
-        "77499.99": 61,
-        "77749.99": 61,
-        "77999.99": 61
-      },
-      "playbook": "flex",
-      "takes": [],
-      "best": {
-        "ts": "2026-09-01T20:59:00+00:00",
-        "event_ticker": "KXBTCD-26SEP0117",
-        "strike": 77499.99,
-        "side": "yes",
-        "spot": 77425.35800000008,
-        "seconds_left": 60.0,
-        "ask": 0.01,
-        "model_p": 0.1019005817103994,
-        "if_win_roi": 92.45794392523365,
-        "ev": 8.523418851439196,
         "vol": 0.55
       },
       "hold_candidates": 0,
