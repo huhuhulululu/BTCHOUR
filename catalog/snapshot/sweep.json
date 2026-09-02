@@ -1,11 +1,12 @@
 {
-  "swept_at": "2026-09-02T03:01:07.344974+00:00",
+  "swept_at": "2026-09-02T04:00:47.141029+00:00",
   "hours": 24,
   "windows": [
     16,
     24
   ],
   "events": [
+    "KXBTCD-26SEP0200",
     "KXBTCD-26SEP0123",
     "KXBTCD-26SEP0122",
     "KXBTCD-26SEP0121",
@@ -28,8 +29,7 @@
     "KXBTCD-26SEP0104",
     "KXBTCD-26SEP0103",
     "KXBTCD-26SEP0102",
-    "KXBTCD-26SEP0101",
-    "KXBTCD-26SEP0100"
+    "KXBTCD-26SEP0101"
   ],
   "formula": "EV = p * b - (1 - p)",
   "runs": [
@@ -953,12 +953,12 @@
       "impulse_max_ask": 0.35,
       "impulse_wait": true,
       "impulse_taker": true,
-      "take_count": 14,
-      "wins": 8,
-      "realized_pnl": 9.118400000000001,
+      "take_count": 13,
+      "wins": 7,
+      "realized_pnl": 8.5565,
       "exit_reasons": {
         "t_stop": 5,
-        "t_clip": 8,
+        "t_clip": 7,
         "t_scratch": 1
       },
       "takes": [
@@ -1078,15 +1078,6 @@
           "exit": "t_clip",
           "roi": 0.1771317829457364,
           "pnl": 0.5026999999999999
-        },
-        {
-          "event": "KXBTCD-26SEP0100",
-          "side": "yes",
-          "ask": 0.18,
-          "play": "impulse_t",
-          "exit": "t_clip",
-          "roi": 0.2952085741305035,
-          "pnl": 0.5619000000000003
         }
       ]
     },
@@ -1099,12 +1090,12 @@
       "impulse_max_ask": 0.52,
       "impulse_wait": true,
       "impulse_taker": true,
-      "take_count": 14,
-      "wins": 8,
-      "realized_pnl": 9.118400000000001,
+      "take_count": 13,
+      "wins": 7,
+      "realized_pnl": 8.5565,
       "exit_reasons": {
         "t_stop": 5,
-        "t_clip": 8,
+        "t_clip": 7,
         "t_scratch": 1
       },
       "takes": [
@@ -1224,15 +1215,6 @@
           "exit": "t_clip",
           "roi": 0.1771317829457364,
           "pnl": 0.5026999999999999
-        },
-        {
-          "event": "KXBTCD-26SEP0100",
-          "side": "yes",
-          "ask": 0.18,
-          "play": "impulse_t",
-          "exit": "t_clip",
-          "roi": 0.2952085741305035,
-          "pnl": 0.5619000000000003
         }
       ]
     },
