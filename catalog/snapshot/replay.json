@@ -1,5 +1,5 @@
 {
-  "replayed_at": "2026-09-02T19:01:14.729031+00:00",
+  "replayed_at": "2026-09-02T20:01:00.297744+00:00",
   "hours": 16,
   "playbook": "flex",
   "formula": "EV = p * b - (1 - p)",
@@ -40,9 +40,62 @@
   },
   "events": [
     {
-      "event_ticker": "KXBTCD-26SEP0215",
+      "event_ticker": "KXBTCD-26SEP0216",
       "error": "incomplete data",
       "takes": []
+    },
+    {
+      "event_ticker": "KXBTCD-26SEP0215",
+      "settlement_band": [
+        77299.99,
+        77399.99
+      ],
+      "settle_mid": 77349.99,
+      "candles": {
+        "76299.99": 60,
+        "76399.99": 60,
+        "76499.99": 60,
+        "76599.99": 60,
+        "76699.99": 60,
+        "76799.99": 60,
+        "76899.99": 60,
+        "76999.99": 60,
+        "77099.99": 60,
+        "77199.99": 60,
+        "77299.99": 60,
+        "77399.99": 60,
+        "77499.99": 60,
+        "77599.99": 60,
+        "77699.99": 60,
+        "77799.99": 60,
+        "77899.99": 60,
+        "77999.99": 60,
+        "78099.99": 59,
+        "78199.99": 60
+      },
+      "playbook": "flex",
+      "takes": [],
+      "best": {
+        "ts": "2026-09-02T18:58:00+00:00",
+        "event_ticker": "KXBTCD-26SEP0215",
+        "strike": 77399.99,
+        "side": "yes",
+        "spot": 77326.49816666664,
+        "seconds_left": 120.0,
+        "ask": 0.01,
+        "model_p": 0.18773606862144154,
+        "if_win_roi": 92.45794392523365,
+        "ev": 16.5454269739665,
+        "vol": 0.55
+      },
+      "hold_candidates": 0,
+      "session": {
+        "last_loss_event": null,
+        "last_side": null,
+        "last_play": "",
+        "skip_next": false,
+        "skipped_event": null
+      }
     },
     {
       "event_ticker": "KXBTCD-26SEP0214",
@@ -875,101 +928,19 @@
       },
       "hold_candidates": 0,
       "session": {
-        "last_loss_event": "KXBTCD-26SEP0200",
-        "last_side": "yes",
-        "last_play": "impulse_wait",
-        "skip_next": true,
-        "skipped_event": "KXBTCD-26SEP0201"
-      }
-    },
-    {
-      "event_ticker": "KXBTCD-26SEP0200",
-      "settlement_band": [
-        77499.99,
-        77599.99
-      ],
-      "settle_mid": 77549.99,
-      "candles": {
-        "76099.99": 44,
-        "76199.99": 43,
-        "76299.99": 50,
-        "76399.99": 60,
-        "76499.99": 49,
-        "76599.99": 51,
-        "76699.99": 60,
-        "76799.99": 59,
-        "76899.99": 60,
-        "76999.99": 60,
-        "77099.99": 60,
-        "77199.99": 60,
-        "77299.99": 60,
-        "77399.99": 60,
-        "77499.99": 60,
-        "77599.99": 60,
-        "77699.99": 60,
-        "77799.99": 60,
-        "77899.99": 60,
-        "77999.99": 60,
-        "78099.99": 60,
-        "78199.99": 60,
-        "78299.99": 60,
-        "78399.99": 54
-      },
-      "playbook": "flex",
-      "takes": [
-        {
-          "ts": "2026-09-02T03:27:00+00:00",
-          "event_ticker": "KXBTCD-26SEP0200",
-          "ticker": "KXBTCD-26SEP0200-T77799.99",
-          "strike": 77799.99,
-          "side": "yes",
-          "spot": 77714.88933333331,
-          "seconds_left": 1980.0,
-          "ask": 0.25,
-          "model_p": 0.3999816724903701,
-          "if_win_roi": 3.0,
-          "ev": 0.5999266899614805,
-          "vol": 0.55,
-          "play": "impulse_wait",
-          "lock_price": 0.32,
-          "filled_ts": "2026-09-02T03:27:00+00:00",
-          "exit_ts": "2026-09-02T03:34:00+00:00",
-          "exit_reason": "t_wait_stop",
-          "exit_price": 0.04,
-          "exit_note": "impulse_wait stop -85.1% <= -80% at bid 0.04",
-          "pnl": -2.1269,
-          "roi": -0.85076,
-          "result": "t_wait_stop"
-        }
-      ],
-      "best": {
-        "ts": "2026-09-02T03:57:00+00:00",
-        "event_ticker": "KXBTCD-26SEP0200",
-        "strike": 77599.99,
-        "side": "yes",
-        "spot": 77509.05483333333,
-        "seconds_left": 180.0,
-        "ask": 0.01,
-        "model_p": 0.18584831426926873,
-        "if_win_roi": 92.45794392523365,
-        "ev": 16.369001333576517,
-        "vol": 0.55
-      },
-      "hold_candidates": 0,
-      "session": {
-        "last_loss_event": "KXBTCD-26SEP0200",
-        "last_side": "yes",
-        "last_play": "impulse_wait",
-        "skip_next": true,
+        "last_loss_event": null,
+        "last_side": null,
+        "last_play": "",
+        "skip_next": false,
         "skipped_event": null
       }
     }
   ],
-  "take_count": 4,
+  "take_count": 3,
   "wins": 2,
   "exit_reasons": {
     "t_clip": 2,
-    "t_wait_stop": 2
+    "t_wait_stop": 1
   },
-  "realized_pnl": -2.3762999999999996
+  "realized_pnl": -0.24939999999999962
 }
