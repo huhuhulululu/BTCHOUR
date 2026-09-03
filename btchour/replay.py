@@ -534,6 +534,12 @@ def bars_from_tape(tape: EventTape, settings: Settings) -> list[ReplayBar]:
         return []
     minutes = sorted(tape.spots)
     bars: list[ReplayBar] = []
+    # `lock` prices the entry at the minute's LOW ask, not its close. That is a deliberate
+    # choice with a test on it (`test_lock_uses_ask_low_flex_uses_close`), and ADR 033
+    # measures what it costs: over 1557 hours it admits 21 lock entries where the close
+    # ask admits 5, and the 5 survivors are exactly the lock_hold takes flex finds
+    # independently (-20.4c). Left as-is pending the user's call; the control is
+    # `research/replay_db.py --close-ask`.
     ask_field = "low_dollars" if settings.playbook == "lock" else "close_dollars"
     for idx, minute_ms in enumerate(minutes):
         end_ts = minute_ms // 1000 + 60
