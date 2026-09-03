@@ -38,6 +38,12 @@ DEFAULT_DB = REPO / "data" / "hourly.sqlite"
 VOL_LOOKBACK_MIN = 15
 VOL_FLOOR = 0.25
 
+# The `/live_data` endpoint's last two 10-second observations are `expiration_value`
+# itself, not two more BRTI ticks -- exactly equal in 300/300 events checked. Reading
+# them as spot hands the settlement to any rule deciding in the final seconds, so both
+# the grid and the bars are cut here. ADR 034.
+SETTLE_ECHO_SECONDS = 20
+
 
 # --------------------------------------------------------------------------- loading
 
@@ -129,7 +135,8 @@ def load_hours(
         open_ts, close_ts, settle = int(row["open_ts"]), int(row["close_ts"]), float(row["settle_value"])
 
         spot_rows = conn.execute(
-            "SELECT ts, value FROM spot WHERE event_ticker=? ORDER BY ts", (ev,)
+            "SELECT ts, value FROM spot WHERE event_ticker=? AND ts<=? ORDER BY ts",
+            (ev, close_ts - SETTLE_ECHO_SECONDS),
         ).fetchall()
         if len(spot_rows) < 60:
             continue
@@ -170,6 +177,8 @@ def load_hours(
 
         bars: list[Bar] = []
         for ts in sorted(by_ts):
+            if close_ts - ts < SETTLE_ECHO_SECONDS:
+                continue
             price = _spot_at(spot, ts)
             if price is None:
                 continue
