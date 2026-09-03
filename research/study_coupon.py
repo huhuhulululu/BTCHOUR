@@ -56,11 +56,22 @@ def rest_ready(side: str, impulse: float) -> bool:
     return impulse > 0 and abs(impulse) >= IMPULSE_MIN
 
 
+FILL_TICKS = 0  # 0 = quote touch (upper bound); 1 = the ask traded a tick THROUGH the rest
+
+
 def ask_low(quote, side: str) -> float | None:
-    """Lowest ask printed inside the minute on `side`."""
+    """Lowest ask printed inside the minute on `side`, shifted by the fill convention.
+
+    "The candle touched my price" is an upper bound on maker fills, and treating it as a
+    fill rate is a named mistake in the 15m repo's LESSONS. Kalshi prices sit on a 1c
+    grid, so a strict cross means `ask_low <= rest - 1 tick`; shifting the observed low
+    up by FILL_TICKS cents expresses that without touching the comparison below.
+    """
     if side == "yes":
-        return quote.yes_ask_low
-    return None if quote.yes_bid_high is None else round(1.0 - quote.yes_bid_high, 4)
+        value = quote.yes_ask_low
+    else:
+        value = None if quote.yes_bid_high is None else round(1.0 - quote.yes_bid_high, 4)
+    return None if value is None else value + 0.01 * FILL_TICKS
 
 
 def run(hours: list[Hour]) -> dict[str, Bucket]:
@@ -173,13 +184,19 @@ def main(argv=None) -> int:
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--slice", default="", choices=["", "early", "late"],
                     help="calendar half: fit on early, validate on late")
+    ap.add_argument("--fill-ticks", type=int, default=0,
+                    help="0 = quote touch (upper bound); 1 = strict cross one tick through")
     args = ap.parse_args(argv)
+
+    global FILL_TICKS
+    FILL_TICKS = args.fill_ticks
 
     hours = load_hours(args.db, limit=args.limit or None, slice_half=args.slice)
     days = sample_days(hours)
     out = run(hours)
     hung, filled = out.pop("_hung"), out.pop("_filled")  # type: ignore[arg-type]
-    print(f"# hours={len(hours)} days={days:.1f}")
+    convention = "touch (upper bound)" if not FILL_TICKS else f"strict cross, {FILL_TICKS} tick(s) through"
+    print(f"# hours={len(hours)} days={days:.1f}  fill convention: {convention}")
     print(f"# coupons hung={hung}  filled={filled}  fill rate={filled / max(hung, 1):.1%}")
     for bucket in out.values():
         if len(bucket):
