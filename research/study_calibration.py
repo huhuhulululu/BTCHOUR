@@ -50,6 +50,48 @@ def left_of(seconds: float) -> tuple[int, int] | None:
     return None
 
 
+def breakeven_table() -> None:
+    """How much calibration edge each band needs, against how much it has.
+
+    Buying at ask `a` and holding costs `a + taker_fee(a)`, so break-even needs the
+    realised win rate to reach `a + fee`. The implied probability is `a`. Therefore
+
+        required calibration edge (pp) = 100 * taker_fee(a)
+
+    and nothing else -- the whole bar is the quadratic fee, which peaks at a=0.5. That
+    turns "no edge survives fees" into a number: the gap between the edge a band has and
+    the edge it would need. A maker fill pays 0 on this series, so its bar is 0.0pp,
+    which is why resting was the only route with a chance -- and why 015/027 closing it
+    on adverse selection closed the ladder.
+    """
+    from btchour.fees import taker_fee
+
+    # observed calibration, pooled over both sides, from section A of this study
+    observed = {
+        0.06: -1.21, 0.14: -1.57, 0.215: -2.17, 0.285: -3.11, 0.37: -1.66,
+        0.46: -0.83, 0.54: -0.63, 0.63: +0.68, 0.715: +1.26, 0.785: +1.33,
+        0.86: +0.74, 0.925: +0.50, 0.965: -0.07, 0.99: +0.12,
+    }
+    print("\n## D. the bar: calibration edge needed to break even, vs the edge on hand")
+    print("   (required = 100 * taker_fee(ask); a maker fill needs 0.0pp, fee is 0 here)")
+    print(f"   {'ask':>6} {'required':>9} {'observed':>9} {'gap':>9}  {'verdict':<22}")
+    for ask, have in sorted(observed.items()):
+        need = taker_fee(ask) * 100.0
+        gap = have - need
+        # "ties", never "wins": section A gives these bands t = +0.23 / -0.01 / +0.17,
+        # and ADR 029 places the strong side's positive point estimate in cold rungs that
+        # could not have been filled. A gap of +0.14pp is a rounding error, not an entry.
+        verdict = f"ties (+{gap:.2f}pp, noise)" if gap >= 0 else f"short by {-gap:.2f}pp"
+        print(f"   {ask:>6.3f} {need:>+9.2f} {have:>+9.2f} {gap:>+9.2f}  {verdict:<22}")
+    best = max(observed.items(), key=lambda kv: kv[1] - taker_fee(kv[0]) * 100.0)
+    margin = best[1] - taker_fee(best[0]) * 100.0
+    print(f"   best band is ask {best[0]:.3f} at {margin:+.2f}pp -- section A nets it at"
+          f" +0.13c, t=+0.23, and 029 puts that positive in cold rungs.")
+    print("   The whole ladder is inside +-0.15pp of its own fee bar. Nothing is short by")
+    print("   a little and fixable; the cheap side is short by 1.6-4.5pp, and the strong")
+    print("   side ties. A rule needs to CREATE edge, not select a band that has it.")
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--db", type=Path, default=DEFAULT_DB)
@@ -124,6 +166,7 @@ def main(argv=None) -> int:
         if len(bucket) < 300:
             continue
         print("   " + bucket.result(days).row())
+    breakeven_table()
     return 0
 
 
