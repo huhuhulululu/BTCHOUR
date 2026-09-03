@@ -60,6 +60,8 @@ def rest_ready(side: str, impulse: float) -> bool:
 FILL_TICKS = 0  # 0 = quote touch (upper bound); 1 = the ask traded a tick THROUGH the rest
 MIN_MODEL_P = 0.0  # production refuses to hang when model_p < rest; this study never did
 MAX_RESTS_CLI = MAX_RESTS
+WAIT_BUCKETS = [(0, 1, "0-1m"), (1, 3, "1-3m"), (3, 10, "3-10m"),
+                (10, 25, "10-25m"), (25, 1e9, "25m+")]
 
 
 def ask_low(quote, side: str) -> float | None:
@@ -106,8 +108,18 @@ def run(hours: list[Hour]) -> dict[str, Bucket]:
                     won = hour.won(rest["strike"], rest["side"])
                     if won is None:
                         continue
-                    out["hold"].add(hour.event_ticker, (1.0 if won else 0.0) * 100 - REST * 100,
-                                    won, REST, hour.close_ts)
+                    held_cents = (1.0 if won else 0.0) * 100 - REST * 100
+                    out["hold"].add(hour.event_ticker, held_cents, won, REST, hour.close_ts)
+                    # ADR 015's question, finally measurable: how long had the rest been
+                    # sitting when it filled? A rest that fills in the minute it is placed
+                    # is a different trade from one the market comes back to take 40
+                    # minutes later, and the replay's fills are mostly the first kind.
+                    waited = (bar.ts - rest["ts"]) / 60.0
+                    for lo, hi, name in WAIT_BUCKETS:
+                        if lo <= waited < hi:
+                            out.setdefault(f"wait {name}", Bucket(f"fill after {name}")).add(
+                                hour.event_ticker, held_cents, won, REST, hour.close_ts)
+                            break
                     exit_cents = replay_exit_stack(hour, bar.ts, rest["strike"], rest["side"], won)
                     out["clip"].add(hour.event_ticker, exit_cents, won, REST, hour.close_ts)
                     continue
