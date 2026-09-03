@@ -27,6 +27,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import btchour.replay as replay_mod  # noqa: E402
 from btchour.config import Settings  # noqa: E402
 from btchour.replay import EventTape, replay_tape  # noqa: E402
 from btchour.strategy import SessionMemory  # noqa: E402
@@ -48,6 +49,37 @@ def _stick(row) -> dict:
     out["volume_fp"] = row["volume"]
     out["open_interest_fp"] = row["open_interest"]
     return out
+
+
+
+def fill_through(side: str, rest: float, close_ask, *, yes_bid_high=None,
+                 yes_ask_low=None, impulse=None, min_impulse=None) -> bool:
+    """A resting bid is hit whenever the offer comes DOWN to it -- including through it.
+
+    Production's `_ask_at_rest` requires the ask to be *at* the rest (or one tick
+    through) and treats a book that collapsed past it as no fill: "Paper AUG2802 filled
+    T79599/T79499 NO at 0.25 after the book was 0.03. That is not ask==rest."
+
+    On a live book it is. A 25c resting bid is exactly what gets hit as the offer falls
+    from 32c to 3c -- you own it at 25c and it is worth 3c. Refusing that fill drops the
+    adverse-selected half of the distribution, which is the half ADR 015 was worried
+    about in the first place. This keeps every impulse guard (pulling the rest when the
+    tape flips is a real cancel) and relaxes only the price test, so the difference
+    between the two runs is the fill convention and nothing else.
+    """
+    if impulse is not None:
+        if side == "no" and impulse >= 0:
+            return False
+        if side == "yes" and impulse <= 0:
+            return False
+        if min_impulse is not None and abs(impulse) + 1e-9 < abs(min_impulse):
+            return False
+    candidates = [close_ask]
+    if side == "no" and yes_bid_high is not None:
+        candidates.append(1.0 - float(yes_bid_high))
+    if side == "yes" and yes_ask_low is not None:
+        candidates.append(float(yes_ask_low))
+    return any(c is not None and float(c) <= rest + 1e-12 for c in candidates)
 
 
 def tapes(db: Path, limit: int | None = None, slice_half: str = ""):
@@ -124,6 +156,9 @@ def main(argv=None) -> int:
                     help="turn ADR 017 off (pre-017 clip stack on a filled coupon)")
     ap.add_argument("--no-early-exit", action="store_true")
     ap.add_argument("--impulse-taker", action="store_true")
+    ap.add_argument("--fill", default="atrest", choices=["atrest", "through"],
+                    help="atrest = production `_ask_at_rest`; through = a resting bid is"
+                         " hit whenever the offer falls to or past it")
     ap.add_argument("--slip", type=float, default=0.0,
                     help="cents of adverse slippage charged to every entry")
     args = ap.parse_args(argv)
@@ -135,6 +170,9 @@ def main(argv=None) -> int:
         settings = replace(settings, allow_early_exit=False)
     if args.impulse_taker:
         settings = replace(settings, impulse_taker=True)
+
+    if args.fill == "through":
+        replay_mod.wait_book_crossed = fill_through
 
     takes: list[dict] = []
     hours = 0
@@ -148,7 +186,8 @@ def main(argv=None) -> int:
 
     days = hours / 24.0
     label = (f"playbook={args.playbook} hold={not args.no_hold}"
-             f" early_exit={not args.no_early_exit} impulse_taker={args.impulse_taker}")
+             f" early_exit={not args.no_early_exit} impulse_taker={args.impulse_taker}"
+             f" fill={args.fill}")
     print(f"# hours={hours} days={days:.1f} slice={args.slice or 'full'}  {label}")
     if not takes:
         print("   no entries -- the loop never took a position over this whole tape")
