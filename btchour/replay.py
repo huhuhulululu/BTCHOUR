@@ -342,23 +342,16 @@ def replay_bars(
                 if fill.get("status") == "open":
                     position = _position_from_fill(fill, chosen[0], now, event_ticker, bar, left)
                 elif fill.get("play") == "impulse_wait":
+                    # The rest is placed here and tested from the NEXT bar onward. It used
+                    # to be filled from THIS bar as well, but the hang reads this bar's
+                    # close (`ask_field` is close_dollars for flex) while the fill read
+                    # this bar's low/high -- an extreme that may have printed before the
+                    # order existed. That is not a fill that could have happened, and it
+                    # was 61-66% of every coupon fill replay/sweep ever reported: over
+                    # 1557 hours it carried impulse_wait from +2.2c/contract (t=0.56) to
+                    # +7.6c (t=3.23). ADR 032; `research/replay_db.py --no-same-bar-fill`
+                    # keeps the old path available as a control.
                     working = _position_from_fill(fill, chosen[0], now, event_ticker, bar, left)
-                    quotes = bar.quotes.get(float(chosen[0].strike)) or {}
-                    ask = chosen[0].ask
-                    if _replay_tape_ok(quotes, "impulse_wait") and wait_book_crossed(
-                        working["side"],
-                        float(working["price"]),
-                        ask,
-                        yes_bid_high=quotes.get("yes_bid_high"),
-                        yes_ask_low=quotes.get("yes_ask_low"),
-                        impulse=bar.impulse,
-                        min_impulse=settings.impulse_min,
-                    ):
-                        position = _promote_wait(working)
-                        entry = dict(position.get("entry") or {})
-                        entry["filled_ts"] = now.isoformat()
-                        position["entry"] = entry
-                        working = None
 
     if position is not None:
         result = results.get(position["entry"]["strike"], "")

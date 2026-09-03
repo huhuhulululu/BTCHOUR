@@ -1607,9 +1607,20 @@ class ImpulseWaitReplayTests(unittest.TestCase):
                 impulse=95,
             ),
             ReplayBar(int(maturity - 1680), 78940, 0.55, {strike: {"yes_ask": 0.86, "yes_bid": 0.85}}, impulse=112),
+            # The second dump hangs the rest here...
             ReplayBar(
                 int(maturity - 1620),
                 78790,
+                0.55,
+                {strike: {"yes_ask": 0.65, "yes_bid": 0.64}},
+                impulse=-119,
+            ),
+            # ...and the 0.25 print that takes it lands on the NEXT bar. It used to sit on
+            # the same bar as the hang, which is the look-ahead ADR 032 removed: a rest
+            # placed off this bar's close cannot be filled by this bar's extreme.
+            ReplayBar(
+                int(maturity - 1590),
+                78780,
                 0.55,
                 {strike: {"yes_ask": 0.65, "yes_bid": 0.64, "yes_bid_high": 0.75}},
                 impulse=-119,
@@ -1623,6 +1634,50 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         self.assertAlmostEqual(take["ask"], 0.25)
         self.assertEqual(take["exit_reason"], "settle")
         self.assertGreater(take["pnl"], 0)
+
+    def test_rest_is_not_filled_by_the_bar_it_was_hung_on(self):
+        """ADR 032: the hang reads this bar's close, so this bar's low cannot fill it.
+
+        replay used to hang the coupon and immediately promote it off the same bar's
+        yes_bid_high / yes_ask_low. That extreme may have printed before the order
+        existed. It was 61-66% of every coupon fill replay and sweep reported, and it
+        carried impulse_wait from +2.2c/contract (t=0.56) to +7.6c (t=3.23) over 1557
+        hours -- the difference between a statistical zero and an apparent edge.
+        """
+        settings = Settings(playbook="flex", max_contracts=1, max_notional=10,
+                            allow_early_exit=True)
+        maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
+        strike = 78699.99
+        # One bar only: it hangs the rest AND prints 0.25 on the NO side (yes_bid_high
+        # 0.75). The old code took that fill; there must now be no take at all.
+        bars = [
+            ReplayBar(
+                int(maturity - 1800),
+                78800,
+                0.55,
+                {strike: {"yes_ask": 0.65, "yes_bid": 0.64, "yes_bid_high": 0.75}},
+                impulse=-112,
+            ),
+        ]
+        report = replay_bars("KXBTCD-26AUG2520", bars, {strike: "no"}, maturity, settings)
+        self.assertEqual(report["takes"], [])
+
+    def test_rest_hung_on_one_bar_still_fills_on_the_next(self):
+        """The fix must not stop legitimate fills: same print, one bar later."""
+        settings = Settings(playbook="flex", max_contracts=1, max_notional=10,
+                            allow_early_exit=True)
+        maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
+        strike = 78699.99
+        bars = [
+            ReplayBar(int(maturity - 1800), 78800, 0.55,
+                      {strike: {"yes_ask": 0.65, "yes_bid": 0.64}}, impulse=-112),
+            ReplayBar(int(maturity - 1740), 78790, 0.55,
+                      {strike: {"yes_ask": 0.65, "yes_bid": 0.64, "yes_bid_high": 0.75}},
+                      impulse=-119),
+        ]
+        report = replay_bars("KXBTCD-26AUG2520", bars, {strike: "no"}, maturity, settings)
+        self.assertEqual(len(report["takes"]), 1)
+        self.assertAlmostEqual(report["takes"][0]["ask"], 0.25)
 
     def test_lock_close_still_deads_the_wait(self):
         settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
