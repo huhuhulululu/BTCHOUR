@@ -31,6 +31,7 @@ from research.hourly_lab import (  # noqa: E402
     DEFAULT_DB,
     Hour,
     load_hours,
+    model_p,
     net_cents,
     sample_days,
 )
@@ -57,6 +58,8 @@ def rest_ready(side: str, impulse: float) -> bool:
 
 
 FILL_TICKS = 0  # 0 = quote touch (upper bound); 1 = the ask traded a tick THROUGH the rest
+MIN_MODEL_P = 0.0  # production refuses to hang when model_p < rest; this study never did
+MAX_RESTS_CLI = MAX_RESTS
 
 
 def ask_low(quote, side: str) -> float | None:
@@ -115,12 +118,12 @@ def run(hours: list[Hour]) -> dict[str, Bucket]:
                     rest["done"] = True
 
             live = sum(1 for r in rests if not r["done"])
-            if live >= MAX_RESTS or not rest_ready(side, bar.impulse):
+            if live >= MAX_RESTS_CLI or not rest_ready(side, bar.impulse):
                 continue
 
             # 2. hang new coupons
             for strike, quote in sorted(bar.quotes.items(), key=lambda kv: abs(kv[1].strike - bar.spot)):
-                if live >= MAX_RESTS:
+                if live >= MAX_RESTS_CLI:
                     break
                 if (strike, side) in seen:
                     continue
@@ -129,6 +132,8 @@ def run(hours: list[Hour]) -> dict[str, Bucket]:
                 ask = quote.ask(side)
                 lo = YES_LO if side == "yes" else NO_LO
                 if ask is None or not (lo <= ask <= COUPON_HI):
+                    continue
+                if MIN_MODEL_P > 0 and model_p(bar, strike, side) + 1e-12 < MIN_MODEL_P:
                     continue
                 seen.add((strike, side))
                 rests.append({"strike": strike, "side": side, "ts": bar.ts, "done": False})
@@ -186,10 +191,17 @@ def main(argv=None) -> int:
                     help="calendar half: fit on early, validate on late")
     ap.add_argument("--fill-ticks", type=int, default=0,
                     help="0 = quote touch (upper bound); 1 = strict cross one tick through")
+    ap.add_argument("--min-model-p", type=float, default=0.0,
+                    help="production's missing gate: refuse to hang when model_p < this"
+                         " (it uses the rest itself, 0.25)")
+    ap.add_argument("--max-rests", type=int, default=MAX_RESTS,
+                    help="production carries one working order at a time, this study 3")
     args = ap.parse_args(argv)
 
-    global FILL_TICKS
+    global FILL_TICKS, MIN_MODEL_P, MAX_RESTS_CLI
     FILL_TICKS = args.fill_ticks
+    MIN_MODEL_P = args.min_model_p
+    MAX_RESTS_CLI = args.max_rests
 
     hours = load_hours(args.db, limit=args.limit or None, slice_half=args.slice)
     days = sample_days(hours)
@@ -197,7 +209,8 @@ def main(argv=None) -> int:
     hung, filled = out.pop("_hung"), out.pop("_filled")  # type: ignore[arg-type]
     convention = "touch (upper bound)" if not FILL_TICKS else f"strict cross, {FILL_TICKS} tick(s) through"
     print(f"# hours={len(hours)} days={days:.1f}  fill convention: {convention}")
-    print(f"# coupons hung={hung}  filled={filled}  fill rate={filled / max(hung, 1):.1%}")
+    print(f"# coupons hung={hung}  filled={filled}  fill rate={filled / max(hung, 1):.1%}"
+          f"  min_model_p={MIN_MODEL_P:.2f}  max_rests={MAX_RESTS_CLI}")
     for bucket in out.values():
         if len(bucket):
             print("   " + bucket.result(days).row())
