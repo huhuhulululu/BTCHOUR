@@ -64,11 +64,12 @@ def evaluate_exit(
     # runs on top, so it must never reach the 做T branch or the TWAP flatten
     # (`research/study_rule.py`).
     #
-    # 017: `impulse_wait_hold` extends the same treatment to a filled coupon. The same
-    # 348 coupon fills are −0.86c (t=−0.33) held to settlement and −4.14c (t=−4.99)
-    # under the clip band plus the −80% stop plus the 8-minute scratch, in both
-    # calendar halves (`research/study_coupon.py`). Off by default: 005 stands until
-    # the user signs 017 off.
+    # 017 extends the same treatment to a filled coupon, and is now the default. The
+    # same 348 coupon fills are −0.86c (t=−0.33) held to settlement and −4.14c
+    # (t=−4.99) under the clip band plus the −80% stop plus the 8-minute scratch, in
+    # both calendar halves (`research/study_coupon.py`). `BTCHOUR_IMPULSE_WAIT_HOLD=0`
+    # restores the old stack for a sweep control. 005's entry gate is untouched: this
+    # is an exit change only.
     locked = is_settle_play(play) or (wait_t and settings.impulse_wait_hold)
     do_t = (play in {"swing_t", "impulse_t", "impulse_wait"} or settings.playbook == "swing") and not locked
     # `lock_on_book` sells only at a locked 20%, so it stays on for every play whose

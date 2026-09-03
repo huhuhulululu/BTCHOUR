@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 
 from btchour.config import Settings
 from btchour.exits import OpenPosition, evaluate_exit
@@ -121,7 +122,33 @@ class ExitTests(unittest.TestCase):
         action = self._act(waiting, _market(yes_bid="0.88", yes_ask="0.89", no_bid="0.11", no_ask="0.12"), 0.20, 1200, self.settings)
         self.assertIsNone(action)
 
+    def test_impulse_wait_holds_to_settlement_by_default(self):
+        """017: the coupon exit stack is off unless a control asks for it."""
+        cost = fill_cost(0.25, taker=False)
+        waiting = OpenPosition(
+            ticker=self.position.ticker,
+            event_ticker=self.position.event_ticker,
+            side="no",
+            cost=cost.cost,
+            count=1.0,
+            play="impulse_wait",
+            entry_p=0.36,
+            peak_bid=0.23,
+            held_seconds=500,
+        )
+        for bid, ask, model_p in (("0.19", "0.20", 0.30), ("0.03", "0.04", 0.10), ("0.40", "0.41", 0.55)):
+            action = self._act(
+                waiting,
+                _market(yes_bid=str(round(1 - float(ask), 2)), yes_ask=str(round(1 - float(bid), 2)),
+                        no_bid=bid, no_ask=ask),
+                model_p,
+                1200,
+                self.settings,
+            )
+            self.assertIsNone(action, f"no bid {bid} should ride to settlement under 017")
+
     def test_impulse_wait_scratches_if_eight_minutes_never_made_ten(self):
+        """Pre-017 stack, kept as the sweep control (BTCHOUR_IMPULSE_WAIT_HOLD=0)."""
         cost = fill_cost(0.25, taker=False)
         waiting = OpenPosition(
             ticker=self.position.ticker,
@@ -139,7 +166,7 @@ class ExitTests(unittest.TestCase):
             _market(yes_bid="0.80", yes_ask="0.81", no_bid="0.19", no_ask="0.20"),
             0.30,
             1200,
-            self.settings,
+            replace(self.settings, impulse_wait_hold=False),
         )
         self.assertIsNotNone(action)
         self.assertEqual(action.reason, "t_scratch")
@@ -167,6 +194,7 @@ class ExitTests(unittest.TestCase):
         self.assertIsNone(action)
 
     def test_impulse_wait_stops_an_eighty_percent_hole(self):
+        """Pre-017 stack, kept as the sweep control (BTCHOUR_IMPULSE_WAIT_HOLD=0)."""
         cost = fill_cost(0.25, taker=False)
         waiting = OpenPosition(
             ticker=self.position.ticker,
@@ -177,7 +205,13 @@ class ExitTests(unittest.TestCase):
             play="impulse_wait",
             entry_p=0.36,
         )
-        action = self._act(waiting, _market(yes_bid="0.96", yes_ask="0.97", no_bid="0.03", no_ask="0.04"), 0.10, 1200, self.settings)
+        action = self._act(
+            waiting,
+            _market(yes_bid="0.96", yes_ask="0.97", no_bid="0.03", no_ask="0.04"),
+            0.10,
+            1200,
+            replace(self.settings, impulse_wait_hold=False),
+        )
         self.assertIsNotNone(action)
         self.assertEqual(action.reason, "t_wait_stop")
 

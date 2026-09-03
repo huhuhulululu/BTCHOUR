@@ -360,6 +360,7 @@ def replay_bars(
     if position is not None:
         result = results.get(position["entry"]["strike"], "")
         pnl = paper_settle(position["cost"], position["count"], position["side"], result) if result in {"yes", "no"} else None
+        play = (position.get("entry") or {}).get("play") or ""
         takes.append(
             {
                 **position["entry"],
@@ -370,6 +371,14 @@ def replay_bars(
                 "result": result,
             }
         )
+        # 017 made settlement the normal way a coupon ends. 006 counts a losing hour
+        # whether it ended on a stop or on the settle, exactly as `store.session_memory()`
+        # already does live (it reads status settled as well as closed). Without this the
+        # skip hour would quietly stop firing in replay the moment the clip band came off.
+        if play in T_PLAYS and settings.skip_after_loss:
+            session = remember_session_exit(
+                session, event_ticker, "settle", pnl, position["side"], play
+            )
 
     return {
         "event_ticker": event_ticker,

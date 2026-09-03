@@ -242,54 +242,53 @@ class CouponHoldTests(unittest.TestCase):
     def flex(self, **extra):
         return apply_playbook(Settings(), "flex", extras=extra)
 
-    def test_default_still_clips(self):
-        """005 is untouched unless the switch is set."""
-        self.assertFalse(Settings().impulse_wait_hold)
+    def test_default_holds_the_clip(self):
+        """017 is the default: a run-up no longer clips the coupon."""
+        self.assertTrue(Settings().impulse_wait_hold)
         market = hourly_market(78300.0, yes_ask=0.60, yes_bid=0.59)  # NO bid 0.40
-        decision = evaluate_exit(self.position(), market, 0.55, 900.0, self.flex())
+        self.assertIsNone(evaluate_exit(self.position(), market, 0.55, 900.0, self.flex()).action)
+
+    def test_pre_017_stack_is_still_reachable_as_a_control(self):
+        market = hourly_market(78300.0, yes_ask=0.60, yes_bid=0.59)
+        decision = evaluate_exit(
+            self.position(), market, 0.55, 900.0, self.flex(impulse_wait_hold=False)
+        )
         self.assertIsNotNone(decision.action)
         self.assertEqual(decision.action.reason, "t_clip")
 
-    def test_hold_switch_drops_the_clip(self):
-        market = hourly_market(78300.0, yes_ask=0.60, yes_bid=0.59)
-        decision = evaluate_exit(
-            self.position(), market, 0.55, 900.0, self.flex(impulse_wait_hold=True)
-        )
-        self.assertIsNone(decision.action)
-
-    def test_hold_switch_drops_the_wait_stop(self):
+    def test_default_drops_the_wait_stop(self):
         market = hourly_market(78300.0, yes_ask=0.97, yes_bid=0.96)  # NO bid 0.03
-        settings = self.flex()
+        self.assertIsNone(evaluate_exit(self.position(), market, 0.10, 900.0, self.flex()).action)
         self.assertEqual(
-            evaluate_exit(self.position(), market, 0.10, 900.0, settings).action.reason,
+            evaluate_exit(
+                self.position(), market, 0.10, 900.0, self.flex(impulse_wait_hold=False)
+            ).action.reason,
             "t_wait_stop",
         )
-        held = evaluate_exit(
-            self.position(), market, 0.10, 900.0, self.flex(impulse_wait_hold=True)
-        )
-        self.assertIsNone(held.action)
 
-    def test_hold_switch_drops_the_scratch(self):
+    def test_default_drops_the_scratch(self):
         market = hourly_market(78300.0, yes_ask=0.74, yes_bid=0.73)  # NO bid 0.26
         position = OpenPosition(
             ticker="KXBTCD-26SEP0313-T78300", event_ticker="KXBTCD-26SEP0313",
             side="no", cost=0.25, count=1.0, play="impulse_wait",
             entry_p=0.44, held_seconds=600.0,
         )
+        self.assertIsNone(evaluate_exit(position, market, 0.45, 900.0, self.flex()).action)
         self.assertEqual(
-            evaluate_exit(position, market, 0.45, 900.0, self.flex()).action.reason, "t_scratch"
-        )
-        self.assertIsNone(
-            evaluate_exit(position, market, 0.45, 900.0, self.flex(impulse_wait_hold=True)).action
+            evaluate_exit(
+                position, market, 0.45, 900.0, self.flex(impulse_wait_hold=False)
+            ).action.reason,
+            "t_scratch",
         )
 
-    def test_hold_switch_does_not_swap_the_clip_for_lock_on_book(self):
+    def test_the_clip_is_not_swapped_for_lock_on_book(self):
         """A 20% lock on a 25c entry is `t_clip` under another name."""
         market = hourly_market(78300.0, yes_ask=0.60, yes_bid=0.59)
-        decision = evaluate_exit(
-            self.position(), market, 0.55, 900.0, self.flex(impulse_wait_hold=True)
-        )
-        self.assertIsNone(decision.action)
+        self.assertIsNone(evaluate_exit(self.position(), market, 0.55, 900.0, self.flex()).action)
+
+    def test_the_twap_flatten_is_dropped_too(self):
+        market = hourly_market(78300.0, yes_ask=0.74, yes_bid=0.73, minutes_left=1)
+        self.assertIsNone(evaluate_exit(self.position(), market, 0.45, 20.0, self.flex()).action)
 
     def test_hold_switch_leaves_other_plays_alone(self):
         """A `hold_edge` position keeps `lock_on_book` with the switch on."""
@@ -298,10 +297,7 @@ class CouponHoldTests(unittest.TestCase):
             side="yes", cost=0.72, count=1.0, play="hold_edge", entry_p=0.90,
         )
         market = hourly_market(77000.0, yes_ask=0.99, yes_bid=0.98)
-        decision = evaluate_exit(
-            position, market, 0.99, 900.0,
-            apply_playbook(Settings(), "flex", extras={"impulse_wait_hold": True}),
-        )
+        decision = evaluate_exit(position, market, 0.99, 900.0, self.flex())
         self.assertIsNotNone(decision.action)
         self.assertEqual(decision.action.reason, "lock_on_book")
 
@@ -312,9 +308,7 @@ class CouponHoldTests(unittest.TestCase):
             held_seconds=300.0,
         )
         market = hourly_market(78300.0, yes_ask=0.75, yes_bid=0.74)  # NO bid 0.25
-        decision = evaluate_exit(
-            position, market, 0.55, 900.0, self.flex(impulse_wait_hold=True)
-        )
+        decision = evaluate_exit(position, market, 0.55, 900.0, self.flex())
         self.assertIsNotNone(decision.action)
         self.assertEqual(decision.action.reason, "t_stop")
 
@@ -333,14 +327,11 @@ class CushionSettingsTests(unittest.TestCase):
         self.assertAlmostEqual(settings.cushion_max_ask, 0.90)
         self.assertEqual(settings.cushion_max_per_hour, 3)
 
-    def test_016_and_017_are_both_off_by_default(self):
-        """Neither proposal changes behaviour until the user signs it off."""
-        settings = Settings()
-        self.assertFalse(settings.cushion_hold)
-        self.assertFalse(settings.impulse_wait_hold)
-        flex = apply_playbook(Settings(), "flex")
-        self.assertFalse(flex.cushion_hold)
-        self.assertFalse(flex.impulse_wait_hold)
+    def test_017_on_016_off(self):
+        """017 was signed off; 016 failed the calendar split and stays a control."""
+        for settings in (Settings(), apply_playbook(Settings(), "flex")):
+            self.assertTrue(settings.impulse_wait_hold)
+            self.assertFalse(settings.cushion_hold)
 
     def test_cushion_floor_can_never_reach_the_008_band(self):
         """008 stays frozen by construction, not by luck."""

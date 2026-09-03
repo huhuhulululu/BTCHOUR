@@ -1520,7 +1520,7 @@ class ImpulseWaitEngineTests(unittest.TestCase):
 
 
 class ImpulseWaitReplayTests(unittest.TestCase):
-    def test_rests_then_holds_the_bounce_then_clips(self):
+    def test_rests_then_holds_the_bounce_then_settles(self):
         settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
         maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
         strike = 78699.99
@@ -1536,7 +1536,7 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         self.assertEqual(take["play"], "impulse_wait")
         self.assertEqual(take["side"], "no")
         self.assertAlmostEqual(take["ask"], 0.25)
-        self.assertEqual(take["exit_reason"], "t_clip")
+        self.assertEqual(take["exit_reason"], "settle")
         self.assertGreater(take["pnl"], 0)
         self.assertGreaterEqual(take["roi"], 0.50)
 
@@ -1560,7 +1560,7 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         self.assertEqual(len(report["takes"]), 1)
         self.assertEqual(report["takes"][0]["play"], "impulse_wait")
         self.assertAlmostEqual(report["takes"][0]["ask"], 0.25)
-        self.assertEqual(report["takes"][0]["exit_reason"], "t_clip")
+        self.assertEqual(report["takes"][0]["exit_reason"], "settle")
         self.assertGreater(report["takes"][0]["pnl"], 0)
 
     def test_fade_keeps_the_bid_then_dump_reprint_fills(self):
@@ -1590,7 +1590,7 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         self.assertEqual(len(report["takes"]), 1)
         self.assertEqual(report["takes"][0]["play"], "impulse_wait")
         self.assertAlmostEqual(report["takes"][0]["ask"], 0.25)
-        self.assertEqual(report["takes"][0]["exit_reason"], "t_clip")
+        self.assertEqual(report["takes"][0]["exit_reason"], "settle")
         self.assertGreater(report["takes"][0]["pnl"], 0)
 
     def test_bounce_rip_does_not_fill_then_second_dump_does(self):
@@ -1621,7 +1621,7 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         take = report["takes"][0]
         self.assertEqual(take["play"], "impulse_wait")
         self.assertAlmostEqual(take["ask"], 0.25)
-        self.assertEqual(take["exit_reason"], "t_clip")
+        self.assertEqual(take["exit_reason"], "settle")
         self.assertGreater(take["pnl"], 0)
 
     def test_lock_close_still_deads_the_wait(self):
@@ -1687,9 +1687,10 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         self.assertEqual(report["takes"][0]["play"], "impulse_wait")
         self.assertEqual(report["takes"][0]["ticker"], f"KXBTCD-26AUG2609-T{coupon}")
         self.assertAlmostEqual(report["takes"][0]["ask"], 0.25)
-        self.assertEqual(report["takes"][0]["exit_reason"], "t_clip")
+        self.assertEqual(report["takes"][0]["exit_reason"], "settle")
 
     def test_dump_coupon_still_rests_after_a_taker_clip_on_replay(self):
+        """The taker leg still clips (017 is coupon-only); the coupon rides to settle."""
         settings = Settings(
             playbook="flex",
             max_contracts=1,
@@ -1738,7 +1739,7 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         coupon_take = next(take for take in report["takes"] if take["play"] == "impulse_wait")
         self.assertEqual(coupon_take["ticker"], f"KXBTCD-26AUG2611-T{coupon}")
         self.assertAlmostEqual(coupon_take["ask"], 0.25)
-        self.assertEqual(coupon_take["exit_reason"], "t_clip")
+        self.assertEqual(coupon_take["exit_reason"], "settle")
         self.assertGreater(coupon_take["pnl"], 0)
 
     def test_dump_coupon_still_rests_after_a_taker_stop_on_replay(self):
@@ -1793,7 +1794,7 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         coupon_take = next(take for take in report["takes"] if take["play"] == "impulse_wait")
         self.assertEqual(coupon_take["ticker"], f"KXBTCD-26AUG2614-T{coupon}")
         self.assertAlmostEqual(coupon_take["ask"], 0.25)
-        self.assertEqual(coupon_take["exit_reason"], "t_clip")
+        self.assertEqual(coupon_take["exit_reason"], "settle")
 
     def test_zero_volume_wick_is_not_a_print(self):
         settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)

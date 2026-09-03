@@ -87,12 +87,15 @@ class Settings:
     impulse_wait_stop: float = 0.80
     impulse_wait_scratch_seconds: float = 480.0
 
-    # cushion_hold (016): the tape has already pushed spot >= N residual-vol sigmas off
-    # the strike while the book still prices the favourite under 90c. Taker in, hold to
-    # settlement. Off by default -- 016 is a proposal until the user signs it off.
-    # 017: carry a filled coupon to settlement instead of running the clip stack on it.
-    impulse_wait_hold: bool = False
+    # 017 (accepted 2026-09-03): a filled coupon is carried to settlement instead of
+    # running the clip stack on it. The same 348 fills over 66 days of KXBTCD are -0.86c
+    # held and -4.14c (t=-4.99) clipped. Set 0 for the pre-017 stack as a sweep control.
+    impulse_wait_hold: bool = True
 
+    # cushion_hold (016, rejected-pending-data): the tape has already pushed spot >= N
+    # residual-vol sigmas off the strike while the book still prices the favourite under
+    # 90c. Taker in, hold to settlement. Stays OFF: +0.53c t=0.62 over 66 days, opposite
+    # signs in the two calendar halves, negative after one tick of slippage.
     cushion_hold: bool = False
     cushion_min: float = 1.5
     cushion_min_ask: float = 0.70
@@ -198,7 +201,7 @@ def load_settings() -> Settings:
         impulse_wait_max_distance=_env_float("BTCHOUR_IMPULSE_WAIT_MAX_DISTANCE", 600.0),
         impulse_wait_stop=_env_float("BTCHOUR_IMPULSE_WAIT_STOP", 0.80),
         impulse_wait_scratch_seconds=_env_float("BTCHOUR_IMPULSE_WAIT_SCRATCH_SECONDS", 480.0),
-        impulse_wait_hold=_env_bool("BTCHOUR_IMPULSE_WAIT_HOLD", False),
+        impulse_wait_hold=_env_bool("BTCHOUR_IMPULSE_WAIT_HOLD", True),
         cushion_hold=_env_bool("BTCHOUR_CUSHION_HOLD", playbook == "edge"),
         cushion_min=_env_float("BTCHOUR_CUSHION_MIN", 1.5),
         cushion_min_ask=_env_float("BTCHOUR_CUSHION_MIN_ASK", 0.70),
