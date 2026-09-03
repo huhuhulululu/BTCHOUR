@@ -19,7 +19,7 @@ python3 -m btchour sync
 | `catalog/snapshot/sweep.json` | 同一段 K 线上 flex/swing/lock、跳过亏损小时开/关的对照 |
 | `catalog/research/learn.md` | 纸交易循环学到的拒单 / 空窗 |
 | `catalog/research/manual.md` | 账户成交里守规矩的 10%–50% 和累了选错方向 |
-| `catalog/research/hourly-backtest-2026-09-03.md` | **一年级回测** 1544 小时 / 66.2 天：价带图、coupon 出场栈、C1 移植判决 |
+| `catalog/research/hourly-backtest-2026-09-03.md` | **一年级回测** 1557 小时 / 66.8 天：价带图、coupon 出场栈、C1 判决、端到端（第 11 节）、费用门槛（10b） |
 | `catalog/rules/cushion.md` | `cushion_hold` / `edge` playbook（对照，未接线，ADR 016） |
 | `data/catalog/latest.json` | 运行时副本（不入库） |
 
