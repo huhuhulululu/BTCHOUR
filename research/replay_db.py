@@ -118,6 +118,34 @@ def no_same_bar(inner):
     return guarded
 
 
+
+def close_ask_bars(inner):
+    """Force the entry ask to the minute's CLOSE, whatever the playbook asked for.
+
+    `bars_from_tape` uses `low_dollars` as the ask for the whole bar when the playbook is
+    `lock`. The strategy then decides on that price and fills at it, which assumes it
+    always caught the best print of the minute -- the same folded time axis ADR 032 found
+    in the coupon path, in a second place. This wrapper rebuilds each bar's ask from the
+    candle close so the two can be compared. `yes_ask_low` is left alone: using the
+    minute's low to ask "would a resting order have been hit" is legitimate.
+    """
+    def wrapped(tape, settings):
+        bars = inner(tape, settings)
+        for bar in bars:
+            for strike, quotes in bar.quotes.items():
+                stick = (tape.candles.get(strike) or {}).get(bar.end_ts)
+                if not stick:
+                    continue
+                close = (stick.get("yes_ask") or {}).get("close_dollars")
+                if close in (None, ""):
+                    continue
+                value = float(close)
+                quotes["yes_ask"] = value if 0 < value < 1 else None
+        return bars
+
+    return wrapped
+
+
 def tapes(db: Path, limit: int | None = None, slice_half: str = ""):
     """One `EventTape` per settled hour, in the shape `replay_tape` already expects."""
     conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
@@ -195,6 +223,9 @@ def main(argv=None) -> int:
     ap.add_argument("--fill", default="atrest", choices=["atrest", "through"],
                     help="atrest = production `_ask_at_rest`; through = a resting bid is"
                          " hit whenever the offer falls to or past it")
+    ap.add_argument("--close-ask", action="store_true",
+                    help="entry ask = the minute close even under --playbook lock, which"
+                         " otherwise decides and fills on the minute's low")
     ap.add_argument("--no-same-bar-fill", action="store_true",
                     help="refuse the fill that lands on the same bar the rest was hung")
     ap.add_argument("--slip", type=float, default=0.0,
@@ -208,6 +239,9 @@ def main(argv=None) -> int:
         settings = replace(settings, allow_early_exit=False)
     if args.impulse_taker:
         settings = replace(settings, impulse_taker=True)
+
+    if args.close_ask:
+        replay_mod.bars_from_tape = close_ask_bars(replay_mod.bars_from_tape)
 
     base = fill_through if args.fill == "through" else replay_mod.wait_book_crossed
     if args.no_same_bar_fill:
@@ -228,7 +262,8 @@ def main(argv=None) -> int:
     days = hours / 24.0
     label = (f"playbook={args.playbook} hold={not args.no_hold}"
              f" early_exit={not args.no_early_exit} impulse_taker={args.impulse_taker}"
-             f" fill={args.fill} same_bar={not args.no_same_bar_fill}")
+             f" fill={args.fill} same_bar={not args.no_same_bar_fill}"
+             f" close_ask={args.close_ask}")
     print(f"# hours={hours} days={days:.1f} slice={args.slice or 'full'}  {label}")
     if not takes:
         print("   no entries -- the loop never took a position over this whole tape")
