@@ -14,6 +14,7 @@ from btchour.model import SpotQuote, digital_prob, effective_vol, realized_annua
 from btchour.paper import paper_close, paper_fill, paper_settle
 from btchour.strategy import (
     T_PLAYS,
+    is_settle_play,
     SessionMemory,
     SwingMemory,
     apply_swing_memory,
@@ -266,7 +267,7 @@ def replay_bars(
                     )
                     just_closed = (position["ticker"], position["side"])
                     play = (position.get("entry") or {}).get("play") or ""
-                    if play in T_PLAYS or play.startswith("lock"):
+                    if play in T_PLAYS or is_settle_play(play):
                         swing_mem = remember_swing_exit(
                             swing_mem, position["ticker"], position["side"], action.reason, play
                         )

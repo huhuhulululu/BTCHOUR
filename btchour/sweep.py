@@ -45,6 +45,14 @@ DEFAULT_VARIANTS = [
     },
     {"name": "swing_skip", "playbook": "swing", "skip_after_loss": True},
     {"name": "lock", "playbook": "lock", "skip_after_loss": False},
+    # 016 candidate: cushion_hold alone, and flex with cushion_hold layered on top.
+    {"name": "edge", "playbook": "edge", "skip_after_loss": False},
+    {
+        "name": "flex_cushion",
+        "playbook": "flex",
+        "skip_after_loss": True,
+        "cushion_hold": True,
+    },
 ]
 
 

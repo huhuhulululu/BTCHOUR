@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from btchour.config import Settings
 from btchour.fees import lock_exit_price, round_trip_roi
 from btchour.kalshi import Market
+from btchour.strategy import is_settle_play
 
 
 @dataclass(frozen=True)
@@ -57,12 +58,27 @@ def evaluate_exit(
         return ExitDecision(None, peak)
 
     play = position.play or ""
-    locked = play.startswith("lock")
     wait_t = play == "impulse_wait"
+    # `cushion_hold` is a settle-out play like `lock_hold`: over 66 days of KXBTCD the
+    # same 1612 entries go +0.53c held and −1.61c (t=−4.73) once the 10–50% clip band
+    # runs on top, so it must never reach the 做T branch or the TWAP flatten
+    # (`research/study_rule.py`).
+    #
+    # 017: `impulse_wait_hold` extends the same treatment to a filled coupon. The same
+    # 348 coupon fills are −0.86c (t=−0.33) held to settlement and −4.14c (t=−4.99)
+    # under the clip band plus the −80% stop plus the 8-minute scratch, in both
+    # calendar halves (`research/study_coupon.py`). Off by default: 005 stands until
+    # the user signs 017 off.
+    locked = is_settle_play(play) or (wait_t and settings.impulse_wait_hold)
     do_t = (play in {"swing_t", "impulse_t", "impulse_wait"} or settings.playbook == "swing") and not locked
+    # `lock_on_book` sells only at a locked 20%, so it stays on for every play whose
+    # entry is already a favourite. The one exception is a coupon held under 017: on a
+    # 25c entry a 20% lock is `t_clip` under another name, which is the thing that costs
+    # the money. Every other play keeps its existing behaviour exactly.
+    lock_ok = not (wait_t and settings.impulse_wait_hold)
 
     lock20 = lock_exit_price(position.cost, position.count, settings.target_profit)
-    if (not do_t) and bid is not None and lock20 is not None and bid + 1e-12 >= lock20:
+    if (not do_t) and lock_ok and bid is not None and lock20 is not None and bid + 1e-12 >= lock20:
         return ExitDecision(
             ExitAction(
                 reason="lock_on_book",

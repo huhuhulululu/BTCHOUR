@@ -11,6 +11,12 @@ from btchour.tickers import is_hourly_window, next_event_ticker, next_session_ev
 
 T_PLAYS = frozenset({"swing_t", "impulse_t", "impulse_wait"})
 WAIT_PLAYS = frozenset({"lock_wait", "impulse_wait"})
+SETTLE_PLAYS = frozenset({"cushion_hold"})
+
+
+def is_settle_play(play: str) -> bool:
+    """Plays that are carried to settlement: never clipped, trailed, or TWAP-flattened."""
+    return bool(play) and (play.startswith("lock") or play in SETTLE_PLAYS)
 
 
 def dump_wait_rest_ready(impulse: float, settings: Settings) -> bool:
@@ -614,6 +620,99 @@ def evaluate_swing_market(
     return found
 
 
+def evaluate_cushion_market(
+    market: Market,
+    spot: SpotQuote,
+    settings: Settings,
+    now: datetime | None = None,
+) -> list[Opportunity]:
+    """`cushion_hold` (016): buy the side the tape has already decided, hold to settlement.
+
+    The gate is the residual-vol cushion this repo already computes for `lock_hold`,
+    only far lower: spot must sit at least `cushion_min` sigmas of *remaining* move away
+    from the strike, while the book still prices that side at 70-90c. That pair is a
+    disagreement -- the ladder has not finished repricing the move.
+
+    **Not validated (ADR 016).** Over 66 days of KXBTCD it is +0.53c/contract, t=0.62,
+    CI [−1.15, +2.21]; the two calendar halves have opposite signs and a single tick of
+    slippage turns it negative. It ships OFF, as a `sweep` control next to `flex_cheap`.
+
+    What this play is not:
+      * not a coupon -- it never rests, it crosses the ask;
+      * not a 做T -- there is no clip band, no trail, no stop, no TWAP flatten;
+      * not a 0.45-0.70 taker (008): the floor is 70c and the side is the favourite;
+      * not `lock_hold` -- it does not demand 20% if-win, which is exactly why it fires.
+    """
+    now = now or datetime.now(timezone.utc)
+    if not settings.cushion_hold:
+        return []
+    if market.strike is None:
+        return []
+    if not is_hourly_window(market.open_time, market.close_time):
+        return []
+    seconds = _seconds_left(market.close_time, now)
+    if seconds + 1e-12 < settings.cushion_min_seconds:
+        return []
+    vol = effective_vol(spot.annual_vol, settings.annual_vol)
+    z = sigma_cushion(spot.price, market.strike, seconds, vol)
+    if z + 1e-12 < settings.cushion_min:
+        return []
+    side = "yes" if spot.price > market.strike else "no"
+    book_side = "bid" if side == "yes" else "ask"
+    p_yes = digital_prob(spot.price, market.strike, seconds, vol)
+    model_p = p_yes if side == "yes" else 1.0 - p_yes
+    ask = market.yes_ask_effective if side == "yes" else market.no_ask_effective
+    if ask is None or ask <= 0 or ask >= 1.0:
+        return []
+    if ask + 1e-12 < settings.cushion_min_ask or ask > settings.cushion_max_ask + 1e-12:
+        return []
+    cost = fill_cost(ask, 1.0, taker=True)
+    edge = cost.edge(model_p)
+    row = _make_opportunity(
+        market=market,
+        spot=spot,
+        settings=settings,
+        seconds=seconds,
+        side=side,
+        book_side=book_side,
+        model_p=model_p,
+        ask=ask,
+        taker=True,
+        limit=ask,
+        cost=cost,
+        play="cushion_hold",
+        reason=(
+            f"cushion_hold {side.upper()} σ={z:.2f}≥{settings.cushion_min:.2f} "
+            f"p={model_p:.1%} ask={ask:.2f} b={edge.b:.1%} holdEV={edge.ev:.1%} "
+            f"持到结算不做T; strike {market.strike:.2f} / spot {spot.price:.2f}"
+        ),
+    )
+    return [row] if row else []
+
+
+def pick_cushion(opps: list[Opportunity], settings: Settings) -> list[Opportunity]:
+    """Widest cushion first, one rung per strike, capped per hour."""
+    ordered = sorted(
+        opps,
+        key=lambda row: (
+            sigma_cushion(row.spot, row.strike, row.seconds_left, settings.annual_vol),
+            row.model_p - row.ask,
+        ),
+        reverse=True,
+    )
+    seen: set[tuple[str, str]] = set()
+    out: list[Opportunity] = []
+    for row in ordered:
+        key = (row.ticker, row.side)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(row)
+        if len(out) >= max(1, settings.cushion_max_per_hour):
+            break
+    return out
+
+
 def evaluate_impulse_market(
     market: Market,
     spot: SpotQuote,
@@ -946,6 +1045,7 @@ def pick_flex_entries(opps: list, *, working_plays: set[str] | None = None) -> l
     """
     working_plays = working_plays or set()
     lock_takes = [row for row in opps if _entry_play(row) == "lock_hold" and _entry_taker(row)]
+    cushion_takes = [row for row in opps if _entry_play(row) == "cushion_hold"]
     dump_waits = [row for row in opps if _entry_play(row) == "impulse_wait"]
     impulse_takes = [
         row for row in opps if _entry_play(row) in {"impulse_t", "swing_t"} and _entry_taker(row)
@@ -955,6 +1055,9 @@ def pick_flex_entries(opps: list, *, working_plays: set[str] | None = None) -> l
         impulse_takes = []
     if lock_takes:
         return lock_takes[:1]
+    if cushion_takes:
+        # 016: a decided rung the book has not finished repricing outranks a coupon rest.
+        return cushion_takes
     if dump_waits:
         return dump_waits[:3]
     if impulse_takes:
@@ -1020,6 +1123,13 @@ def scan_markets(markets: list[Market], spot: SpotQuote, settings: Settings, now
     swings: list[Opportunity] = []
     hold: list[Opportunity] = []
     scalp: list[Opportunity] = []
+    cushions: list[Opportunity] = []
+    if settings.cushion_hold and settings.playbook in {"edge", "flex"}:
+        for market in markets:
+            cushions.extend(evaluate_cushion_market(market, spot, settings, now))
+        cushions = pick_cushion(cushions, settings)
+    if settings.playbook == "edge":
+        return cushions
     if settings.playbook in {"lock", "flex"}:
         for market in markets:
             locks.extend(evaluate_lock_market(market, spot, settings, now))
@@ -1051,7 +1161,7 @@ def scan_markets(markets: list[Market], spot: SpotQuote, settings: Settings, now
         return locks
     if settings.playbook == "swing":
         return swings
-    takes = [row for row in locks if row.taker] + swings
+    takes = [row for row in locks if row.taker] + cushions + swings
     waits = [row for row in locks if not row.taker]
     return takes + waits
 

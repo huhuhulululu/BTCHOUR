@@ -27,4 +27,6 @@ python3 -m btchour fills
 
 只要锁仓：`--playbook lock`。只要短线：`--playbook swing`。
 
+**一年级回测（2026-09-03）**：`KXBTCD` 自己的 1544 小时 / 66.2 天，[`catalog/research/hourly-backtest-2026-09-03.md`](catalog/research/hourly-backtest-2026-09-03.md)，复跑见 [`research/`](research/README.md)。三条结论：整条阶梯 0.58 以下每格显著为负（ADR 018）；成交的 coupon 进场公道、**亏在出场栈**每张 3.28¢（ADR 017）；C1 移植 `cushion_hold` 未通过样本外、只作对照（ADR 016）。
+
 多角色编制（从 `huhuhulululu/kalshi` 客制，小时盘瘦编制）：[`docs/TEAM.md`](docs/TEAM.md)。目标只在 [`docs/GOALS.md`](docs/GOALS.md)。冻结门：[`docs/decisions.md`](docs/decisions.md)。小时盘整条近 ATM 阶梯是工作盘，操作权高于 15 分钟研究仓的坐等（011）；`board` 必须报活档数。

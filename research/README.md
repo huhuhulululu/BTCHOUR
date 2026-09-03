@@ -1,0 +1,72 @@
+# `research/` — 小时盘历史实验台
+
+在这个目录出现之前，本仓库能看的最长一段带子是 `replay --hours 16`：**十六个小时**。所有的门
+（005 的 $100、007 的不 hop、008 的不吃 taker）都是在几十张纸单和十七张真单上定的。
+
+这里补的是缺的那一半：**`KXBTCD` 自己的 1544 小时 / 66.2 天**，公开端点、可复跑、不入库。
+上限是 `/live_data` 的秒级 BRTI 保留期（约 66 天）；再往前只能换现货代理，会引入基差，
+所以宁可短而真（15 分钟仓 phase44 的 USDT +8.7bps 教训）。
+
+## 数据
+
+```bash
+python3 research/pull_hourly.py --days 70 --workers 8
+```
+
+写 `data/hourly.sqlite`（gitignored，约 700 MB / 66 天）。只用公开端点，不需要 key：
+
+| 端点 | 拿到什么 |
+| --- | --- |
+| `/events?series_ticker=KXBTCD&status=settled` | 已结算的小时（列表可回溯到 2025-08，但秒级 BRTI 只有约 66 天） |
+| `/events/{event_ticker}` | 整条行权价阶梯 + `result` + `expiration_value` |
+| `/live_data/events/{event_ticker}?range=1h` | 秒级 BRTI（存成 10 秒一格） |
+| `/series/KXBTCD/markets/{ticker}/candlesticks` | 每分钟 `yes_bid` / `yes_ask` 的开高低收 + 成交量 |
+
+**结算真相用 `expiration_value`**，就是 Kalshi 实际结算的那个 60 秒 BRTI 均值，不是现货代理
+（`catalog/rules/settlement.md`）。重跑是增量的：已经拉过的 event 会跳过。
+
+## 口径
+
+费用、GBM 概率、σ 缓冲全部**直接 import `btchour.fees` / `btchour.model`**，不另写一套更便宜的。
+一条只有在更松的成本模型下才赢的规则不是规则。
+
+- 一个**小时**是一个聚类。同一小时的各档一起动，所以 t 统计按 `event_ticker` 做 cluster-robust
+  （15 分钟仓 LESSONS：每张一行的朴素 t 会被抬高 80%）。
+- 在分钟末 `ts` 做的决定只能读那一分钟的 candle **收盘**值和更早的东西。
+- `yes` 吃 `yes_ask_close`；`no` 吃 `1 − yes_bid_close`。
+- 净额单位是**每张分**，已扣进场费（提前平的还扣一次出场费）。
+
+## 四个 study
+
+| 脚本 | 问题 |
+| --- | --- |
+| `study_calibration.py` | 小时盘阶梯上，钱在哪个价带？（favorite–longshot 图） |
+| `study_candidates.py` | 候选进场规则的网格 + Bonferroni + discovery/holdout |
+| `study_coupon.py` | 现行默认 `impulse_wait` 25¢ 挂等到底赚不赚（015 的题面） |
+| `study_rule.py` | 冻结一条规则，压力测试：滑点 / 流动性 / 拥挤 / 时段 / 打乱结算 / 风险 |
+| `study_cushion_map.py` | 缓冲 × 卖一的**图**，而不是一个网格搜出来的格子 |
+| `study_maker.py` | 挂偏强侧（maker 费 0）能不能躲开二次费——touch / cross 两种成交口径 |
+
+```bash
+python3 research/study_calibration.py
+python3 research/study_candidates.py --family final --split
+python3 research/study_coupon.py --slice early      # 也跑 --slice late
+python3 research/study_rule.py
+python3 research/study_cushion_map.py --slice early
+python3 research/study_maker.py --slice early
+```
+
+每个 study 都接 `--slice early|late`：**按小时数中位切日历**，前半选形状、后半验证。
+`cushion_hold` 就是死在这一步（前半 −，后半 +，全样本 t=0.62）。
+
+结果与结论：[`catalog/research/hourly-backtest-2026-09-03.md`](../catalog/research/hourly-backtest-2026-09-03.md)。
+
+## 借鉴自 `huhuhulululu/kalshi`（15 分钟仓，只读，未改动）
+
+那边 48 个 phase 的产物里，对本仓库有用的是**方法**和**否定结论**，不是它的坐等姿态（GOALS 明说不抄）：
+
+- `phase12b`：便宜侧 0.20–0.30 真实胜率比隐含低约 2pp；止盈在**每一个**价带都比持有差 1.3–2.7¢。
+- `phase4 G1` / `phase13 adverse_selection`：盘中出场 11 条全负；挂单成交子集胜率低 5.5–6.3pp。
+- `phase19`：走前协议本身会不稳；规则空间越大越像在最大化噪声；打乱结算做零假设。
+- `phase1 microstructure`：唯一跨币种失效点是偏强 **0.85–0.95 被低估约 1.5–2pp**——这就是本仓库
+  `cushion_hold` 的机制来源，但参数是在 `KXBTCD` 自己的带子上重新量的，不是抄参数。
