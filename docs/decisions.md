@@ -789,3 +789,23 @@
 - 影响面: `flex`（默认）不受影响，它本来就用收盘价。受影响的是 `--playbook lock`
   与 sweep 里的 lock 变体。
 - 对照: `python3 research/replay_db.py --playbook lock --close-ask`
+
+#### 审计范围与结论（032 那一类缺陷，全查了一遍）
+
+「决策用收盘、成交用同分钟极值」这一类，把 replay 和 research 的每一处极值用法都过了一遍：
+
+| 位置 | 用途 | 判定 |
+| --- | --- | --- |
+| `replay.py:304-305` | `wait_book_crossed` 的挂单成交检验 | **对**——「我的挂单会不会被打到」正该用分钟极值 |
+| `replay.py:537` | `lock` 的进场 ask | **错**（本条 033，未改） |
+| 挂单后立刻用同 bar 提升 | coupon 成交 | **错**（032，已修） |
+| `replay.py:595-618` | `tape_from_bars` 把极值写回缓存 tape | 无定价判断，只是往返 |
+| 出场栈（`evaluate_exit`） | 平仓价 | **对**——`market_at_bar` 只吃收盘，出场全程不碰极值 |
+| taker 进场（flex） | 进场价 | **对**——收盘决策、收盘成交 |
+| `_minute_spot` / vol / impulse | 状态构造 | **对**——全部向后看，bar 的 `end_ts` 与蜡烛 `end_period_ts` 对齐 |
+| `study_candidates.py:154` | 出场峰值 | **对**——极值路径挂在显式的 `optimistic` 开关上，且封顶价是**限价** `cap_price`，不是观察到的极值；止损与移动止盈全用收盘 |
+| `study_coupon.py` / `study_maker.py` | 挂单成交检验 | **对**——同 304-305，且 `--fill-ticks` 能收紧成一格穿价 |
+
+**结论：这一类只有两处，032（已修）和 033（本条，待裁决）。其余是对的。**
+把这张表留在这里，是因为「查过了，干净」和「查出来了」同样值钱——
+下一个人不必再查一遍。
