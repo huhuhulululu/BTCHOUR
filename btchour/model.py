@@ -10,6 +10,14 @@ MIN_TAU_SECONDS = 45.0
 # Never divide by zero in the final ticks; 1s of variance time is ~0.6bp of BTC move.
 MIN_VARIANCE_SECONDS = 1.0
 
+# ADR 021: BTC does not move evenly across the hour, so a trailing vol estimate is
+# systematically wrong in a way that depends on where in the hour you stand. Weights
+# are E[r^2] per ten-minute block of the hour, normalised to mean 1, measured on the
+# FIRST calendar half of the 1544-hour sample and validated on the second. A 60-point
+# per-minute profile scores the same out-of-sample (0.08800 vs 0.08799), so the shape
+# is structural, not fitted -- six numbers is the honest resolution.
+HOUR_VARIANCE_WEIGHTS = (1.14, 1.03, 0.94, 1.16, 0.94, 0.78)
+
 
 def norm_cdf(x: float) -> float:
     return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
@@ -45,11 +53,60 @@ def twap_variance_seconds(seconds: float, window: float = TWAP_SECONDS) -> float
     return (seconds ** 3) / (3.0 * window * window)
 
 
-def digital_prob(spot: float, strike: float, seconds: float, annual_vol: float, drift: float = 0.0) -> float:
-    """P(settlement > strike), where settlement is the BRTI 60-second mean."""
+def hour_variance_weight(minute: float) -> float:
+    """Relative variance of one minute, by its position in the hour (mean 1)."""
+    index = int(minute) // 10
+    if index < 0:
+        index = 0
+    elif index >= len(HOUR_VARIANCE_WEIGHTS):
+        index = len(HOUR_VARIANCE_WEIGHTS) - 1
+    return HOUR_VARIANCE_WEIGHTS[index]
+
+
+def seasonal_scale(seconds: float, minute: float | None) -> float:
+    """How much the remaining minutes weigh against a flat-vol assumption.
+
+    A trailing 15-minute vol estimate taken at minute 5 mostly measures the previous
+    hour's quiet tail and is then applied to this hour's busy open, so it runs cold;
+    taken at minute 50 it measures the busy middle and is applied to the closing lull,
+    so it runs hot. Measured on the sample, realised/model sd ran 1.07 at T-45..60m and
+    0.88 at T-5..10m. Reshaping the remaining variance by the hour profile pulls the
+    out-of-sample spread from a mean |error| of 0.053 to 0.038.
+
+    Returns 1.0 when the position in the hour is unknown, so callers that cannot supply
+    it keep the previous behaviour exactly.
+    """
+    if minute is None or seconds <= 0:
+        return 1.0
+    flat_minutes = seconds / 60.0
+    if flat_minutes <= 0:
+        return 1.0
+    start = int(minute) + 1
+    remaining = sum(hour_variance_weight(m) for m in range(start, start + max(1, round(flat_minutes))))
+    return (remaining / flat_minutes) if remaining > 0 else 1.0
+
+
+def variance_seconds(seconds: float, minute: float | None = None) -> float:
+    """Effective variance time: the TWAP mean correction, reshaped by the hour profile."""
+    return max(twap_variance_seconds(seconds) * seasonal_scale(seconds, minute), MIN_VARIANCE_SECONDS)
+
+
+def digital_prob(
+    spot: float,
+    strike: float,
+    seconds: float,
+    annual_vol: float,
+    drift: float = 0.0,
+    minute: float | None = None,
+) -> float:
+    """P(settlement > strike), where settlement is the BRTI 60-second mean.
+
+    `minute` is the position inside the hour (0-60); pass it to enable the ADR 021
+    seasonal reshape. Omitting it leaves the pre-021 behaviour untouched.
+    """
     if spot <= 0 or strike <= 0 or annual_vol <= 0:
         return 0.0
-    tau = max(twap_variance_seconds(seconds), MIN_VARIANCE_SECONDS) / SECONDS_PER_YEAR
+    tau = variance_seconds(seconds, minute) / SECONDS_PER_YEAR
     denom = annual_vol * math.sqrt(tau)
     if denom <= 0:
         return 1.0 if spot > strike else 0.0
@@ -82,7 +139,9 @@ def effective_vol(realized: float | None, floor: float) -> float:
     return max(realized, floor)
 
 
-def sigma_cushion(spot: float, strike: float, seconds: float, annual_vol: float) -> float:
+def sigma_cushion(
+    spot: float, strike: float, seconds: float, annual_vol: float, minute: float | None = None
+) -> float:
     """How many residual-vol sigmas the spot is away from the strike.
 
     Uses the same TWAP-corrected variance time as `digital_prob`; the cushion and the
@@ -90,7 +149,7 @@ def sigma_cushion(spot: float, strike: float, seconds: float, annual_vol: float)
     """
     if spot <= 0 or strike <= 0 or annual_vol <= 0:
         return 0.0
-    tau = max(twap_variance_seconds(seconds), MIN_VARIANCE_SECONDS) / SECONDS_PER_YEAR
+    tau = variance_seconds(seconds, minute) / SECONDS_PER_YEAR
     denom = annual_vol * math.sqrt(tau)
     if denom <= 0:
         return 99.0 if spot != strike else 0.0

@@ -14,6 +14,21 @@ WAIT_PLAYS = frozenset({"lock_wait", "impulse_wait"})
 SETTLE_PLAYS = frozenset({"cushion_hold"})
 
 
+def hour_minute(market: Market, seconds: float) -> float | None:
+    """Position inside the hour (0-60) for an hourly rung, else None.
+
+    ADR 021's variance profile is a property of the *hour*, so it applies to `KXBTCD`
+    and to nothing else. For a 60-minute window the position is just 60 - seconds/60,
+    so no extra plumbing is needed. Returning None on any other cadence leaves those
+    windows on the flat-vol path exactly as before.
+    """
+    if not is_hourly_window(market.open_time, market.close_time):
+        return None
+    if seconds is None or seconds < 0:
+        return None
+    return max(0.0, min(60.0, 60.0 - seconds / 60.0))
+
+
 def is_settle_play(play: str) -> bool:
     """Plays that are carried to settlement: never clipped, trailed, or TWAP-flattened."""
     return bool(play) and (play.startswith("lock") or play in SETTLE_PLAYS)
@@ -380,7 +395,8 @@ def evaluate_market(
     if seconds is None:
         return []
     vol = effective_vol(spot.annual_vol, settings.annual_vol)
-    p_yes = digital_prob(spot.price, market.strike, seconds, vol)
+    p_yes = digital_prob(spot.price, market.strike, seconds, vol,
+                         minute=hour_minute(market, seconds))
     sides = [
         ("yes", "bid", p_yes, market.yes_ask_effective),
         ("no", "ask", 1.0 - p_yes, market.no_ask_effective),
@@ -442,7 +458,8 @@ def evaluate_scalp_market(
     if seconds is None:
         return []
     vol = effective_vol(spot.annual_vol, settings.annual_vol)
-    p_yes = digital_prob(spot.price, market.strike, seconds, vol)
+    p_yes = digital_prob(spot.price, market.strike, seconds, vol,
+                         minute=hour_minute(market, seconds))
     sides = [
         ("yes", "bid", p_yes, market.yes_ask_effective),
         ("no", "ask", 1.0 - p_yes, market.no_ask_effective),
@@ -506,10 +523,12 @@ def evaluate_lock_market(
     if seconds is None:
         return []
     vol = effective_vol(spot.annual_vol, settings.annual_vol)
-    sigma = sigma_cushion(spot.price, market.strike, seconds, vol)
+    sigma = sigma_cushion(spot.price, market.strike, seconds, vol,
+                          minute=hour_minute(market, seconds))
     if sigma + 1e-12 < settings.min_sigma:
         return []
-    p_yes = digital_prob(spot.price, market.strike, seconds, vol)
+    p_yes = digital_prob(spot.price, market.strike, seconds, vol,
+                         minute=hour_minute(market, seconds))
     sides = [
         ("yes", "bid", p_yes, market.yes_ask_effective),
         ("no", "ask", 1.0 - p_yes, market.no_ask_effective),
@@ -575,7 +594,8 @@ def evaluate_swing_market(
     if abs((market.strike or 0.0) - spot.price) > settings.swing_max_distance + 1e-9:
         return []
     vol = effective_vol(spot.annual_vol, settings.annual_vol)
-    p_yes = digital_prob(spot.price, market.strike, seconds, vol)
+    p_yes = digital_prob(spot.price, market.strike, seconds, vol,
+                         minute=hour_minute(market, seconds))
     sides = [
         ("yes", "bid", p_yes, market.yes_ask_effective),
         ("no", "ask", 1.0 - p_yes, market.no_ask_effective),
@@ -654,12 +674,14 @@ def evaluate_cushion_market(
     if seconds + 1e-12 < settings.cushion_min_seconds:
         return []
     vol = effective_vol(spot.annual_vol, settings.annual_vol)
-    z = sigma_cushion(spot.price, market.strike, seconds, vol)
+    z = sigma_cushion(spot.price, market.strike, seconds, vol,
+                      minute=hour_minute(market, seconds))
     if z + 1e-12 < settings.cushion_min:
         return []
     side = "yes" if spot.price > market.strike else "no"
     book_side = "bid" if side == "yes" else "ask"
-    p_yes = digital_prob(spot.price, market.strike, seconds, vol)
+    p_yes = digital_prob(spot.price, market.strike, seconds, vol,
+                         minute=hour_minute(market, seconds))
     model_p = p_yes if side == "yes" else 1.0 - p_yes
     ask = market.yes_ask_effective if side == "yes" else market.no_ask_effective
     if ask is None or ask <= 0 or ask >= 1.0:
@@ -733,7 +755,8 @@ def evaluate_impulse_market(
     if abs((market.strike or 0.0) - spot.price) > settings.swing_max_distance + 1e-9:
         return []
     vol = effective_vol(spot.annual_vol, settings.annual_vol)
-    p_yes = digital_prob(spot.price, market.strike, seconds, vol)
+    p_yes = digital_prob(spot.price, market.strike, seconds, vol,
+                         minute=hour_minute(market, seconds))
     want_yes = move > 0
     side = "yes" if want_yes else "no"
     book_side = "bid" if want_yes else "ask"
@@ -814,7 +837,8 @@ def evaluate_impulse_wait_market(
     if abs((market.strike or 0.0) - spot.price) > reach + 1e-9:
         return []
     vol = effective_vol(spot.annual_vol, settings.annual_vol)
-    p_yes = digital_prob(spot.price, market.strike, seconds, vol)
+    p_yes = digital_prob(spot.price, market.strike, seconds, vol,
+                         minute=hour_minute(market, seconds))
     rest = settings.impulse_rest
     found: list[Opportunity] = []
     for side in coupon_sides(move, settings):

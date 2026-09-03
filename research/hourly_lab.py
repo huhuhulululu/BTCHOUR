@@ -437,12 +437,12 @@ def sample_days(hours: list[Hour]) -> float:
 
 
 def model_p(bar: Bar, strike: float, side: str) -> float:
-    p_yes = digital_prob(bar.spot, strike, bar.seconds_left, bar.annual_vol)
+    p_yes = digital_prob(bar.spot, strike, bar.seconds_left, bar.annual_vol, minute=bar.minute)
     return p_yes if side == "yes" else 1.0 - p_yes
 
 
 def cushion(bar: Bar, strike: float) -> float:
-    return sigma_cushion(bar.spot, strike, bar.seconds_left, bar.annual_vol)
+    return sigma_cushion(bar.spot, strike, bar.seconds_left, bar.annual_vol, minute=bar.minute)
 
 
 def favorite_side(bar: Bar, strike: float) -> str:

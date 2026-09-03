@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import statistics
 import unittest
 
 from btchour.model import (
@@ -10,7 +11,14 @@ from btchour.model import (
     required_p,
     sigma_cushion,
     twap_variance_seconds,
+    variance_seconds,
+    seasonal_scale,
+    hour_variance_weight,
+    HOUR_VARIANCE_WEIGHTS,
+    MIN_VARIANCE_SECONDS,
 )
+from btchour.kalshi import market_from_api
+from btchour.strategy import hour_minute
 
 
 class ModelTests(unittest.TestCase):
@@ -100,3 +108,80 @@ class TwapVarianceTests(unittest.TestCase):
         p = digital_prob(spot, strike, seconds, vol)
         # p should be about N(z) for a small drift term; they must not disagree wildly.
         self.assertAlmostEqual(p, norm_cdf(z), places=2)
+
+
+class SeasonalVarianceTests(unittest.TestCase):
+    """ADR 021: BTC does not move evenly across the hour.
+
+    Weights were measured on the first calendar half of 1544 KXBTCD hours and validated
+    on the second: out-of-sample Brier 0.08829 -> 0.08799, and the realised/model sd
+    spread tightened from a mean |error| of 0.053 to 0.038.
+    """
+
+    def test_omitting_the_minute_changes_nothing(self):
+        """Every caller that cannot supply a position keeps the pre-021 number."""
+        self.assertEqual(seasonal_scale(1800.0, None), 1.0)
+        self.assertAlmostEqual(
+            digital_prob(78200.0, 78000.0, 1800.0, 0.55),
+            digital_prob(78200.0, 78000.0, 1800.0, 0.55, 0.0, None),
+        )
+
+    def test_weights_average_to_one(self):
+        self.assertAlmostEqual(statistics.fmean(HOUR_VARIANCE_WEIGHTS), 1.0, places=2)
+
+    def test_the_closing_block_is_the_quietest(self):
+        self.assertEqual(min(HOUR_VARIANCE_WEIGHTS), HOUR_VARIANCE_WEIGHTS[-1])
+        self.assertLess(HOUR_VARIANCE_WEIGHTS[-1], HOUR_VARIANCE_WEIGHTS[0])
+
+    def test_late_in_the_hour_narrows_the_distribution(self):
+        """At minute 50 the trailing estimate runs hot, so the reshape must scale down."""
+        self.assertLess(seasonal_scale(600.0, 50.0), 1.0)
+
+    def test_bucket_lookup_is_clamped(self):
+        self.assertEqual(hour_variance_weight(-5.0), HOUR_VARIANCE_WEIGHTS[0])
+        self.assertEqual(hour_variance_weight(999.0), HOUR_VARIANCE_WEIGHTS[-1])
+        self.assertEqual(hour_variance_weight(0.0), HOUR_VARIANCE_WEIGHTS[0])
+        self.assertEqual(hour_variance_weight(55.0), HOUR_VARIANCE_WEIGHTS[5])
+
+    def test_variance_seconds_never_below_the_floor(self):
+        for seconds in (0.0, 0.5, 5.0, 60.0, 3600.0):
+            self.assertGreaterEqual(variance_seconds(seconds, 30.0), MIN_VARIANCE_SECONDS)
+
+    def test_reshape_only_scales_the_twap_variance(self):
+        seconds, minute = 600.0, 50.0
+        self.assertAlmostEqual(
+            variance_seconds(seconds, minute),
+            twap_variance_seconds(seconds) * seasonal_scale(seconds, minute),
+        )
+
+
+class HourMinuteTests(unittest.TestCase):
+    def market(self, open_iso, close_iso):
+        return market_from_api(
+            {
+                "ticker": "KXBTCD-26SEP0313-T78000",
+                "event_ticker": "KXBTCD-26SEP0313",
+                "floor_strike": 78000.0,
+                "strike_type": "greater",
+                "open_time": open_iso,
+                "close_time": close_iso,
+            }
+        )
+
+    def test_hourly_window_maps_seconds_to_a_position(self):
+        market = self.market("2026-09-03T12:00:00Z", "2026-09-03T13:00:00Z")
+        self.assertAlmostEqual(hour_minute(market, 3600.0), 0.0)
+        self.assertAlmostEqual(hour_minute(market, 1800.0), 30.0)
+        self.assertAlmostEqual(hour_minute(market, 0.0), 60.0)
+
+    def test_non_hourly_windows_stay_on_the_flat_path(self):
+        """The profile is a property of the hour, so 15m and daily must get None."""
+        fifteen = self.market("2026-09-03T12:45:00Z", "2026-09-03T13:00:00Z")
+        daily = self.market("2026-09-03T00:00:00Z", "2026-09-04T00:00:00Z")
+        self.assertIsNone(hour_minute(fifteen, 600.0))
+        self.assertIsNone(hour_minute(daily, 3600.0))
+
+    def test_clamped_and_none_safe(self):
+        market = self.market("2026-09-03T12:00:00Z", "2026-09-03T13:00:00Z")
+        self.assertIsNone(hour_minute(market, -1.0))
+        self.assertAlmostEqual(hour_minute(market, 99999.0), 0.0)

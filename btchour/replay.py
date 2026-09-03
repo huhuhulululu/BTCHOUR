@@ -14,6 +14,7 @@ from btchour.model import SpotQuote, digital_prob, effective_vol, realized_annua
 from btchour.paper import paper_close, paper_fill, paper_settle
 from btchour.strategy import (
     T_PLAYS,
+    hour_minute,
     is_settle_play,
     SessionMemory,
     SwingMemory,
@@ -200,7 +201,8 @@ def replay_bars(
             ask = market.yes_ask_effective
             if ask is None:
                 continue
-            p_yes = digital_prob(bar.spot, market.strike, max(left, 1.0), bar.vol)
+            p_yes = digital_prob(bar.spot, market.strike, max(left, 1.0), bar.vol,
+                                 minute=hour_minute(market, left))
             cost = fill_cost(ask, taker=True)
             ev = cost.betting_ev(p_yes)
             row = {
@@ -229,7 +231,8 @@ def replay_bars(
         if position is not None:
             market = next((item for item in markets if item.ticker == position["ticker"]), None)
             if market is not None and market.strike is not None:
-                p_yes = digital_prob(bar.spot, market.strike, max(left, 1.0), bar.vol)
+                p_yes = digital_prob(bar.spot, market.strike, max(left, 1.0), bar.vol,
+                                 minute=hour_minute(market, left))
                 model_p = p_yes if position["side"] == "yes" else 1.0 - p_yes
                 action = None
                 decision = evaluate_exit(

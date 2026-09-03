@@ -33,6 +33,7 @@ from btchour.store import Store
 from btchour.learn import diagnose_impulse, journal_line, merge_impulse, tape_impulse
 from btchour.tickers import format_et, next_session_event_ticker
 from btchour.strategy import (
+    hour_minute,
     WAIT_PLAYS,
     Opportunity,
     _seconds_left,
@@ -793,9 +794,11 @@ def refresh_working(
             updates.append({"id": row["id"], "ticker": row["ticker"], "status": "open", "price": ask, "reason": "wait_crossed"})
             continue
         vol = effective_vol(spot.annual_vol, settings.annual_vol)
-        p_yes = digital_prob(spot.price, market.strike, max(seconds, 1.0), vol)
+        p_yes = digital_prob(spot.price, market.strike, max(seconds, 1.0), vol,
+                             minute=hour_minute(market, seconds))
         model_p = p_yes if row["side"] == "yes" else 1.0 - p_yes
-        sigma = sigma_cushion(spot.price, market.strike, max(seconds, 1.0), vol)
+        sigma = sigma_cushion(spot.price, market.strike, max(seconds, 1.0), vol,
+                              minute=hour_minute(market, seconds))
         if model_p + 1e-12 < settings.lock_min_p or sigma + 1e-12 < settings.min_sigma or seconds < 8:
             _cancel_working(store, row, "wait_invalid", client)
             updates.append({"id": row["id"], "ticker": row["ticker"], "status": "cancelled", "reason": "wait_invalid"})
@@ -823,7 +826,8 @@ def manage_open(
             continue
         seconds = _seconds_left(market.close_time, now)
         vol = effective_vol(spot.annual_vol, settings.annual_vol)
-        p_yes = digital_prob(spot.price, market.strike, max(seconds, 1.0), vol)
+        p_yes = digital_prob(spot.price, market.strike, max(seconds, 1.0), vol,
+                             minute=hour_minute(market, seconds))
         model_p = p_yes if row["side"] == "yes" else 1.0 - p_yes
         raw = {}
         try:
