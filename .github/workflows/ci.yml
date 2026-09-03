@@ -1,9 +1,18 @@
 name: ci
 
 on:
+  # push is scoped to main on purpose. Triggering on every branch AND on pull_request
+  # runs the whole matrix twice for any branch that has a PR open -- six jobs where
+  # three will do. Branch work is covered by its PR.
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
+
+# A branch under active development pushes faster than CI finishes. Without this, every
+# superseded commit keeps burning a runner to report on code nobody is looking at.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   tests:
