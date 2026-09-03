@@ -21,9 +21,17 @@
 ## 数据
 
 ```bash
-python3 research/pull_hourly.py --days 70 --workers 8   # 每天跑；增量，已存的跳过
+ops/archive-hourly.sh                                  # 从 cron 跑这个（见脚本头部）
+python3 research/pull_hourly.py --days 70 --workers 8  # 增量，已存的跳过
 python3 research/pull_hourly.py --coverage             # 已存 / 未归档 / 快滚出窗口的
+python3 research/pull_hourly.py --check                # 落后了就退出非零（给 cron 用）
 ```
+
+**拉取成功但一条没拉到，退出码也是 0**——那正是 cron 永远不会告诉你的那种失败。
+所以 `--check` 单独问一句「归档到底是不是当前的」，落后超过 `--max-lag-hours`（默认 6）
+就退非零。`ops/archive-hourly.sh` 先拉后查，查不过就把 `--coverage` 打到 stderr 并退 1。
+建议**每小时**跑而不是每天：拉取是增量的，多跑不花钱；
+而机器在唯一那个每日时点上关机三天，就是三天再也补不回来。
 
 写 `data/hourly.sqlite`（gitignored，约 700 MB / 66 天）。只用公开端点，不需要 key：
 

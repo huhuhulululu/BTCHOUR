@@ -342,11 +342,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--refresh", action="store_true", help="re-pull events already stored")
     parser.add_argument("--coverage", action="store_true",
                         help="report what is stored, where the gaps are, and what is about to age out")
+    parser.add_argument("--check", action="store_true",
+                        help="exit non-zero if the archive has fallen behind (for cron)")
+    parser.add_argument("--max-lag-hours", type=float, default=6.0,
+                        help="how stale the newest archived hour may be before --check fails")
     args = parser.parse_args(argv)
 
     conn = connect(args.db)
     if args.coverage:
         return report_coverage(conn)
+    if args.check:
+        return check_fresh(conn, args.max_lag_hours)
     have = {row[0] for row in conn.execute("SELECT event_ticker FROM events")}
 
     events = list_settled_events(args.days)
@@ -387,6 +393,44 @@ def main(argv: list[str] | None = None) -> int:
 
 
 RETENTION_DAYS = 66  # measured 2026-09-03: /events/{ticker} returns no markets past this
+
+
+def check_fresh(conn: sqlite3.Connection, max_lag_hours: float) -> int:
+    """Exit non-zero when the archive has fallen behind. For cron, so silence is safe.
+
+    ADR 022: Kalshi keeps roughly 66 days of settled markets. History cannot be
+    back-filled, so a scheduled job that quietly stops working destroys the only
+    irreplaceable thing this repo owns -- and it destroys it invisibly, a day at a time,
+    until the gap is older than the window. A puller that succeeds at pulling nothing
+    exits 0, which is exactly the failure cron will never tell anyone about. This is the
+    check that makes the silence mean something.
+    """
+    row = conn.execute("SELECT MAX(close_ts) FROM events").fetchone()
+    newest = row[0] if row else None
+    if not newest:
+        log("CHECK FAIL: the archive is empty")
+        return 1
+
+    lag_hours = (time.time() - float(newest)) / 3600.0
+    stored = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+    span_days = 0.0
+    oldest = conn.execute("SELECT MIN(close_ts) FROM events").fetchone()[0]
+    if oldest:
+        span_days = (float(newest) - float(oldest)) / 86400.0
+
+    stamp = datetime.fromtimestamp(int(newest), timezone.utc).strftime("%Y-%m-%d %H:%M")
+    log(f"newest archived hour {stamp}  lag {lag_hours:.1f}h"
+        f"  stored {stored} hours over {span_days:.1f} days")
+    if lag_hours > max_lag_hours:
+        log(f"CHECK FAIL: newest archived hour is {lag_hours:.1f}h old,"
+            f" limit is {max_lag_hours:.1f}h. Anything older than {RETENTION_DAYS} days"
+            f" that is still missing is gone for good (ADR 022).")
+        return 1
+    if span_days >= 130:
+        log("note: the archive now spans >=130 days, so ADR 016's reopen condition for"
+            " cushion_hold is met -- re-run research/study_cushion_map.py --slice early/late")
+    log("CHECK OK")
+    return 0
 
 
 def report_coverage(conn: sqlite3.Connection) -> int:
