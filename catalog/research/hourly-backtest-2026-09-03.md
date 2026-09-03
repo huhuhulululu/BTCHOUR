@@ -3,8 +3,10 @@
 第一次用**整段 `KXBTCD` 历史**（不是 8–16 小时回放）量本仓库的门。
 
 - 样本：**1544 小时 / 66.2 天**，2026-06-29 → 2026-09-03，24 小时全覆盖，无缺日。
-- 上限来自 `/live_data`：秒级 BRTI 大约只保留 66 天。再往前只能用现货代理，会引入基差
-  （15 分钟仓 phase44 的 USDT +8.7bps 教训），所以宁可短而真。
+- **上限不是选择，是 Kalshi 的保留期（ADR 022）**：`/events` 仍列出 8000 个已结算事件、
+  最早到 2025-08，但其中 **6443 个的 `markets` 是空的**——没有 `result`、没有
+  `expiration_value`、没有 candlesticks。边界卡在 **66 天**（`26JUN2819` 空 / `26JUN2820` 有）。
+  **这 1544 小时就是公开记录的全部**，不是一段抽样。历史不可回填，只能从今天起往前攒。
 - 结算真相用 event 的 `expiration_value`（Kalshi 实际结算的那个 60 秒 BRTI 均值）。
 - 费用 / GBM 概率 / σ 缓冲全部 import `btchour.fees` 和 `btchour.model`，不另写更便宜的一套。
 - **一个小时 = 一个聚类**，t 统计按 `event_ticker` cluster-robust。

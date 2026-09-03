@@ -190,7 +190,19 @@ def pull_spot(event_ticker: str) -> list[tuple[int, float]]:
     return sorted(keep.items())
 
 
-def pull_event(event_ticker: str, band: float) -> dict | None:
+HOUR_MIN_SECONDS, HOUR_MAX_SECONDS = 50 * 60, 70 * 60
+
+
+def pull_event(event_ticker: str, band: float, anchor: float | None = None) -> dict | None:
+    """One settled hour. `anchor` is the PREVIOUS hour's settlement.
+
+    BRTI is the preferred way to choose which rungs to store, but some hours come back
+    with markets and a settlement and no `/live_data`. Under ADR 022 those hours are
+    unrecoverable once they age out, so they are archived anyway: the strike band is then
+    centred on `anchor`, which is known before this hour opens and therefore cannot bias
+    the sample toward strikes near settlement. Studies that need spot skip these hours;
+    the price-band and exit studies do not.
+    """
     payload = get(f"/events/{event_ticker}")
     if not payload:
         return None
@@ -203,12 +215,21 @@ def pull_event(event_ticker: str, band: float) -> dict | None:
     settle = _f(first.get("expiration_value"))
     if open_ts is None or close_ts is None:
         return None
+    # Kalshi files some weekly contracts under an hourly-looking ticker: KXBTCD-26JUL1017
+    # runs 2026-07-03 20:00 -> 2026-07-10 21:00 with 50 rungs. ADR 001 scopes this repo to
+    # the next-hour ladder, and the candlestick endpoint 400s on a range that wide, so
+    # these were being retried on every run forever. Skip them by window length.
+    if not (HOUR_MIN_SECONDS <= close_ts - open_ts <= HOUR_MAX_SECONDS):
+        return None
 
     spot = pull_spot(event_ticker)
     inside = [v for ts, v in spot if open_ts <= ts <= close_ts]
-    if not inside:
+    if inside:
+        lo, hi = min(inside) - band, max(inside) + band
+    elif anchor:
+        lo, hi = anchor - 2.0 * band, anchor + 2.0 * band
+    else:
         return None
-    lo, hi = min(inside) - band, max(inside) + band
 
     markets = []
     for item in raw_markets:
@@ -280,8 +301,8 @@ def store_event(conn: sqlite3.Connection, event: dict, quote_rows: list[tuple]) 
     conn.commit()
 
 
-def worker(event_ticker: str, band: float) -> tuple[dict, list[tuple]] | None:
-    event = pull_event(event_ticker, band)
+def worker(event_ticker: str, band: float, anchor: float | None = None) -> tuple[dict, list[tuple]] | None:
+    event = pull_event(event_ticker, band, anchor)
     if event is None:
         return None
     rows: list[tuple] = []
@@ -319,13 +340,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--db", type=Path, default=DEFAULT_DB)
     parser.add_argument("--limit", type=int, default=0, help="stop after N events (pilot runs)")
     parser.add_argument("--refresh", action="store_true", help="re-pull events already stored")
+    parser.add_argument("--coverage", action="store_true",
+                        help="report what is stored, where the gaps are, and what is about to age out")
     args = parser.parse_args(argv)
 
     conn = connect(args.db)
+    if args.coverage:
+        return report_coverage(conn)
     have = {row[0] for row in conn.execute("SELECT event_ticker FROM events")}
 
     events = list_settled_events(args.days)
+    # The previous hour's settlement is the ex-ante anchor for hours with no BRTI.
+    settles = {
+        row[0]: row[1]
+        for row in conn.execute("SELECT close_ts, settle_value FROM events WHERE settle_value IS NOT NULL")
+    }
     todo = [e["event_ticker"] for e in events if args.refresh or e["event_ticker"] not in have]
+    anchors = {e["event_ticker"]: settles.get(e["close_ts"] - 3600) for e in events}
     if args.limit:
         todo = todo[: args.limit]
     log(f"settled events in window: {len(events)}; to pull: {len(todo)}")
@@ -333,7 +364,7 @@ def main(argv: list[str] | None = None) -> int:
     done = 0
     started = time.time()
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        for result in pool.map(lambda ev: (ev, _safe(worker, ev, args.band)), todo):
+        for result in pool.map(lambda ev: (ev, _safe(worker, ev, args.band, anchors.get(ev))), todo):
             ticker, payload = result
             done += 1
             if payload is None:
@@ -352,6 +383,52 @@ def main(argv: list[str] | None = None) -> int:
     }
     log("stored:", counts)
     conn.close()
+    return 0
+
+
+RETENTION_DAYS = 66  # measured 2026-09-03: /events/{ticker} returns no markets past this
+
+
+def report_coverage(conn: sqlite3.Connection) -> int:
+    """What is archived, what is missing, and what the rolling window is about to drop.
+
+    Kalshi keeps the settled market records for about 66 days. `/events` still LISTS
+    older events -- 8000 of them, back to 2025-08 -- but 6443 of those come back with no
+    markets: no result, no expiration_value, no candlesticks. So history cannot be
+    back-filled. Anything not archived before it ages out is gone for good, and the only
+    way the sample grows is forward, by running this puller regularly.
+    """
+    rows = conn.execute("SELECT close_ts FROM events ORDER BY close_ts").fetchall()
+    if not rows:
+        log("nothing stored yet")
+        return 0
+    stored = [int(r[0]) for r in rows]
+    now = int(time.time())
+    window_start = now - RETENTION_DAYS * 86400
+
+    # Only count as missing what Kalshi actually lists. The exchange does not open every
+    # hour, and some slots carry weekly contracts, so a raw hour-grid diff overstates it.
+    listed = {e["close_ts"] for e in list_settled_events(RETENTION_DAYS)}
+    have = set(stored)
+    missing = sorted(ts for ts in listed if ts >= window_start and ts not in have)
+
+    def day(ts):
+        return datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%d %H:%M")
+
+    log(f"stored          {len(stored)} hours, {day(stored[0])} -> {day(stored[-1])}"
+        f"  ({(stored[-1] - stored[0]) / 86400:.1f} days)")
+    log(f"live window     last {RETENTION_DAYS} days: {day(window_start)} -> {day(now)}")
+    log(f"listed by Kalshi {len(listed)} events in the window")
+    log(f"not archived     {len(missing)} of them"
+        f"  (weekly contracts filed under an hourly ticker are excluded by design, ADR 001)")
+    if missing:
+        log(f"  oldest {day(missing[0])}, newest {day(missing[-1])}")
+    oldest_ok = max(window_start, stored[0])
+    log(f"about to age out: hours before {day(window_start + 7 * 86400)} leave the window"
+        f" within a week -- pull them now or lose them")
+    log("")
+    log("ADR 016 wants >=130 days before cushion_hold may be re-proposed. That cannot be"
+        " back-filled; it arrives by running this puller until the archive spans 130 days.")
     return 0
 
 
