@@ -82,6 +82,42 @@ def fill_through(side: str, rest: float, close_ask, *, yes_bid_high=None,
     return any(c is not None and float(c) <= rest + 1e-12 for c in candidates)
 
 
+
+def same_bar_fill_line() -> int:
+    """Line number of the promotion that fills a coupon on the bar it was hung.
+
+    `replay_bars` calls `wait_book_crossed` twice. The first is the honest one: a rest
+    hung on an earlier bar, tested against this bar. The second runs immediately after
+    hanging and fills from the SAME bar -- and the hang was decided on that bar's close
+    (`ask_field = "close_dollars"` for flex) while the fill comes from that bar's low or
+    high. That extreme may have printed before the order existed, so it is not a fill
+    that could have happened. Finding the site by source line keeps this control in the
+    research driver instead of editing production.
+    """
+    import inspect
+
+    lines, start = inspect.getsourcelines(replay_mod.replay_bars)
+    hits = [start + i for i, line in enumerate(lines) if "wait_book_crossed(" in line]
+    if len(hits) < 2:
+        raise RuntimeError("replay_bars no longer has two fill sites; re-read it")
+    return max(hits)
+
+
+def no_same_bar(inner):
+    """Wrap a fill rule so the same-bar promotion never fills."""
+    import sys
+
+    blocked = same_bar_fill_line()
+
+    def guarded(*args, **kwargs):
+        frame = sys._getframe(1)
+        if frame.f_lineno == blocked:
+            return False
+        return inner(*args, **kwargs)
+
+    return guarded
+
+
 def tapes(db: Path, limit: int | None = None, slice_half: str = ""):
     """One `EventTape` per settled hour, in the shape `replay_tape` already expects."""
     conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
@@ -159,6 +195,8 @@ def main(argv=None) -> int:
     ap.add_argument("--fill", default="atrest", choices=["atrest", "through"],
                     help="atrest = production `_ask_at_rest`; through = a resting bid is"
                          " hit whenever the offer falls to or past it")
+    ap.add_argument("--no-same-bar-fill", action="store_true",
+                    help="refuse the fill that lands on the same bar the rest was hung")
     ap.add_argument("--slip", type=float, default=0.0,
                     help="cents of adverse slippage charged to every entry")
     args = ap.parse_args(argv)
@@ -171,8 +209,11 @@ def main(argv=None) -> int:
     if args.impulse_taker:
         settings = replace(settings, impulse_taker=True)
 
-    if args.fill == "through":
-        replay_mod.wait_book_crossed = fill_through
+    base = fill_through if args.fill == "through" else replay_mod.wait_book_crossed
+    if args.no_same_bar_fill:
+        replay_mod.wait_book_crossed = no_same_bar(base)
+    elif args.fill == "through":
+        replay_mod.wait_book_crossed = base
 
     takes: list[dict] = []
     hours = 0
@@ -187,7 +228,7 @@ def main(argv=None) -> int:
     days = hours / 24.0
     label = (f"playbook={args.playbook} hold={not args.no_hold}"
              f" early_exit={not args.no_early_exit} impulse_taker={args.impulse_taker}"
-             f" fill={args.fill}")
+             f" fill={args.fill} same_bar={not args.no_same_bar_fill}")
     print(f"# hours={hours} days={days:.1f} slice={args.slice or 'full'}  {label}")
     if not takes:
         print("   no entries -- the loop never took a position over this whole tape")
