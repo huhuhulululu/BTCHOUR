@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import btchour.replay as replay_mod  # noqa: E402
 from btchour.config import Settings  # noqa: E402
 from btchour.replay import EventTape, replay_tape  # noqa: E402
-from btchour.strategy import SessionMemory  # noqa: E402
+from btchour.strategy import SessionMemory, _clip_count  # noqa: E402
 from research.hourly_lab import DEFAULT_DB, clustered_t  # noqa: E402
 
 SIDES = ("yes_bid", "yes_ask")
@@ -207,6 +207,24 @@ def main(argv=None) -> int:
     print(f"   total        ${total:+.2f}  win rate {wins / len(takes):.1%}")
     print(f"   worst / best ${min(pnl):+.2f} / ${max(pnl):+.2f}"
           f"  median ${statistics.median(pnl):+.4f}")
+
+    # Dollars per take are size-weighted; the studies all report cents per contract, so
+    # print both or the two can never be compared (this is the 025/029 lesson in another
+    # costume -- the aggregation convention is doing the judging).
+    counts = [float(t.get("count") or _clip_count(float(t.get("ask") or 0.0), settings))
+              for t in takes]
+    contracts = sum(counts)
+    if contracts > 0:
+        per_contract = [p / c * 100.0 for p, c in zip(pnl, counts) if c > 0]
+        cl2 = [t["event_ticker"] for t, c in zip(takes, counts) if c > 0]
+        m2, t2, lo2, hi2 = clustered_t(per_contract, cl2)
+        print(f"   contracts    {contracts:.0f} total, sizes "
+              f"{sorted(set(counts))[:6]}{'...' if len(set(counts)) > 6 else ''}")
+        print(f"   per contract {m2:+.3f}c  t={t2:+.2f}  CI[{lo2:+.3f}c, {hi2:+.3f}c]"
+              f"   (size-weighted: {total / contracts * 100:+.3f}c)")
+        priced = [float(t.get("ask") or 0.0) for t in takes if t.get("ask")]
+        if priced:
+            print(f"   mean entry   {statistics.fmean(priced):.4f} over {len(priced)} takes")
 
     order = sorted(takes, key=lambda t: t.get("entry_ts") or 0)
     mid = len(order) // 2
