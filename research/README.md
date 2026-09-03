@@ -62,6 +62,7 @@ python3 research/pull_hourly.py --coverage             # 已存 / 未归档 / �
 | `study_taker_plays.py` | `swing_t` / `impulse_t`：**直接调生产的门和出场栈**，不手抄（031） |
 | `replay_db.py` | **整条 loop** 跑 1557 小时（不是 `--hours 16`）；同 bar 成交对照（032） |
 | `study_twap_tail.py` | 用 10 秒网格验 019 的 `τ<T` 分支；现货网格最后两点是结算价（034） |
+| `study_conditioning.py` | 跨小时 / 时段 / 波动区间；表头自带 Bonferroni（035） |
 
 ```bash
 python3 research/study_calibration.py
