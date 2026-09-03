@@ -60,6 +60,7 @@ python3 research/pull_hourly.py --coverage             # 已存 / 未归档 / �
 | `study_maker.py` | 挂偏强侧（maker 费 0）能不能躲开二次费——touch / cross 两种成交口径 |
 | `study_density.py` | 阶梯的**隐含密度** vs 实现；两条腿合成的区间赌；60 秒 TWAP 压缩（`--audit` 见下） |
 | `study_taker_plays.py` | `swing_t` / `impulse_t`：**直接调生产的门和出场栈**，不手抄（031） |
+| `replay_db.py` | **整条 loop** 跑 1557 小时（不是 `--hours 16`）；同 bar 成交对照（032） |
 
 ```bash
 python3 research/study_calibration.py
