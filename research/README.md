@@ -36,7 +36,7 @@ python3 research/pull_hourly.py --days 70 --workers 8
 - `yes` 吃 `yes_ask_close`；`no` 吃 `1 − yes_bid_close`。
 - 净额单位是**每张分**，已扣进场费（提前平的还扣一次出场费）。
 
-## 四个 study
+## study 清单
 
 | 脚本 | 问题 |
 | --- | --- |
@@ -46,6 +46,7 @@ python3 research/pull_hourly.py --days 70 --workers 8
 | `study_rule.py` | 冻结一条规则，压力测试：滑点 / 流动性 / 拥挤 / 时段 / 打乱结算 / 风险 |
 | `study_cushion_map.py` | 缓冲 × 卖一的**图**，而不是一个网格搜出来的格子 |
 | `study_maker.py` | 挂偏强侧（maker 费 0）能不能躲开二次费——touch / cross 两种成交口径 |
+| `study_density.py` | 阶梯的**隐含密度** vs 实现；两条腿合成的区间赌；60 秒 TWAP 压缩 |
 
 ```bash
 python3 research/study_calibration.py
@@ -54,6 +55,7 @@ python3 research/study_coupon.py --slice early      # 也跑 --slice late
 python3 research/study_rule.py
 python3 research/study_cushion_map.py --slice early
 python3 research/study_maker.py --slice early
+python3 research/study_density.py
 ```
 
 每个 study 都接 `--slice early|late`：**按小时数中位切日历**，前半选形状、后半验证。
