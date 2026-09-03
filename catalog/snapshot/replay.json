@@ -1,5 +1,5 @@
 {
-  "replayed_at": "2026-09-03T08:01:00.914331+00:00",
+  "replayed_at": "2026-09-03T09:00:48.069945+00:00",
   "hours": 16,
   "playbook": "flex",
   "formula": "EV = p * b - (1 - p)",
@@ -39,6 +39,11 @@
     "allow_early_exit": true
   },
   "events": [
+    {
+      "event_ticker": "KXBTCD-26SEP0305",
+      "error": "missing event (404)",
+      "takes": []
+    },
     {
       "event_ticker": "KXBTCD-26SEP0304",
       "error": "missing event (404)",
@@ -739,61 +744,6 @@
         "model_p": 0.19605339855691784,
         "if_win_roi": 92.45794392523365,
         "ev": 17.32274752868391,
-        "vol": 0.55
-      },
-      "hold_candidates": 0,
-      "session": {
-        "last_loss_event": null,
-        "last_side": null,
-        "last_play": "",
-        "skip_next": false,
-        "skipped_event": null
-      }
-    },
-    {
-      "event_ticker": "KXBTCD-26SEP0213",
-      "settlement_band": [
-        77099.99,
-        77199.99
-      ],
-      "settle_mid": 77149.99,
-      "candles": {
-        "76099.99": 60,
-        "76199.99": 60,
-        "76299.99": 60,
-        "76399.99": 60,
-        "76499.99": 60,
-        "76599.99": 60,
-        "76699.99": 60,
-        "76799.99": 60,
-        "76899.99": 60,
-        "76999.99": 60,
-        "77099.99": 60,
-        "77199.99": 60,
-        "77299.99": 60,
-        "77399.99": 60,
-        "77499.99": 60,
-        "77599.99": 60,
-        "77699.99": 60,
-        "77799.99": 60,
-        "77899.99": 60,
-        "77999.99": 60,
-        "78099.99": 58,
-        "78199.99": 60
-      },
-      "playbook": "flex",
-      "takes": [],
-      "best": {
-        "ts": "2026-09-02T16:59:00+00:00",
-        "event_ticker": "KXBTCD-26SEP0213",
-        "strike": 77199.99,
-        "side": "yes",
-        "spot": 77176.10566666666,
-        "seconds_left": 60.0,
-        "ask": 0.02,
-        "model_p": 0.34149193924293303,
-        "if_win_roi": 45.728971962616825,
-        "ev": 14.957567254342667,
         "vol": 0.55
       },
       "hold_candidates": 0,
