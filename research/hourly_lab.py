@@ -272,6 +272,40 @@ def close_trade(trade: Trade, exit_price: float, reason: str) -> Trade:
 # --------------------------------------------------------------------------- stats
 
 
+# ----------------------------------------------------------------------- liquidity
+
+COLD_RATIO = 0.5
+HOT_RATIO = 2.0
+
+
+def rung_reference_volume(bar: Bar) -> float:
+    """Median volume across the rungs quoted in this bar -- ADR 029's normaliser.
+
+    Rung volume is only meaningful relative to the rest of *that* hour's ladder: a quiet
+    hour's busiest rung can trade less than a busy hour's coldest one. Every study that
+    reports a liquidity split must use this one definition, so it lives here.
+    """
+    volumes = [q.volume for q in bar.quotes.values() if q.volume > 0]
+    return statistics.median(volumes) if volumes else 0.0
+
+
+def liquidity_tier(volume: float, reference: float) -> str:
+    """cold / mid / hot against the bar's median rung (ADR 029).
+
+    A `cold` rung's ask is stale or too wide far more often than it is an opportunity:
+    029 measured 0.30-0.50 cold at -15.36pp / t=-10.27. Conclusions that live in cold
+    rungs are not tradeable conclusions.
+    """
+    if reference <= 0:
+        return "mid"
+    ratio = volume / reference
+    if ratio <= COLD_RATIO:
+        return "cold"
+    if ratio >= HOT_RATIO:
+        return "hot"
+    return "mid"
+
+
 def wilson(wins: int, n: int, z: float = 1.96) -> tuple[float, float]:
     if n <= 0:
         return (0.0, 1.0)

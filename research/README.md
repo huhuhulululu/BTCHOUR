@@ -58,7 +58,7 @@ python3 research/pull_hourly.py --coverage             # 已存 / 未归档 / �
 | `study_rule.py` | 冻结一条规则，压力测试：滑点 / 流动性 / 拥挤 / 时段 / 打乱结算 / 风险 |
 | `study_cushion_map.py` | 缓冲 × 卖一的**图**，而不是一个网格搜出来的格子 |
 | `study_maker.py` | 挂偏强侧（maker 费 0）能不能躲开二次费——touch / cross 两种成交口径 |
-| `study_density.py` | 阶梯的**隐含密度** vs 实现；两条腿合成的区间赌；60 秒 TWAP 压缩 |
+| `study_density.py` | 阶梯的**隐含密度** vs 实现；两条腿合成的区间赌；60 秒 TWAP 压缩（`--audit` 见下） |
 
 ```bash
 python3 research/study_calibration.py
@@ -68,7 +68,20 @@ python3 research/study_rule.py
 python3 research/study_cushion_map.py --slice early
 python3 research/study_maker.py --slice early
 python3 research/study_density.py
+python3 research/study_density.py --audit    # 三个口径并排：见下
 ```
+
+## `--audit`：发表前的强制对照（ADR 030）
+
+五次自我更正（025 数重了 / 027 口径不一致 / 028 采样粗了 / 029 门槛松了 / 030 结构是采样
+画出来的）指向同一句话：**汇总口径本身在做判断**。所以规矩是——
+
+> **任何按分钟网格得到的表，发表前必须跟一张「全分辨率 + 去重 + 流动性分层」的对照表
+> 一起出现。**
+
+`--audit` 把三个口径并排打印，改动量直接可见。冷热的定义只有一份，在
+`hourly_lab.rung_reference_volume()` / `liquidity_tier()`（本小时中位档量的 ½ / 2×）。
+030 用它把第 6 节 A 表的「两侧符号相反」测没了，B 表从 t=−0.34 变成 t=−2.00。
 
 每个 study 都接 `--slice early|late`：**按小时数中位切日历**，前半选形状、后半验证。
 `cushion_hold` 就是死在这一步（前半 −，后半 +，全样本 t=0.62）。

@@ -40,12 +40,15 @@ from btchour.fees import taker_fee  # noqa: E402
 from research.hourly_lab import (  # noqa: E402
     Bucket,
     DEFAULT_DB,
+    liquidity_tier,
     load_hours,
+    rung_reference_volume,
     sample_days,
 )
 
 Z_EDGES = [-3.0, -2.0, -1.5, -1.0, -0.6, -0.3, 0.0, 0.3, 0.6, 1.0, 1.5, 2.0, 3.0]
 HALF_WIDTHS = [200.0, 300.0, 400.0, 600.0, 800.0, 1200.0]
+AUDIT_HALF_WIDTHS = [200.0, 300.0, 400.0]
 MINUTE_STEP = 5
 
 
@@ -66,18 +69,173 @@ def normal_cdf(x: float) -> float:
     return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
 
 
+def range_leg(bar, half: float):
+    """The (low YES, high NO) pair straddling spot at `half` dollars, or None.
+
+    Returns `(lo, hi, a1, a2, price, fees)`, the same construction section B buys.
+    """
+    strikes = sorted(bar.quotes)
+    if len(strikes) < 6:
+        return None
+    lo = max((k for k in strikes if k <= bar.spot - half), default=None)
+    hi = min((k for k in strikes if k >= bar.spot + half), default=None)
+    if lo is None or hi is None or lo >= hi:
+        return None
+    a1 = bar.quotes[lo].ask("yes")
+    a2 = bar.quotes[hi].ask("no")
+    if a1 is None or a2 is None:
+        return None
+    if bar.quotes[lo].volume < 1.0 or bar.quotes[hi].volume < 1.0:
+        return None
+    price = a1 + a2 - 1.0
+    if not (0.02 < price < 0.98):
+        return None
+    return lo, hi, a1, a2, price, taker_fee(a1) + taker_fee(a2)
+
+
+def audit(hours, days: float, min_n: int) -> int:
+    """Section B re-measured under everything 025-029 taught, all three at once.
+
+    The published B row is a 5-minute grid with no dedup, so it counts a pair once per
+    sampled minute it happens to straddle spot -- weighted by dwell time (025), sampled
+    coarsely enough to miss every first touch (028), and pooled over rungs that may
+    never have been fillable (029). This runs the same trade under all three fixes and
+    prints the coarse row beside them so the size of each correction is visible.
+    """
+    coarse: dict = {}
+    dedup: dict = {}
+    strat: dict = {}
+    seen: set = set()
+
+    for hour in hours:
+        for bar in hour.bars:
+            if bar.seconds_left < 120:
+                continue
+            reference = rung_reference_volume(bar)
+            for half in AUDIT_HALF_WIDTHS:
+                built = range_leg(bar, half)
+                if built is None:
+                    continue
+                lo, hi, a1, a2, price, fees = built
+                inside = hour.settle is not None and lo < hour.settle <= hi
+                cents = ((1.0 if inside else 0.0) - price - fees) * 100.0
+                row = (hour.event_ticker, cents, inside, price, hour.close_ts)
+
+                if bar.minute % MINUTE_STEP == 0:
+                    coarse.setdefault(half, Bucket(f"+-${half:.0f} 5-min grid, no dedup")).add(*row)
+
+                key = (hour.event_ticker, half, lo, hi)
+                if key in seen:
+                    continue
+                seen.add(key)
+                dedup.setdefault(half, Bucket(f"+-${half:.0f} full-res, deduped")).add(*row)
+
+                cold = any(
+                    liquidity_tier(bar.quotes[k].volume, reference) == "cold" for k in (lo, hi)
+                )
+                tier = "a cold leg" if cold else "both legs liquid"
+                strat.setdefault((half, tier), Bucket(f"+-${half:.0f} {tier}")).add(*row)
+
+    print("\n## audit A. as published: every 5th minute, one row per sampled minute")
+    for half in AUDIT_HALF_WIDTHS:
+        bucket = coarse.get(half)
+        if bucket and len(bucket) >= min_n:
+            print("   " + bucket.result(days).row())
+
+    print("\n## audit B. every minute, one row per (hour, pair)  [ADR 025 + 028]")
+    for half in AUDIT_HALF_WIDTHS:
+        bucket = dedup.get(half)
+        if bucket and len(bucket) >= min_n:
+            print("   " + bucket.result(days).row())
+
+    print("\n## audit C. the same rows split by both legs' liquidity  [ADR 029]")
+    for half in AUDIT_HALF_WIDTHS:
+        for tier in ("both legs liquid", "a cold leg"):
+            bucket = strat.get((half, tier))
+            if bucket and len(bucket) >= min_n:
+                print("   " + bucket.result(days).row())
+
+    audit_implied(hours, min_n)
+    return 0
+
+
+def audit_implied(hours, min_n: int) -> None:
+    """Section A (implied vs realised by moneyness) under the same three fixes.
+
+    A's +1.4-1.75pp on the z<0 side is what made the range look nearly free, so if the
+    range's calibration edge is a dwell artefact this one has to be re-measured with it:
+    a rung that sits deep in the money all hour is counted once per sampled minute, and
+    those are exactly the rungs that win.
+    """
+    from research.hourly_lab import liquidity_tier as tier_of
+
+    stats: dict = {}
+    seen: set = set()
+    for hour in hours:
+        for bar in hour.bars:
+            if bar.seconds_left < 120:
+                continue
+            sig = sigma_remaining(bar)
+            if sig <= 0 or len(bar.quotes) < 6:
+                continue
+            reference = rung_reference_volume(bar)
+            for strike, quote in bar.quotes.items():
+                if quote.yes_bid is None or quote.yes_ask is None or quote.volume < 1.0:
+                    continue
+                won = hour.won(strike, "yes")
+                if won is None:
+                    continue
+                key = z_bucket((strike - bar.spot) / sig)
+                if key is None:
+                    continue
+                mid = (quote.yes_bid + quote.yes_ask) / 2.0
+                dedup_key = (hour.event_ticker, strike, key)
+                fresh = dedup_key not in seen
+                seen.add(dedup_key)
+                cold = tier_of(quote.volume, reference) == "cold"
+                for label, keep in (
+                    ("5-min grid", bar.minute % MINUTE_STEP == 0),
+                    ("full-res, deduped", fresh),
+                    ("deduped, liquid rungs", fresh and not cold),
+                    ("deduped, cold rungs", fresh and cold),
+                ):
+                    if not keep:
+                        continue
+                    slot = stats.setdefault((key, label), [0, 0.0, 0.0])
+                    slot[0] += 1
+                    slot[1] += mid
+                    slot[2] += 1.0 if won else 0.0
+
+    print("\n## audit D. section A (implied vs realised) under the same fixes")
+    print(f"   {'z bucket':>14} {'convention':<22} {'n':>7} {'implied':>8} {'realised':>9} {'diff pp':>9}")
+    for key in sorted({k for k, _ in stats}, key=lambda k: k[0]):
+        for label in ("5-min grid", "full-res, deduped", "deduped, liquid rungs",
+                      "deduped, cold rungs"):
+            slot = stats.get((key, label))
+            if not slot or slot[0] < min_n:
+                continue
+            n, imp, real = slot[0], slot[1] / slot[0], slot[2] / slot[0]
+            print(f"   [{key[0]:>5.1f},{key[1]:>5.1f}) {label:<22} {n:>7}"
+                  f" {imp:>8.4f} {real:>9.4f} {(real - imp) * 100:>+9.2f}")
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--db", type=Path, default=DEFAULT_DB)
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--slice", default="", choices=["", "early", "late"])
     ap.add_argument("--min-n", type=int, default=300)
+    ap.add_argument("--audit", action="store_true",
+                    help="re-run B under ADR 028/029 rules: full minute resolution,"
+                         " one row per (hour, pair), split by both legs' liquidity")
     args = ap.parse_args(argv)
 
     hours = load_hours(args.db, limit=args.limit or None, slice_half=args.slice)
     days = sample_days(hours)
     print(f"# hours={len(hours)} days={days:.1f} slice={args.slice or 'full'}"
           f"  minute step={MINUTE_STEP}")
+    if args.audit:
+        return audit(hours, days, args.min_n)
 
     # ---- A. implied vs realised, by normalised moneyness -------------------------
     implied_sum: dict = {}
