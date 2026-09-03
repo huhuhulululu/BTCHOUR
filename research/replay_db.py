@@ -83,31 +83,39 @@ def fill_through(side: str, rest: float, close_ask, *, yes_bid_high=None,
 
 
 
-def same_bar_fill_line() -> int:
-    """Line number of the promotion that fills a coupon on the bar it was hung.
+def same_bar_fill_line() -> int | None:
+    """Line of a promotion that fills a coupon on the bar it was hung, if one exists.
 
-    `replay_bars` calls `wait_book_crossed` twice. The first is the honest one: a rest
-    hung on an earlier bar, tested against this bar. The second runs immediately after
-    hanging and fills from the SAME bar -- and the hang was decided on that bar's close
-    (`ask_field = "close_dollars"` for flex) while the fill comes from that bar's low or
-    high. That extreme may have printed before the order existed, so it is not a fill
-    that could have happened. Finding the site by source line keeps this control in the
-    research driver instead of editing production.
+    `replay_bars` used to call `wait_book_crossed` twice. The first is the honest one: a
+    rest hung on an earlier bar, tested against this bar. The second ran immediately
+    after hanging and filled from the SAME bar -- the hang was decided on that bar's
+    close (`ask_field` is close_dollars for flex) while the fill read that bar's low or
+    high, an extreme that may have printed before the order existed.
+
+    ADR 032 removed that second site, so this now returns None on a healthy tree and the
+    flag becomes a no-op. It is kept as a tripwire: if a second fill site ever comes
+    back, this finds it again and `--no-same-bar-fill` starts doing real work.
     """
     import inspect
 
     lines, start = inspect.getsourcelines(replay_mod.replay_bars)
     hits = [start + i for i, line in enumerate(lines) if "wait_book_crossed(" in line]
-    if len(hits) < 2:
-        raise RuntimeError("replay_bars no longer has two fill sites; re-read it")
-    return max(hits)
+    return max(hits) if len(hits) >= 2 else None
 
 
 def no_same_bar(inner):
-    """Wrap a fill rule so the same-bar promotion never fills."""
+    """Wrap a fill rule so a same-bar promotion never fills. No-op once 032 is in."""
     import sys
 
     blocked = same_bar_fill_line()
+    if blocked is None:
+        log_once = ("note: --no-same-bar-fill is a no-op -- ADR 032 removed the same-bar"
+                    " promotion from replay_bars, so this is now the default behaviour."
+                    " To reproduce 032's before/after (+7.64c t=3.23 vs +2.18c t=0.56),"
+                    " check out the commit before the fix:"
+                    " `git checkout bc1ff58 -- btchour/replay.py`.")
+        print(log_once)
+        return inner
 
     def guarded(*args, **kwargs):
         frame = sys._getframe(1)
@@ -227,7 +235,8 @@ def main(argv=None) -> int:
                     help="entry ask = the minute close even under --playbook lock, which"
                          " otherwise decides and fills on the minute's low")
     ap.add_argument("--no-same-bar-fill", action="store_true",
-                    help="refuse the fill that lands on the same bar the rest was hung")
+                    help="refuse a fill landing on the bar the rest was hung. No-op since"
+                         " ADR 032 removed that path from production; kept as a tripwire")
     ap.add_argument("--slip", type=float, default=0.0,
                     help="cents of adverse slippage charged to every entry")
     args = ap.parse_args(argv)
