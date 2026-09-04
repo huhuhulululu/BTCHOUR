@@ -73,6 +73,7 @@ python3 research/pull_hourly.py --check                # 落后了就退出非�
 | `study_conditioning.py` | 跨小时 / 时段 / 波动区间；表头自带 Bonferroni（035） |
 | `study_ladder_arb.py` | 阶梯**自洽性**：单调性 / 和为一。不是赌，是不等式（036） |
 | `study_two_leg_maker.py` | **两腿都挂**——费用门槛 0.0pp 的唯一一族；腿风险（036） |
+| `study_endgame.py` | **最后五分钟**——其它每个 study 都把这段过滤掉了（037） |
 
 ```bash
 python3 research/study_calibration.py
