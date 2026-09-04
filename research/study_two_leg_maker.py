@@ -46,7 +46,7 @@ from research.hourly_lab import (  # noqa: E402
     sample_days,
 )
 
-MAX_PAIRS_PER_HOUR = 1
+MAX_PAIRS_PER_HOUR = 1  # default; --max-pairs overrides. Never varied until 038.
 
 
 def yes_fill(quote, price: float) -> bool:
@@ -75,6 +75,14 @@ def main(argv=None) -> int:
                          " the next bar instead of carrying a naked position. This is what"
                          " a maker actually does: pay one spread and one fee rather than"
                          " hold direction")
+    ap.add_argument("--pick", default="cheapest", choices=["cheapest", "straddle"],
+                    help="cheapest = the min-cost pair on the bar, which is a min over"
+                         " ~300 noisy quotes and therefore a selection (the 029 lesson one"
+                         " level up). straddle = the two rungs bracketing spot, chosen"
+                         " with no reference to price at all")
+    ap.add_argument("--max-pairs", type=int, default=MAX_PAIRS_PER_HOUR,
+                    help="pairs placed per hour. 1 keeps rows independent; higher n comes"
+                         " from the same hours, so the clustered t is the honest one")
     ap.add_argument("--liquid-only", action="store_true",
                     help="restrict CANDIDATES to non-cold rungs before choosing the best"
                          " pair. Filtering afterwards is the 029 trap: the cheapest pair"
@@ -96,7 +104,7 @@ def main(argv=None) -> int:
     for hour in hours:
         pairs_this_hour = 0
         for index, bar in enumerate(hour.bars):
-            if pairs_this_hour >= MAX_PAIRS_PER_HOUR:
+            if pairs_this_hour >= args.max_pairs:
                 break
             if bar.seconds_left < args.min_left:
                 continue
@@ -112,17 +120,29 @@ def main(argv=None) -> int:
                 if len(strikes) < 3:
                     continue
             best = None
-            for i, k1 in enumerate(strikes):
-                yb1 = bar.quotes[k1].bid("yes")
-                if yb1 is None:
-                    continue
-                for k2 in strikes[i + 1:]:
+            if args.pick == "straddle":
+                # The two rungs bracketing spot. Chosen by geometry, not by price, so no
+                # quote gets to select itself into the sample.
+                below = [k for k in strikes if k <= bar.spot]
+                above = [k for k in strikes if k > bar.spot]
+                if below and above:
+                    k1, k2 = max(below), min(above)
+                    yb1 = bar.quotes[k1].bid("yes")
                     nb2 = bar.quotes[k2].bid("no")
-                    if nb2 is None:
+                    if yb1 is not None and nb2 is not None:
+                        best = (yb1 + nb2, k1, k2, yb1, nb2)
+            else:
+                for i, k1 in enumerate(strikes):
+                    yb1 = bar.quotes[k1].bid("yes")
+                    if yb1 is None:
                         continue
-                    cost = yb1 + nb2          # maker fee is 0 on this series
-                    if best is None or cost < best[0]:
-                        best = (cost, k1, k2, yb1, nb2)
+                    for k2 in strikes[i + 1:]:
+                        nb2 = bar.quotes[k2].bid("no")
+                        if nb2 is None:
+                            continue
+                        cost = yb1 + nb2          # maker fee is 0 on this series
+                        if best is None or cost < best[0]:
+                            best = (cost, k1, k2, yb1, nb2)
             if best is None:
                 continue
             cost, k1, k2, yb1, nb2 = best
