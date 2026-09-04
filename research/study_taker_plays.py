@@ -42,6 +42,7 @@ from btchour.strategy import (  # noqa: E402
 )
 from research.hourly_lab import (  # noqa: E402
     Bucket,
+    clustered_t,
     DEFAULT_DB,
     Hour,
     liquidity_tier,
@@ -207,7 +208,23 @@ def main(argv=None) -> int:
         hold = out[f"{play}/hold"].result(days)
         stack = out[f"{play}/stack"].result(days)
         if hold.n:
-            print(f"   exit stack costs {stack.mean_cents - hold.mean_cents:+.2f}c per contract")
+            # A difference of two means is NOT a test of the difference. Both arms here
+            # can be individually zero and still produce a big-looking gap. The decision
+            # rests on "the stack is worse than holding", so pair the SAME entries and
+            # put a clustered standard error on the contrast itself. ADR 039: printing
+            # the bare gap is how five "independent replications" were all reported
+            # without one of them testing the claim it asserted.
+            paired = [s_ - h_ for s_, h_ in zip(out[f"{play}/stack"].cents,
+                                                out[f"{play}/hold"].cents)]
+            keys = out[f"{play}/stack"].clusters
+            if len(paired) == len(keys) and paired:
+                pm, pt, plo, phi = clustered_t(paired, keys)
+                print(f"   exit stack vs hold, PAIRED: {pm:+.2f}c  t={pt:+.2f}"
+                      f"  CI[{plo:+.2f}, {phi:+.2f}]"
+                      f"   (unpaired gap {stack.mean_cents - hold.mean_cents:+.2f}c)")
+            else:
+                print(f"   exit stack costs {stack.mean_cents - hold.mean_cents:+.2f}c"
+                      f" per contract (UNPAIRED -- no SE on this contrast)")
             order = sorted(reasons[play].items(), key=lambda kv: -kv[1])
             print("   exits: " + "  ".join(f"{k}={v}" for k, v in order))
     return 0
