@@ -175,7 +175,12 @@ def replay_exit_stack(hour: Hour, fill_ts: int, strike: float, side: str, won: b
         if bid is None:
             continue
         if cap_price is not None and bid + 1e-12 >= cap_price:
-            return _exit_cents(cost, cap_price)
+            # Sell at the BID, not at cap_price. `exits.py:145` books this exit as
+            # ExitAction(price=bid); clamping to cap_price hands back only the 50% the cap
+            # asks for and throws away everything above it. The cap is the MOST COMMON
+            # exit on this play, and it is the winners' branch, so clamping it is a
+            # one-sided haircut on exactly the arm ADR 017 set out to condemn.
+            return _exit_cents(cost, bid)
         roi = round_trip_roi(cost, bid)
         if roi + 1e-12 <= -WAIT_STOP:
             return _exit_cents(cost, bid)
