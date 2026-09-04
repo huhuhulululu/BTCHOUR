@@ -159,7 +159,14 @@ def replay_exit(
         if best is None:
             continue
         if cap_price is not None and best + 1e-12 >= cap_price:
-            return close_trade(trade, cap_price, "t_clip_cap")
+            # Book the BID, not cap_price. Production takes this exit as a taker at the
+            # bid (`exits.py:145` -> ExitAction(price=bid), priced through exit_proceeds
+            # with a taker fee); it does not rest a limit at cap_price. Clamping to the
+            # cap hands back only the 50% the cap asks for and discards everything above
+            # it -- and since the cap is the WINNERS' branch, the haircut is one-sided.
+            # Identical defect to ADR 039 in study_coupon. ADR 041.
+            return close_trade(trade, close_bid if close_bid is not None else cap_price,
+                               "t_clip_cap")
         if close_bid is not None:
             roi = round_trip_roi(cost, close_bid)
             if roi + 1e-12 <= -stop:
