@@ -26,7 +26,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from research.hourly_lab import DEFAULT_DB, Trade, load_hours, sample_days, summarize  # noqa: E402
+from research.hourly_lab import (  # noqa: E402
+    DEFAULT_DB,
+    Trade,
+    clustered_t,
+    load_hours,
+    sample_days,
+    summarize,
+)
 from research.study_candidates import Rule, run_rule, with_exits, with_lock_on_book  # noqa: E402
 
 FROZEN = Rule(
@@ -170,8 +177,27 @@ def main(argv=None) -> int:
               + f" $/day={sum(t.net for t in sub) / days:+.2f}")
 
     print("\n## exits on identical entries (hold is the benchmark above)")
+    print("   the PAIRED column is the statistic the decision needs: 'is the stack worse")
+    print("   than holding', on the same trades, with a clustered SE. A difference of two")
+    print("   means has no SE at all -- that is how ADR 039 went unchallenged for five")
+    print("   'replications'.")
+    hold_by_key = {(t.event_ticker, t.strike, t.side, t.ts): t.cents for t in trades}
     for optimistic, tag in ((True, "clip band (touch)"), (False, "clip band (close)")):
-        print("   " + summarize(with_exits(hours, trades, optimistic), tag, days).row())
+        clipped = with_exits(hours, trades, optimistic)
+        print("   " + summarize(clipped, tag, days).row())
+        pairs, keys = [], []
+        for t in clipped:
+            key = (t.event_ticker, t.strike, t.side, t.ts)
+            if key in hold_by_key:
+                pairs.append(t.cents - hold_by_key[key])
+                keys.append(t.event_ticker)
+        if pairs:
+            pm, pt, plo, phi = clustered_t(pairs, keys)
+            differ = sum(1 for d in pairs if abs(d) > 1e-9)
+            worse = sum(1 for d in pairs if d < 0)
+            print(f"      PAIRED clip minus hold: {pm:+.3f}c  t={pt:+.2f}"
+                  f"  CI[{plo:+.3f}, {phi:+.3f}]  n={len(pairs)}"
+                  f"  (exit differed on {differ}; clip worse on {worse})")
     for target in (0.08, 0.12, 0.20):
         print("   " + summarize(with_lock_on_book(hours, trades, target), f"lock_on_book {target:.0%}", days).row())
 
