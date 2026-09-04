@@ -199,7 +199,14 @@ def replay_lock_on_book(hour: Hour, trade: Trade, target: float) -> Trade:
             continue
         bid = quote.bid(trade.side)
         if bid is not None and bid + 1e-12 >= price:
-            return close_trade(trade, price, f"lock_on_book_{target:.0%}")
+            # Book the BID, not the lock price. Production sells at the bid here too
+            # (`exits.py:82-88` -> ExitAction(price=bid)); the lock price is the TRIGGER,
+            # not the fill. When the bid clears the trigger it clears it by some margin,
+            # and booking the trigger throws that margin away -- one-sided, because this
+            # branch only ever fires on winners. Third instance of the ADR 039/041
+            # defect, found by sweeping for it rather than reasoning about where it
+            # could be. ADR 042.
+            return close_trade(trade, bid, f"lock_on_book_{target:.0%}")
     return trade
 
 
