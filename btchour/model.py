@@ -82,8 +82,16 @@ def seasonal_scale(seconds: float, minute: float | None) -> float:
     if flat_minutes <= 0:
         return 1.0
     start = int(minute) + 1
-    remaining = sum(hour_variance_weight(m) for m in range(start, start + max(1, round(flat_minutes))))
-    return (remaining / flat_minutes) if remaining > 0 else 1.0
+    span = max(1, round(flat_minutes))
+    # Divide by the number of minutes actually SUMMED, not by the fractional minutes
+    # remaining. `remaining` is a sum over `span` whole minutes, so dividing it by
+    # flat_minutes mixes units: under a minute it charged a whole minute's weight against
+    # a fraction of one and returned 2.34 at 20s, outside the weight table's own
+    # [0.78, 1.16]. It also stepped 1.98x between 89s and 90s, where banker's rounding
+    # flips span from 1 to 2. As a mean weight over the covered minutes this is
+    # dimensionless and in range by construction. ADR 040.
+    remaining = sum(hour_variance_weight(m) for m in range(start, start + span))
+    return (remaining / span) if remaining > 0 else 1.0
 
 
 def variance_seconds(seconds: float, minute: float | None = None) -> float:
