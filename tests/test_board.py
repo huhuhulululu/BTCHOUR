@@ -210,7 +210,8 @@ class LadderCensusTests(unittest.TestCase):
                 "no_ask": 0.01,
             },
         ]
-        census = ladder_census(markets, 78040.0, -12.0, settings, resting=0)
+        # 014 raised the hang floor to |impulse| >= $100; -12 is 静, not a dump.
+        census = ladder_census(markets, 78040.0, -150.0, settings, resting=0)
         self.assertEqual(census["n"], 3)
         self.assertEqual(census["atm"], 2)
         self.assertEqual(census["no"], 2)

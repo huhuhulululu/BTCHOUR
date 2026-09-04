@@ -114,7 +114,8 @@ class LearnTests(unittest.TestCase):
                 "close_time": "2026-08-26T20:00:00Z",
             }
         )
-        spot = SpotQuote(78340, "test", annual_vol=0.55, impulse=-12)
+        # 014 raised the hang floor to |impulse| >= $100; -12 is 静, not a dump.
+        spot = SpotQuote(78340, "test", annual_vol=0.55, impulse=-150)
         report = diagnose_impulse([market], spot, Settings(playbook="flex"), now)
         self.assertEqual(report["status"], "wait")
         self.assertEqual(report["wait"], "KXBTCD-26AUG2616-T78299.99")

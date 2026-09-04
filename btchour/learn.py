@@ -7,6 +7,7 @@ from btchour.config import Settings
 from btchour.kalshi import Market
 from btchour.model import SpotQuote, digital_prob, effective_vol
 from btchour.strategy import (
+    hour_minute,
     _seconds_left,
     coupon_in_band,
     coupon_min_ask,
@@ -85,7 +86,8 @@ def _coupon_ladder_rejects(
         if dist > reach + 1e-9:
             continue
         vol = effective_vol(spot.annual_vol, settings.annual_vol)
-        p_yes = digital_prob(spot.price, market.strike, seconds, vol)
+        p_yes = digital_prob(spot.price, market.strike, seconds, vol,
+                             minute=hour_minute(market, seconds))
         for side in sides:
             ask = market.yes_ask_effective if side == "yes" else market.no_ask_effective
             model_p = p_yes if side == "yes" else 1.0 - p_yes
@@ -178,7 +180,8 @@ def diagnose_impulse(
         if seconds + 1e-12 < settings.swing_min_seconds:
             continue
         vol = effective_vol(spot.annual_vol, settings.annual_vol)
-        p_yes = digital_prob(spot.price, market.strike, seconds, vol)
+        p_yes = digital_prob(spot.price, market.strike, seconds, vol,
+                             minute=hour_minute(market, seconds))
         model_p = p_yes if want_yes else 1.0 - p_yes
         ask = market.yes_ask_effective if want_yes else market.no_ask_effective
         reasons: list[str] = []

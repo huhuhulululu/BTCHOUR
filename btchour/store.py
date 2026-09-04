@@ -253,7 +253,7 @@ class Store:
         self.conn.commit()
 
     def swing_memories(self) -> dict:
-        from btchour.strategy import SwingMemory, remember_swing_exit
+        from btchour.strategy import SwingMemory, is_settle_play, remember_swing_exit
 
         memories: dict = {}
         rows = self.conn.execute(
@@ -268,7 +268,7 @@ class Store:
             play = raw.get("play") or ""
             event = row["event_ticker"]
             current = memories.get(event) or SwingMemory()
-            if play.startswith("lock"):
+            if is_settle_play(play):
                 if row["status"] in {"closed", "settled"}:
                     memories[event] = remember_swing_exit(
                         current, row["ticker"], row["side"], row["result"] or "", play

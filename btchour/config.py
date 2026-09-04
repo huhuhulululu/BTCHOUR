@@ -86,6 +86,22 @@ class Settings:
     impulse_wait_max_distance: float = 600.0
     impulse_wait_stop: float = 0.80
     impulse_wait_scratch_seconds: float = 480.0
+
+    # 017 (accepted 2026-09-03): a filled coupon is carried to settlement instead of
+    # running the clip stack on it. The same 348 fills over 66 days of KXBTCD are -0.86c
+    # held and -4.14c (t=-4.99) clipped. Set 0 for the pre-017 stack as a sweep control.
+    impulse_wait_hold: bool = True
+
+    # cushion_hold (016, rejected-pending-data): the tape has already pushed spot >= N
+    # residual-vol sigmas off the strike while the book still prices the favourite under
+    # 90c. Taker in, hold to settlement. Stays OFF: +0.53c t=0.62 over 66 days, opposite
+    # signs in the two calendar halves, negative after one tick of slippage.
+    cushion_hold: bool = False
+    cushion_min: float = 1.5
+    cushion_min_ask: float = 0.70
+    cushion_max_ask: float = 0.90
+    cushion_max_per_hour: int = 3
+    cushion_min_seconds: float = 120.0
     live_one: bool = False  # 014: pause live_one until a real dump; do not switch the loop to live
     scan_15m: bool = True
     scan_daily: bool = True
@@ -134,11 +150,15 @@ def load_settings() -> Settings:
     if mode not in {"paper", "live"}:
         raise ValueError("BTCHOUR_MODE must be paper or live")
     playbook = os.environ.get("BTCHOUR_PLAYBOOK", "flex").strip().lower()
-    if playbook not in {"hold", "flex", "scalp", "lock", "swing"}:
-        raise ValueError("BTCHOUR_PLAYBOOK must be flex, lock, swing, hold, or scalp")
+    if playbook not in {"hold", "flex", "scalp", "lock", "swing", "edge"}:
+        raise ValueError("BTCHOUR_PLAYBOOK must be flex, lock, swing, edge, hold, or scalp")
     min_win_prob = _env_float("BTCHOUR_MIN_WIN_PROB", 0.998 if playbook == "lock" else 0.95)
     allow_maker = _env_bool("BTCHOUR_ALLOW_MAKER", playbook in {"lock", "flex"})
     allow_early_exit = _env_bool("BTCHOUR_ALLOW_EARLY_EXIT", playbook in {"flex", "scalp", "swing"})
+    if playbook == "edge":
+        # cushion_hold is a settle-out play: no clip, no trail, no TWAP flatten.
+        allow_early_exit = _env_bool("BTCHOUR_ALLOW_EARLY_EXIT", False)
+        allow_maker = _env_bool("BTCHOUR_ALLOW_MAKER", False)
     return Settings(
         mode=mode,
         target_profit=_env_float("BTCHOUR_TARGET_PROFIT", 0.20),
@@ -181,6 +201,13 @@ def load_settings() -> Settings:
         impulse_wait_max_distance=_env_float("BTCHOUR_IMPULSE_WAIT_MAX_DISTANCE", 600.0),
         impulse_wait_stop=_env_float("BTCHOUR_IMPULSE_WAIT_STOP", 0.80),
         impulse_wait_scratch_seconds=_env_float("BTCHOUR_IMPULSE_WAIT_SCRATCH_SECONDS", 480.0),
+        impulse_wait_hold=_env_bool("BTCHOUR_IMPULSE_WAIT_HOLD", True),
+        cushion_hold=_env_bool("BTCHOUR_CUSHION_HOLD", playbook == "edge"),
+        cushion_min=_env_float("BTCHOUR_CUSHION_MIN", 1.5),
+        cushion_min_ask=_env_float("BTCHOUR_CUSHION_MIN_ASK", 0.70),
+        cushion_max_ask=_env_float("BTCHOUR_CUSHION_MAX_ASK", 0.90),
+        cushion_max_per_hour=_env_int("BTCHOUR_CUSHION_MAX_PER_HOUR", 3),
+        cushion_min_seconds=_env_float("BTCHOUR_CUSHION_MIN_SECONDS", 120.0),
         live_one=_env_bool("BTCHOUR_LIVE_ONE", False),
         scan_15m=_env_bool("BTCHOUR_SCAN_15M", True),
         scan_daily=_env_bool("BTCHOUR_SCAN_DAILY", True),
@@ -223,6 +250,10 @@ def apply_playbook(
             updates["allow_early_exit"] = True
             updates["allow_maker"] = playbook == "flex"
             updates["poll_seconds"] = min(settings.poll_seconds, 3)
+        elif playbook == "edge":
+            updates["allow_early_exit"] = False
+            updates["allow_maker"] = False
+            updates["cushion_hold"] = True
         elif playbook == "scalp":
             updates["allow_early_exit"] = True
             updates["allow_maker"] = False
@@ -236,6 +267,8 @@ def apply_playbook(
     bool_extras = {
         "impulse_wait",
         "impulse_taker",
+        "cushion_hold",
+        "impulse_wait_hold",
         "live_one",
         "allow_maker",
         "allow_early_exit",

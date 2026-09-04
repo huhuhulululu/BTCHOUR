@@ -1,0 +1,67 @@
+name: ci
+
+on:
+  # push is scoped to main on purpose. Triggering on every branch AND on pull_request
+  # runs the whole matrix twice for any branch that has a PR open -- six jobs where
+  # three will do. Branch work is covered by its PR.
+  push:
+    branches: [main]
+  pull_request:
+
+# A branch under active development pushes faster than CI finishes. Without this, every
+# superseded commit keeps burning a runner to report on code nobody is looking at.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      # The engine is stdlib-only; `cryptography` is needed for live signing, which the
+      # tests never do. pytest is the whole build.
+      - run: pip install pytest
+      - run: python -m pytest -q
+
+  adr009:
+    # ADR 009: latest.json / index.json / probe.json / .env / data/ / keys are not
+    # committed; the hourly sweep commits only sweep.json + replay.json. Those three
+    # snapshots are already tracked from before that ADR, so this checks the DIFF rather
+    # than the tree -- the rule is "do not commit changes to them", and a live scan
+    # rewrites them as a side effect, which is exactly how they get staged by accident.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Refuse snapshot churn and key material
+        run: |
+          set -euo pipefail
+          base="${{ github.event.pull_request.base.sha }}"
+          if [ -z "$base" ]; then
+            base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
+          fi
+          changed="$(git diff --name-only "$base" HEAD || true)"
+          echo "changed files:"; echo "$changed"
+
+          bad="$(echo "$changed" | grep -E \
+            '^(catalog/snapshot/(latest|index|probe|hours)\.json|data/|\.env$|\.env\..*)' \
+            | grep -v '\.env\.example$' || true)"
+          keys="$(echo "$changed" | grep -E '\.(pem|key)$' || true)"
+
+          if [ -n "$bad" ] || [ -n "$keys" ]; then
+            echo "::error::ADR 009 violation -- these must not be committed:"
+            [ -n "$bad" ] && echo "$bad"
+            [ -n "$keys" ] && echo "$keys"
+            echo "Only catalog/snapshot/sweep.json and replay.json may be committed."
+            exit 1
+          fi
+          echo "ADR 009 OK"
