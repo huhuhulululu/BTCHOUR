@@ -72,6 +72,7 @@ python3 research/pull_hourly.py --check                # 落后了就退出非�
 | `study_twap_tail.py` | 用 10 秒网格验 019 的 `τ<T` 分支；现货网格最后两点是结算价（034） |
 | `study_conditioning.py` | 跨小时 / 时段 / 波动区间；表头自带 Bonferroni（035） |
 | `pull_trades.py` / `study_flow.py` | **带方向的主动成交流**（2728 万笔）——第一个全新输入，结论是零（043） |
+| `pull_perp.py` / `study_perp.py` | **永续溢价基差**——唯一过了 Bonferroni 的条件性结论；进场否决、**过滤器成立**（045） |
 | `study_ladder_arb.py` | 阶梯**自洽性**：单调性 / 和为一。不是赌，是不等式（036） |
 | `study_two_leg_maker.py` | **两腿都挂**——费用门槛 0.0pp 的唯一一族；腿风险（036） |
 | `study_endgame.py` | **最后五分钟**——其它每个 study 都把这段过滤掉了（037） |
