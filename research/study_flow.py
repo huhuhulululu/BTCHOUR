@@ -64,17 +64,27 @@ def bucket_of(value, edges):
     return None
 
 
-def load_flow(db: Path, events: set[str]) -> dict:
-    """(event, strike) -> sorted [(ts, signed_size)]. Signed: +yes aggressor, -no."""
+def load_flow(db: Path, windows: dict) -> dict:
+    """(event, strike) -> (signed, gross) summed over that event's decision window.
+
+    Aggregated in SQL, not in Python. The trades table holds 27.3M rows; materialising
+    them as per-rung lists costs several GB and buys nothing, because every caller wants
+    one window per event anyway. The window bounds come from the caller so the time filter
+    stays in one place -- and so it stays strictly BEFORE the decision bar.
+    """
     conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     out: dict = {}
-    for ev, strike, ts, side, size in conn.execute(
-        "SELECT event_ticker, strike, ts, taker_side, count FROM trades ORDER BY ts"
-    ):
-        if ev not in events:
-            continue
-        signed = float(size or 0.0) * (1.0 if side == "yes" else -1.0)
-        out.setdefault((ev, float(strike)), []).append((int(ts), signed))
+    for event_ticker, (lo, hi) in windows.items():
+        for strike, signed, gross in conn.execute(
+            "SELECT strike,"
+            "       SUM(CASE WHEN taker_side='yes' THEN count ELSE -count END),"
+            "       SUM(ABS(count))"
+            "  FROM trades"
+            " WHERE event_ticker=? AND ts>=? AND ts<?"
+            " GROUP BY strike",
+            (event_ticker, int(lo), int(hi)),
+        ):
+            out[(event_ticker, float(strike))] = (float(signed or 0.0), float(gross or 0.0))
     conn.close()
     return out
 
@@ -90,7 +100,16 @@ def main(argv=None) -> int:
 
     hours = load_hours(args.db, limit=args.limit or None, slice_half=args.slice)
     days = sample_days(hours)
-    flow = load_flow(args.db, {h.event_ticker for h in hours})
+
+    # Pick each hour's decision bar first, so the flow window is defined by the bar we
+    # will actually trade on -- strictly [bar.ts - lookback, bar.ts).
+    decision: dict = {}
+    for hour in hours:
+        bar = min(hour.bars, key=lambda b: abs(b.seconds_left - DECISION_SECONDS))
+        if abs(bar.seconds_left - DECISION_SECONDS) <= 180:
+            decision[hour.event_ticker] = bar
+    windows = {ev: (bar.ts - args.lookback, bar.ts) for ev, bar in decision.items()}
+    flow = load_flow(args.db, windows)
     if not flow:
         print("no trades stored yet -- run research/pull_trades.py first")
         return 0
@@ -101,8 +120,8 @@ def main(argv=None) -> int:
     imbalances: list[float] = []
 
     for hour in hours:
-        bar = min(hour.bars, key=lambda b: abs(b.seconds_left - DECISION_SECONDS))
-        if abs(bar.seconds_left - DECISION_SECONDS) > 180:
+        bar = decision.get(hour.event_ticker)
+        if bar is None:
             continue
         reference = rung_reference_volume(bar)
         for strike, quote in bar.quotes.items():
@@ -116,16 +135,15 @@ def main(argv=None) -> int:
                 continue
             rows += 1
 
-            # strictly BEFORE the decision bar's timestamp
-            trades = flow.get((hour.event_ticker, strike)) or []
-            window = [s for ts, s in trades if bar.ts - args.lookback <= ts < bar.ts]
-            if not window:
+            # summed strictly BEFORE the decision bar's timestamp, in SQL
+            entry = flow.get((hour.event_ticker, strike))
+            if entry is None:
                 continue
-            covered += 1
-            gross = sum(abs(s) for s in window)
+            signed, gross = entry
             if gross <= 0:
                 continue
-            imbalance = sum(window) / gross
+            covered += 1
+            imbalance = signed / gross
             imbalances.append(imbalance)
             key = bucket_of(imbalance, IMBALANCE_EDGES)
             if key is None:
