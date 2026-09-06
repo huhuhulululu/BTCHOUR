@@ -14,6 +14,8 @@ from btchour.model import SpotQuote, digital_prob, effective_vol, realized_annua
 from btchour.paper import paper_close, paper_fill, paper_settle
 from btchour.strategy import (
     T_PLAYS,
+    hour_minute,
+    is_settle_play,
     SessionMemory,
     SwingMemory,
     apply_swing_memory,
@@ -199,7 +201,8 @@ def replay_bars(
             ask = market.yes_ask_effective
             if ask is None:
                 continue
-            p_yes = digital_prob(bar.spot, market.strike, max(left, 1.0), bar.vol)
+            p_yes = digital_prob(bar.spot, market.strike, max(left, 1.0), bar.vol,
+                                 minute=hour_minute(market, left))
             cost = fill_cost(ask, taker=True)
             ev = cost.betting_ev(p_yes)
             row = {
@@ -228,7 +231,8 @@ def replay_bars(
         if position is not None:
             market = next((item for item in markets if item.ticker == position["ticker"]), None)
             if market is not None and market.strike is not None:
-                p_yes = digital_prob(bar.spot, market.strike, max(left, 1.0), bar.vol)
+                p_yes = digital_prob(bar.spot, market.strike, max(left, 1.0), bar.vol,
+                                 minute=hour_minute(market, left))
                 model_p = p_yes if position["side"] == "yes" else 1.0 - p_yes
                 action = None
                 decision = evaluate_exit(
@@ -266,7 +270,7 @@ def replay_bars(
                     )
                     just_closed = (position["ticker"], position["side"])
                     play = (position.get("entry") or {}).get("play") or ""
-                    if play in T_PLAYS or play.startswith("lock"):
+                    if play in T_PLAYS or is_settle_play(play):
                         swing_mem = remember_swing_exit(
                             swing_mem, position["ticker"], position["side"], action.reason, play
                         )
@@ -338,27 +342,21 @@ def replay_bars(
                 if fill.get("status") == "open":
                     position = _position_from_fill(fill, chosen[0], now, event_ticker, bar, left)
                 elif fill.get("play") == "impulse_wait":
+                    # The rest is placed here and tested from the NEXT bar onward. It used
+                    # to be filled from THIS bar as well, but the hang reads this bar's
+                    # close (`ask_field` is close_dollars for flex) while the fill read
+                    # this bar's low/high -- an extreme that may have printed before the
+                    # order existed. That is not a fill that could have happened, and it
+                    # was 61-66% of every coupon fill replay/sweep ever reported: over
+                    # 1557 hours it carried impulse_wait from +2.2c/contract (t=0.56) to
+                    # +7.6c (t=3.23). ADR 032; `research/replay_db.py --no-same-bar-fill`
+                    # keeps the old path available as a control.
                     working = _position_from_fill(fill, chosen[0], now, event_ticker, bar, left)
-                    quotes = bar.quotes.get(float(chosen[0].strike)) or {}
-                    ask = chosen[0].ask
-                    if _replay_tape_ok(quotes, "impulse_wait") and wait_book_crossed(
-                        working["side"],
-                        float(working["price"]),
-                        ask,
-                        yes_bid_high=quotes.get("yes_bid_high"),
-                        yes_ask_low=quotes.get("yes_ask_low"),
-                        impulse=bar.impulse,
-                        min_impulse=settings.impulse_min,
-                    ):
-                        position = _promote_wait(working)
-                        entry = dict(position.get("entry") or {})
-                        entry["filled_ts"] = now.isoformat()
-                        position["entry"] = entry
-                        working = None
 
     if position is not None:
         result = results.get(position["entry"]["strike"], "")
         pnl = paper_settle(position["cost"], position["count"], position["side"], result) if result in {"yes", "no"} else None
+        play = (position.get("entry") or {}).get("play") or ""
         takes.append(
             {
                 **position["entry"],
@@ -369,6 +367,14 @@ def replay_bars(
                 "result": result,
             }
         )
+        # 017 made settlement the normal way a coupon ends. 006 counts a losing hour
+        # whether it ended on a stop or on the settle, exactly as `store.session_memory()`
+        # already does live (it reads status settled as well as closed). Without this the
+        # skip hour would quietly stop firing in replay the moment the clip band came off.
+        if play in T_PLAYS and settings.skip_after_loss:
+            session = remember_session_exit(
+                session, event_ticker, "settle", pnl, position["side"], play
+            )
 
     return {
         "event_ticker": event_ticker,
@@ -528,6 +534,12 @@ def bars_from_tape(tape: EventTape, settings: Settings) -> list[ReplayBar]:
         return []
     minutes = sorted(tape.spots)
     bars: list[ReplayBar] = []
+    # `lock` prices the entry at the minute's LOW ask, not its close. That is a deliberate
+    # choice with a test on it (`test_lock_uses_ask_low_flex_uses_close`), and ADR 033
+    # measures what it costs: over 1557 hours it admits 21 lock entries where the close
+    # ask admits 5, and the 5 survivors are exactly the lock_hold takes flex finds
+    # independently (-20.4c). Left as-is pending the user's call; the control is
+    # `research/replay_db.py --close-ask`.
     ask_field = "low_dollars" if settings.playbook == "lock" else "close_dollars"
     for idx, minute_ms in enumerate(minutes):
         end_ts = minute_ms // 1000 + 60
