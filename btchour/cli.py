@@ -30,8 +30,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     research.add_argument(
         "name",
-        choices=["fill-model", "regime", "calibration", "archive", "oos"],
-        help="archive = fold the replay cache into data/archive/; oos = train/test split on it",
+        choices=["fill-model", "regime", "calibration", "archive", "oos", "baseline"],
+        help=(
+            "archive = fold the replay cache into data/archive/; "
+            "oos = train/test split on it; baseline = model vs market mid"
+        ),
     )
     research.add_argument("--hours", type=int, default=80, help="Hours per seed (or archive hours for oos)")
     research.add_argument("--seeds", type=int, default=8, help="Independent runs to pool")
@@ -81,6 +84,31 @@ def main(argv: list[str] | None = None) -> int:
             from btchour.research.dataset import absorb_cache, archive_summary
 
             _print_json({**absorb_cache(), **archive_summary()})
+            return 0
+
+        if args.name == "baseline":
+            from btchour.research.baseline import render as render_baseline, score_tapes
+            from btchour.research.dataset import load_archive
+
+            tapes = load_archive(limit=args.hours)
+            source = "archive"
+            if not tapes:
+                from btchour.research.sim import regime_config, simulate_tapes
+
+                tapes = simulate_tapes(args.hours, regime_config("fair", seed=21))
+                source = "sim"
+            report = score_tapes(tapes, load_settings())
+            report["source"] = source
+            if args.json:
+                _print_json(report)
+            else:
+                print(render_baseline(report))
+                if source == "sim":
+                    print()
+                    print(
+                        "来源：合成盘（归档是空的）。合成盘的中价和模型用的是同一个公式，"
+                        "这里只验证工具本身；真结论要等真 tape。"
+                    )
             return 0
 
         if args.name == "oos":

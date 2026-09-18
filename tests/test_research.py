@@ -192,6 +192,37 @@ class CompareTests(unittest.TestCase):
         self.assertEqual(row["train"]["hours"], payload["train_hours"])
 
 
+class BaselineTests(unittest.TestCase):
+    def test_scores_model_and_mid_on_the_same_rungs(self):
+        from btchour.research.baseline import score_tapes
+
+        report = score_tapes(simulate_tapes(6, regime_config("fair", seed=8)))
+        self.assertEqual(report["hours"], 6)
+        self.assertGreater(report["observations"], 0)
+        self.assertEqual(
+            report["observations"], sum(row["observations"] for row in report["buckets"])
+        )
+        for key in ("model_brier", "mid_brier"):
+            self.assertGreaterEqual(report[key], 0.0)
+            self.assertLessEqual(report[key], 1.0)
+
+    def test_an_empty_sample_does_not_crash(self):
+        from btchour.research.baseline import render, score_tapes
+
+        report = score_tapes([])
+        self.assertEqual(report["observations"], 0)
+        self.assertIsNone(report["model_beats_mid"])
+        self.assertIn("没有可评分的读数", render(report))
+
+    def test_buckets_split_on_the_model_mid_gap(self):
+        from btchour.research.baseline import BUCKETS
+
+        edges = [lo for lo, _, _ in BUCKETS]
+        self.assertEqual(edges, sorted(edges))
+        # The 20% gate needs a 5c+ gap, so those buckets have to exist.
+        self.assertIn("5-10¢", [label for _, _, label in BUCKETS])
+
+
 class SplitTests(unittest.TestCase):
     def test_train_is_the_older_half(self):
         tapes = simulate_tapes(10, SimConfig(seed=2))

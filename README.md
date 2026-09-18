@@ -24,6 +24,7 @@ python3 -m btchour fills
 python3 -m btchour research fill-model
 python3 -m btchour research calibration
 python3 -m btchour research archive
+python3 -m btchour research baseline
 python3 -m btchour research oos
 ```
 

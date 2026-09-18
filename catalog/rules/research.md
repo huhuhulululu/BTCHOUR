@@ -18,6 +18,22 @@ python3 -m btchour research calibration --hours 200 --seeds 3
 | `regime` | 换成诚实成交后，规则能不能在专门为它造的世界里赚到钱 | `underreact` 世界里盘口跟不上 3 分钟动量，顺动量就是真的正 EV。在这里都赚不到，就是机制坏了，不是信号不够 |
 | `calibration` | 哪个结算模型真的预测得准 | 不牵涉盘口。每根近 ATM 档、每分钟，拿模型 p 去对真实结算。Brier 越低越好，0.25 = 全填 0.5 |
 
+## 真 tape 到手之后的第一件事
+
+```bash
+python3 -m btchour sweep --hours 24        # 能连 Kalshi 的机器上跑
+python3 -m btchour research archive        # 固化进 data/archive/
+python3 -m btchour research baseline       # 模型 vs 市场中价
+python3 -m btchour research oos --hours 48 # 老的一半调参，新的一半报数
+```
+
+`baseline` 是**决定性检验**，跑在归档上（归档为空时退回合成盘，只验证工具）。它拿 `digital_prob` 和盘口中价打同一批近 ATM 档、同一个真实结算，按两者的分歧分桶记 Brier。
+
+**20% 门只在分歧 ≥5¢ 时开火**（见 [`ev.md`](ev.md)）。所以要看的不是整体校准，是那两行里谁更准：
+
+- 中价更准 → 门开的是模型误差，不是市场错价。**任何 taker 类提案到此为止**，先换模型。
+- 模型更准且样本够 → 才有资格谈入场规则。
+
 ## 合成盘是什么、不是什么
 
 `btchour/research/sim.py` 造的一小时：现货是无漂移 GBM（鞅），结算走真的 60 秒均价，盘口按 `mid = 公允(现货 × (1 + k·r3)) + AR(1) 噪声`，再加一个近 ATM 1¢、尾部更宽的价差。`r3` 就是引擎自己那个 3 分钟 `impulse`。
