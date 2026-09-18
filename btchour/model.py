@@ -75,9 +75,19 @@ def realized_annual_vol(prices: list[float], bar_seconds: float) -> float | None
     return min(1.8, max(0.25, annual))
 
 
-def effective_vol(realized: float | None, floor: float) -> float:
+def effective_vol(realized: float | None, floor: float, fallback: float | None = None) -> float:
+    """Realized vol, floored -- with a separate fallback when it is unmeasurable.
+
+    The floor and the fallback used to be one number (`Settings.annual_vol`,
+    0.55). That conflates two different jobs. As a floor 0.55 is far above
+    realized minute vol, so it dragged every `digital_prob` toward 0.5 and made
+    the model measurably worse than the book (`docs/decisions.md` 017). As a
+    fallback, when there are too few bars to measure anything, erring high is
+    the safe direction. So they are separate now: `Settings.vol_floor` floors a
+    measurement, `Settings.annual_vol` stands in for a missing one.
+    """
     if realized is None or realized <= 0:
-        return floor
+        return fallback if fallback is not None else floor
     return max(realized, floor)
 
 

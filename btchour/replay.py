@@ -576,7 +576,7 @@ def bars_from_tape(tape: EventTape, settings: Settings) -> list[ReplayBar]:
         if left < 8:
             continue
         window = [tape.spots[k] for k in minutes[max(0, idx - 30) : idx + 1]]
-        vol = effective_vol(realized_annual_vol(window, 60.0), settings.annual_vol)
+        vol = effective_vol(realized_annual_vol(window, 60.0), settings.vol_floor, settings.annual_vol)
         lookback = tape.spots[minutes[max(0, idx - 3)]]
         impulse = tape.spots[minute_ms] - lookback
         quotes: dict[float, dict] = {}

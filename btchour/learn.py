@@ -84,7 +84,7 @@ def _coupon_ladder_rejects(
         dist = abs(market.strike - spot.price)
         if dist > reach + 1e-9:
             continue
-        vol = effective_vol(spot.annual_vol, settings.annual_vol)
+        vol = effective_vol(spot.annual_vol, settings.vol_floor, settings.annual_vol)
         p_yes = digital_prob(spot.price, market.strike, seconds, vol)
         for side in sides:
             ask = market.yes_ask_effective if side == "yes" else market.no_ask_effective
@@ -177,7 +177,7 @@ def diagnose_impulse(
         seconds = _seconds_left(market.close_time, now)
         if seconds + 1e-12 < settings.swing_min_seconds:
             continue
-        vol = effective_vol(spot.annual_vol, settings.annual_vol)
+        vol = effective_vol(spot.annual_vol, settings.vol_floor, settings.annual_vol)
         p_yes = digital_prob(spot.price, market.strike, seconds, vol)
         model_p = p_yes if want_yes else 1.0 - p_yes
         ask = market.yes_ask_effective if want_yes else market.no_ask_effective

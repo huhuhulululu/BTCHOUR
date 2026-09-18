@@ -50,6 +50,11 @@ class Settings:
     min_win_prob: float = 0.95
     min_expected_roi: float = 0.20
     annual_vol: float = 0.55
+    # Floor on *measured* vol. 0.20 is below what `realized_annual_vol`
+    # can return (it clamps at 0.25), so the floor is effectively off and
+    # the model uses what it measured. 017 measured every higher floor
+    # making the model worse against real settlement.
+    vol_floor: float = 0.20
     poll_seconds: int = 3
     max_contracts: float = 10.0
     max_notional: float = 25.0
@@ -152,6 +157,7 @@ def load_settings() -> Settings:
         min_win_prob=min_win_prob,
         min_expected_roi=_env_float("BTCHOUR_MIN_EXPECTED_ROI", 0.20),
         annual_vol=_env_float("BTCHOUR_ANNUAL_VOL", 0.55),
+        vol_floor=_env_float("BTCHOUR_VOL_FLOOR", 0.20),
         poll_seconds=_env_int("BTCHOUR_POLL_SECONDS", 3 if playbook in {"flex", "swing"} else 5),
         max_contracts=_env_float("BTCHOUR_MAX_CONTRACTS", 10.0),
         max_notional=_env_float("BTCHOUR_MAX_NOTIONAL", 25.0),

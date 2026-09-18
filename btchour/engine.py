@@ -144,7 +144,7 @@ def scan_once(client: KalshiClient, settings: Settings | None = None, persist: b
                 market,
                 spot,
                 seconds,
-                effective_vol(spot.annual_vol, settings.annual_vol),
+                effective_vol(spot.annual_vol, settings.vol_floor, settings.annual_vol),
                 settings.target_profit,
                 settings.min_win_prob,
                 settings.min_expected_roi,
@@ -792,7 +792,7 @@ def refresh_working(
             store.promote_working(row["id"], ask, filled.fee, filled.cost, filled.if_win_roi)
             updates.append({"id": row["id"], "ticker": row["ticker"], "status": "open", "price": ask, "reason": "wait_crossed"})
             continue
-        vol = effective_vol(spot.annual_vol, settings.annual_vol)
+        vol = effective_vol(spot.annual_vol, settings.vol_floor, settings.annual_vol)
         p_yes = digital_prob(spot.price, market.strike, max(seconds, 1.0), vol)
         model_p = p_yes if row["side"] == "yes" else 1.0 - p_yes
         sigma = sigma_cushion(spot.price, market.strike, max(seconds, 1.0), vol)
@@ -822,7 +822,7 @@ def manage_open(
         if market.result in {"yes", "no"}:
             continue
         seconds = _seconds_left(market.close_time, now)
-        vol = effective_vol(spot.annual_vol, settings.annual_vol)
+        vol = effective_vol(spot.annual_vol, settings.vol_floor, settings.annual_vol)
         p_yes = digital_prob(spot.price, market.strike, max(seconds, 1.0), vol)
         model_p = p_yes if row["side"] == "yes" else 1.0 - p_yes
         raw = {}

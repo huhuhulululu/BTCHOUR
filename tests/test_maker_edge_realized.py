@@ -69,3 +69,40 @@ class MakerEdgeRealizedTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VolFloorTest(unittest.TestCase):
+    """017: the floor and the fallback were one number. Separating them is the fix."""
+
+    def test_floor_applies_to_a_measurement(self):
+        from btchour.model import effective_vol
+
+        self.assertAlmostEqual(effective_vol(0.10, 0.20, 0.55), 0.20)
+        self.assertAlmostEqual(effective_vol(0.42, 0.20, 0.55), 0.42)
+
+    def test_fallback_applies_only_when_unmeasurable(self):
+        from btchour.model import effective_vol
+
+        self.assertAlmostEqual(effective_vol(None, 0.20, 0.55), 0.55)
+        self.assertAlmostEqual(effective_vol(0.0, 0.20, 0.55), 0.55)
+
+    def test_fallback_defaults_to_the_floor_for_old_callers(self):
+        from btchour.model import effective_vol
+
+        self.assertAlmostEqual(effective_vol(None, 0.20), 0.20)
+
+    def test_default_floor_does_not_bind_a_real_measurement(self):
+        """`realized_annual_vol` clamps at 0.25, so the 0.20 default is inert."""
+        from btchour.config import Settings
+        from btchour.model import effective_vol
+
+        s = Settings()
+        self.assertEqual(s.vol_floor, 0.20)
+        self.assertEqual(s.annual_vol, 0.55)
+        self.assertAlmostEqual(effective_vol(0.25, s.vol_floor, s.annual_vol), 0.25)
+
+    def test_the_old_floor_pulled_probabilities_toward_a_half(self):
+        from btchour.model import digital_prob
+
+        args = (79000.0, 78500.0, 1800.0)
+        self.assertGreater(digital_prob(*args, 0.30), digital_prob(*args, 0.55))

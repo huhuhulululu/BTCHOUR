@@ -38,7 +38,7 @@ def probe_book(client: KalshiClient | None = None, settings: Settings | None = N
                 market,
                 spot,
                 seconds,
-                effective_vol(spot.annual_vol, settings.annual_vol),
+                effective_vol(spot.annual_vol, settings.vol_floor, settings.annual_vol),
                 settings.target_profit,
                 settings.min_win_prob,
                 settings.min_expected_roi,

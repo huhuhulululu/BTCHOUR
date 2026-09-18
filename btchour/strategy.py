@@ -376,7 +376,7 @@ def evaluate_market(
     seconds = _eligible_market(market, settings, now)
     if seconds is None:
         return []
-    vol = effective_vol(spot.annual_vol, settings.annual_vol)
+    vol = effective_vol(spot.annual_vol, settings.vol_floor, settings.annual_vol)
     p_yes = digital_prob(spot.price, market.strike, seconds, vol)
     sides = [
         ("yes", "bid", p_yes, market.yes_ask_effective),
@@ -438,7 +438,7 @@ def evaluate_scalp_market(
     seconds = _eligible_market(market, settings, now)
     if seconds is None:
         return []
-    vol = effective_vol(spot.annual_vol, settings.annual_vol)
+    vol = effective_vol(spot.annual_vol, settings.vol_floor, settings.annual_vol)
     p_yes = digital_prob(spot.price, market.strike, seconds, vol)
     sides = [
         ("yes", "bid", p_yes, market.yes_ask_effective),
@@ -502,7 +502,7 @@ def evaluate_lock_market(
     seconds = _eligible_market(market, settings, now)
     if seconds is None:
         return []
-    vol = effective_vol(spot.annual_vol, settings.annual_vol)
+    vol = effective_vol(spot.annual_vol, settings.vol_floor, settings.annual_vol)
     sigma = sigma_cushion(spot.price, market.strike, seconds, vol)
     if sigma + 1e-12 < settings.min_sigma:
         return []
@@ -571,7 +571,7 @@ def evaluate_swing_market(
         return []
     if abs((market.strike or 0.0) - spot.price) > settings.swing_max_distance + 1e-9:
         return []
-    vol = effective_vol(spot.annual_vol, settings.annual_vol)
+    vol = effective_vol(spot.annual_vol, settings.vol_floor, settings.annual_vol)
     p_yes = digital_prob(spot.price, market.strike, seconds, vol)
     sides = [
         ("yes", "bid", p_yes, market.yes_ask_effective),
@@ -636,7 +636,7 @@ def evaluate_impulse_market(
         return []
     if abs((market.strike or 0.0) - spot.price) > settings.swing_max_distance + 1e-9:
         return []
-    vol = effective_vol(spot.annual_vol, settings.annual_vol)
+    vol = effective_vol(spot.annual_vol, settings.vol_floor, settings.annual_vol)
     p_yes = digital_prob(spot.price, market.strike, seconds, vol)
     want_yes = move > 0
     side = "yes" if want_yes else "no"
@@ -717,7 +717,7 @@ def evaluate_impulse_wait_market(
     reach = settings.impulse_wait_max_distance or settings.swing_max_distance
     if abs((market.strike or 0.0) - spot.price) > reach + 1e-9:
         return []
-    vol = effective_vol(spot.annual_vol, settings.annual_vol)
+    vol = effective_vol(spot.annual_vol, settings.vol_floor, settings.annual_vol)
     p_yes = digital_prob(spot.price, market.strike, seconds, vol)
     rest = settings.impulse_rest
     found: list[Opportunity] = []
