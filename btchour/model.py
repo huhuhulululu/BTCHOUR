@@ -13,15 +13,43 @@ def norm_cdf(x: float) -> float:
     return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
 
 
-def digital_prob(spot: float, strike: float, seconds: float, annual_vol: float, drift: float = 0.0) -> float:
-    """P(S_T > strike) under GBM. Floor time to the BRTI 60-second TWAP window."""
+def variance_seconds(seconds: float, twap_seconds: float = TWAP_SECONDS) -> float:
+    """Seconds of variance that actually reach the settlement print.
+
+    KXBTCD settles on the average of the last 60 BRTI prints, not on the last
+    print (`catalog/rules/settlement.md`). Averaging throws away variance: for
+    a driftless walk the average of the final window carries m/3 seconds of
+    variance, not m. So
+
+        tau >= m   ->  tau - m + m/3  =  tau - 2m/3
+        tau <  m   ->  tau**3 / (3 m**2)
+
+    Passing `twap_seconds=0` gives the plain terminal-price model, which is
+    what the engine used before: it floored tau at the full 60 seconds and so
+    treated the most-decided minute of the hour as the least decided one.
+    """
+    if seconds <= 0:
+        return 0.0
+    if twap_seconds <= 0:
+        return max(seconds, MIN_TAU_SECONDS)
+    if seconds >= twap_seconds:
+        return seconds - 2.0 * twap_seconds / 3.0
+    return seconds**3 / (3.0 * twap_seconds**2)
+
+
+def digital_prob(
+    spot: float,
+    strike: float,
+    seconds: float,
+    annual_vol: float,
+    drift: float = 0.0,
+    twap_seconds: float = TWAP_SECONDS,
+) -> float:
+    """P(settlement > strike) under GBM, against the 60s TWAP print."""
     if spot <= 0 or strike <= 0 or annual_vol <= 0:
         return 0.0
-    tau = max(seconds, MIN_TAU_SECONDS) / SECONDS_PER_YEAR
-    # Last-minute official print is a 60s average, so residual vol never fully vanishes.
-    if seconds <= TWAP_SECONDS:
-        tau = max(tau, TWAP_SECONDS / SECONDS_PER_YEAR)
-    denom = annual_vol * math.sqrt(tau)
+    tau = variance_seconds(seconds, twap_seconds) / SECONDS_PER_YEAR
+    denom = annual_vol * math.sqrt(tau) if tau > 0 else 0.0
     if denom <= 0:
         return 1.0 if spot > strike else 0.0
     d = (math.log(spot / strike) + (drift - 0.5 * annual_vol * annual_vol) * tau) / denom
@@ -53,12 +81,18 @@ def effective_vol(realized: float | None, floor: float) -> float:
     return max(realized, floor)
 
 
-def sigma_cushion(spot: float, strike: float, seconds: float, annual_vol: float) -> float:
+def sigma_cushion(
+    spot: float,
+    strike: float,
+    seconds: float,
+    annual_vol: float,
+    twap_seconds: float = TWAP_SECONDS,
+) -> float:
     """How many residual-vol sigmas the spot is away from the strike."""
     if spot <= 0 or strike <= 0 or annual_vol <= 0:
         return 0.0
-    tau = max(seconds, MIN_TAU_SECONDS) / SECONDS_PER_YEAR
-    denom = annual_vol * math.sqrt(tau)
+    tau = variance_seconds(seconds, twap_seconds) / SECONDS_PER_YEAR
+    denom = annual_vol * math.sqrt(tau) if tau > 0 else 0.0
     if denom <= 0:
         return 99.0 if spot != strike else 0.0
     return abs(math.log(spot / strike)) / denom

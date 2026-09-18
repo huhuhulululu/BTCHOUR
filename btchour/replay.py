@@ -171,6 +171,27 @@ def _held_seconds(position: dict, now: datetime) -> float | None:
     return (now - filled).total_seconds()
 
 
+
+def _mark_fill(position: dict, bar: ReplayBar, now: datetime, maturity_s: float) -> dict:
+    """Stamp what the model thought at the moment the rest actually filled.
+
+    A maker rest is only filled when someone wanted the other side at our
+    price. Comparing the model read at the fill with the read at the hang is
+    how adverse selection shows up as a number instead of a story.
+    """
+    entry = dict(position.get("entry") or {})
+    entry["filled_ts"] = now.isoformat()
+    entry["fill_spot"] = bar.spot
+    entry["fill_impulse"] = bar.impulse
+    strike = entry.get("strike")
+    if strike is not None:
+        left = max(maturity_s - bar.end_ts, 1.0)
+        p_yes = digital_prob(bar.spot, float(strike), left, bar.vol)
+        entry["fill_model_p"] = p_yes if position["side"] == "yes" else 1.0 - p_yes
+    position["entry"] = entry
+    return position
+
+
 def replay_bars(
     event_ticker: str,
     bars: list[ReplayBar],
@@ -301,11 +322,9 @@ def replay_bars(
                 yes_ask_low=quotes.get("yes_ask_low"),
                 impulse=bar.impulse if play == "impulse_wait" else None,
                 min_impulse=settings.impulse_min if play == "impulse_wait" else None,
+                wick=settings.replay_wick_fill,
             ):
-                position = _promote_wait(working)
-                entry = dict(position.get("entry") or {})
-                entry["filled_ts"] = now.isoformat()
-                position["entry"] = entry
+                position = _mark_fill(_promote_wait(working), bar, now, maturity_s)
                 working = None
                 continue
             if play == "impulse_wait" and (
@@ -349,11 +368,9 @@ def replay_bars(
                         yes_ask_low=quotes.get("yes_ask_low"),
                         impulse=bar.impulse,
                         min_impulse=settings.impulse_min,
+                        wick=settings.replay_wick_fill,
                     ):
-                        position = _promote_wait(working)
-                        entry = dict(position.get("entry") or {})
-                        entry["filled_ts"] = now.isoformat()
-                        position["entry"] = entry
+                        position = _mark_fill(_promote_wait(working), bar, now, maturity_s)
                         working = None
 
     if position is not None:

@@ -1541,7 +1541,7 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         self.assertGreaterEqual(take["roi"], 0.50)
 
     def test_dump_coupon_rest_then_dump_fill(self):
-        settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
+        settings = Settings(playbook="flex", replay_wick_fill=True, max_contracts=1, max_notional=10, allow_early_exit=True)
         maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
         strike = 78699.99
         bars = [
@@ -1564,7 +1564,7 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         self.assertGreater(report["takes"][0]["pnl"], 0)
 
     def test_fade_keeps_the_bid_then_dump_reprint_fills(self):
-        settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
+        settings = Settings(playbook="flex", replay_wick_fill=True, max_contracts=1, max_notional=10, allow_early_exit=True)
         maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
         strike = 78699.99
         bars = [
@@ -1594,7 +1594,7 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         self.assertGreater(report["takes"][0]["pnl"], 0)
 
     def test_bounce_rip_does_not_fill_then_second_dump_does(self):
-        settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
+        settings = Settings(playbook="flex", replay_wick_fill=True, max_contracts=1, max_notional=10, allow_early_exit=True)
         maturity = datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc).timestamp()
         strike = 78699.99
         bars = [
@@ -1655,7 +1655,7 @@ class ImpulseWaitReplayTests(unittest.TestCase):
         self.assertNotEqual(report["takes"][0]["play"], "impulse_wait")
 
     def test_coupon_rest_beats_a_fifty_one_taker_on_the_same_dump(self):
-        settings = Settings(playbook="flex", max_contracts=1, max_notional=10, allow_early_exit=True)
+        settings = Settings(playbook="flex", replay_wick_fill=True, max_contracts=1, max_notional=10, allow_early_exit=True)
         maturity = _close_ts("KXBTCD-26AUG2609")
         coupon = 78599.99
         taker = 78799.99
@@ -1696,6 +1696,7 @@ class ImpulseWaitReplayTests(unittest.TestCase):
             max_notional=10,
             allow_early_exit=True,
             impulse_taker=True,
+            replay_wick_fill=True,
         )
         maturity = _close_ts("KXBTCD-26AUG2611")
         taker = 78799.99
@@ -1750,6 +1751,7 @@ class ImpulseWaitReplayTests(unittest.TestCase):
             max_notional=10,
             allow_early_exit=True,
             impulse_taker=True,
+            replay_wick_fill=True,
         )
         maturity = _close_ts("KXBTCD-26AUG2614")
         taker = 78799.99

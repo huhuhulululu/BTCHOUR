@@ -21,10 +21,16 @@ python3 -m btchour loop
 python3 -m btchour status
 python3 -m btchour board
 python3 -m btchour fills
+python3 -m btchour research fill-model
+python3 -m btchour research calibration
+python3 -m btchour research archive
+python3 -m btchour research oos
 ```
 
 默认 `BTCHOUR_MODE=paper`，`BTCHOUR_PLAYBOOK=flex`。$0.83 的锁仓等待单不成交不算入账。做T 的 10%–50% 是实测正常兑现带，不是保证。实盘密钥只放本机 `.env`，不入库。
 
 只要锁仓：`--playbook lock`。只要短线：`--playbook swing`。
+
+研究框架（合成盘对照、自举区间、样本外切分、真 tape 归档）：[`catalog/rules/research.md`](catalog/rules/research.md)。**016 起回放默认不再用分钟内 wick 判挂单成交**，历史那些 `6/6` 绿数字是旧成交模型付的钱，不是市场付的（[`findings.md`](catalog/research/findings.md)）。
 
 多角色编制（从 `huhuhulululu/kalshi` 客制，小时盘瘦编制）：[`docs/TEAM.md`](docs/TEAM.md)。目标只在 [`docs/GOALS.md`](docs/GOALS.md)。冻结门：[`docs/decisions.md`](docs/decisions.md)。小时盘整条近 ATM 阶梯是工作盘，操作权高于 15 分钟研究仓的坐等（011）；`board` 必须报活档数。

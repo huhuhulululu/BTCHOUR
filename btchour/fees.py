@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from functools import lru_cache
 
 
 TAKER_COEFF = 0.07
@@ -17,6 +18,7 @@ def ceil_centicent(amount: float) -> float:
     return math.ceil(scaled - 1e-9) / CENTICENT
 
 
+@lru_cache(maxsize=200_000)
 def quadratic_fee(price: float, count: float, multiplier: float, coeff: float) -> float:
     if count <= 0 or price <= 0 or price >= 1:
         return 0.0
@@ -88,6 +90,7 @@ def betting_ev(win_prob: float, net_odds: float) -> float:
     return ev(win_prob, net_odds)
 
 
+@lru_cache(maxsize=200_000)
 def fill_cost(price: float, count: float = 1.0, *, taker: bool = True, multiplier: float = 1.0) -> FillCost:
     fee = taker_fee(price, count, multiplier) if taker else maker_fee(price, count, 0.0)
     cost = price * count + fee
@@ -97,6 +100,7 @@ def fill_cost(price: float, count: float = 1.0, *, taker: bool = True, multiplie
     return FillCost(price, count, fee, cost, if_win, roi, if_lose)
 
 
+@lru_cache(maxsize=200_000)
 def max_entry_price(target_roi: float, *, taker: bool = True, multiplier: float = 1.0, tick: float = TICK) -> float:
     """Highest whole-tick price whose if-win net ROI is still >= target_roi."""
     best = 0.0
@@ -108,12 +112,14 @@ def max_entry_price(target_roi: float, *, taker: bool = True, multiplier: float 
     return best
 
 
+@lru_cache(maxsize=200_000)
 def exit_proceeds(price: float, count: float = 1.0, *, taker: bool = True, multiplier: float = 1.0) -> tuple[float, float]:
     """Cash received when selling `count` contracts at `price` (hit the bid = taker)."""
     fee = taker_fee(price, count, multiplier) if taker else maker_fee(price, count, 0.0)
     return price * count - fee, fee
 
 
+@lru_cache(maxsize=200_000)
 def round_trip_roi(
     entry_cost: float,
     exit_price: float,
@@ -128,6 +134,7 @@ def round_trip_roi(
     return (proceeds - entry_cost) / entry_cost
 
 
+@lru_cache(maxsize=200_000)
 def lock_exit_price(
     entry_cost: float,
     count: float = 1.0,
@@ -144,3 +151,34 @@ def lock_exit_price(
         if round_trip_roi(entry_cost, price, count, taker_exit=taker_exit, multiplier=multiplier) + 1e-12 >= target:
             return price
     return None
+
+
+def ev_from_cost(win_prob: float, cost: float) -> float:
+    """`EV = p*b - (1-p)` written in the only two numbers that matter.
+
+    With `b = (1 - c) / c` the whole formula collapses:
+
+        EV = p*(1-c)/c - (1-p) = p/c - 1
+
+    So EV is just how far the fee-inclusive cost sits below the model's
+    probability, as a fraction of the cost. It is a *relative* discount, not a
+    cent amount, which is why the same 20% gate is easy at 25c and impossible
+    at 85c.
+    """
+    if cost <= 0:
+        return 0.0
+    return win_prob / cost - 1.0
+
+
+def max_cost_for_ev(target_ev: float, win_prob: float) -> float:
+    """Highest fee-inclusive cost that still clears `target_ev`.
+
+    `EV >= T` is exactly `cost <= p / (1 + T)`. At T = 20% that is a 16.7%
+    discount to the model's own probability: 5c of edge on a 25c coupon, 16c
+    on an 83c lock. A book with a 1c spread does not offer either by accident,
+    so a 20% gate does not select good trades -- it selects the moments the
+    model disagrees hardest with the market, which is where model error lives.
+    """
+    if target_ev <= -1.0:
+        return 1.0
+    return win_prob / (1.0 + target_ev)

@@ -17,9 +17,11 @@ python3 -m btchour sync
 | `catalog/snapshot/latest.json` | 最近一次从 Kalshi 拉回的小时盘快照 |
 | `catalog/snapshot/replay.json` / `replay-swing.json` | 最近一次小时回放（flex / swing） |
 | `catalog/snapshot/sweep.json` | 同一段 K 线上 flex/swing/lock、跳过亏损小时开/关的对照 |
+| `catalog/rules/research.md` | 研究框架：合成盘三个实验、怎么读区间和 t 值 |
 | `catalog/research/learn.md` | 纸交易循环学到的拒单 / 空窗 |
 | `catalog/research/manual.md` | 账户成交里守规矩的 10%–50% 和累了选错方向 |
 | `data/catalog/latest.json` | 运行时副本（不入库） |
+| `data/archive/*.json.gz` | 已结算小时的 tape 归档（不入库），`research archive` 写入 |
 
 小时盘 = 下一个整点收盘的 `KXBTCD-{YY}{MON}{DD}{HH}`。4:13 ET 做 5 点截止的盘。Kalshi 可能把这场标成 `cadence=daily`；不要因此改做 15 分钟盘或跳到下一张未开的 hourly。夜里只列出 5 点 daily 时，仍盯下一个整点（1:01 做 `AUG2702`），不要跳到 `AUG2717`。
 

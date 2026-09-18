@@ -167,6 +167,7 @@ def wait_book_crossed(
     yes_ask_low: float | None = None,
     impulse: float | None = None,
     min_impulse: float | None = None,
+    wick: bool = True,
 ) -> bool:
     """Maker fill at rest if the close or minute extreme is still at the rest.
 
@@ -185,6 +186,8 @@ def wait_book_crossed(
             return False
     if close_ask is not None and _ask_at_rest(close_ask, rest):
         return True
+    if not wick:
+        return False
     if side == "no" and yes_bid_high is not None:
         return _ask_at_rest(1.0 - float(yes_bid_high), rest)
     if side == "yes" and yes_ask_low is not None:

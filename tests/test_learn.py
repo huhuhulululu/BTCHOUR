@@ -114,7 +114,13 @@ class LearnTests(unittest.TestCase):
                 "close_time": "2026-08-26T20:00:00Z",
             }
         )
-        spot = SpotQuote(78340, "test", annual_vol=0.55, impulse=-12)
+        # 014: a visible 32-42c coupon is not enough on its own; the dump has
+        # to be a real one. -$12 journals no_impulse, -$150 journals the hang.
+        quiet = SpotQuote(78340, "test", annual_vol=0.55, impulse=-12)
+        report = diagnose_impulse([market], quiet, Settings(playbook="flex"), now)
+        self.assertEqual(report["status"], "no_impulse")
+
+        spot = SpotQuote(78340, "test", annual_vol=0.55, impulse=-150)
         report = diagnose_impulse([market], spot, Settings(playbook="flex"), now)
         self.assertEqual(report["status"], "wait")
         self.assertEqual(report["wait"], "KXBTCD-26AUG2616-T78299.99")

@@ -24,6 +24,20 @@ def main(argv: list[str] | None = None) -> int:
     calc.add_argument("--p", type=float, required=True, help="P(win) in [0,1]")
     calc.add_argument("--b", type=float, required=True, help="Net odds (if-win profit / stake)")
 
+    research = sub.add_parser(
+        "research",
+        help="Offline experiments on synthetic tapes: fill-model / regime / calibration",
+    )
+    research.add_argument(
+        "name",
+        choices=["fill-model", "regime", "calibration", "archive", "oos"],
+        help="archive = fold the replay cache into data/archive/; oos = train/test split on it",
+    )
+    research.add_argument("--hours", type=int, default=80, help="Hours per seed (or archive hours for oos)")
+    research.add_argument("--seeds", type=int, default=8, help="Independent runs to pool")
+    research.add_argument("--train", type=float, default=0.5, help="oos: fraction of hours to tune on")
+    research.add_argument("--json", action="store_true")
+
     sub.add_parser("sync", help="Pull Kalshi hourly directory into catalog/")
     scan = sub.add_parser("scan", help="Sync, score the current hour, print qualifying tickets")
     scan.add_argument("--playbook", choices=["flex", "swing", "lock", "hold", "scalp"])
@@ -58,6 +72,54 @@ def main(argv: list[str] | None = None) -> int:
 
         edge = Edge.from_parts(args.p, args.b)
         _print_json(edge.as_dict())
+        return 0
+
+    if args.cmd == "research":
+        from btchour.research.experiments import EXPERIMENTS, render
+
+        if args.name == "archive":
+            from btchour.research.dataset import absorb_cache, archive_summary
+
+            _print_json({**absorb_cache(), **archive_summary()})
+            return 0
+
+        if args.name == "oos":
+            from btchour.research.dataset import archive_summary, load_archive
+            from btchour.research.evaluate import Variant, compare, format_runs
+
+            tapes = load_archive(limit=args.hours)
+            if not tapes:
+                _print_json(
+                    {
+                        **archive_summary(),
+                        "error": "archive is empty; run `sweep` where Kalshi is reachable, then `research archive`",
+                    }
+                )
+                return 1
+            variants = [
+                Variant("flex", "flex"),
+                Variant("flex_noskip", "flex", {"skip_after_loss": False}),
+                Variant("swing", "swing"),
+                Variant("lock", "lock"),
+            ]
+            payload = compare(tapes, variants, load_settings(), train_fraction=args.train)
+            if args.json:
+                _print_json(payload)
+            else:
+                print(f"归档 {payload['hours']} 小时 / 调参 {payload['train_hours']} / 报数 {payload['test_hours']}")
+                print()
+                print("调参段")
+                print(format_runs([row["train"] for row in payload["variants"]]))
+                print()
+                print("样本外")
+                print(format_runs([row["test"] for row in payload["variants"]]))
+            return 0
+
+        report = EXPERIMENTS[args.name](hours=args.hours, seeds=range(1, args.seeds + 1))
+        if args.json or args.name == "calibration":
+            _print_json(report)
+        else:
+            print(render(report))
         return 0
 
     settings = load_settings()

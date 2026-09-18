@@ -210,13 +210,20 @@ class LadderCensusTests(unittest.TestCase):
                 "no_ask": 0.01,
             },
         ]
+        # 014 raised the dump floor to |impulse| >= $100 on both sides, so a
+        # -$12 drift counts the live rungs but arms none of them.
         census = ladder_census(markets, 78040.0, -12.0, settings, resting=0)
         self.assertEqual(census["n"], 3)
         self.assertEqual(census["atm"], 2)
         self.assertEqual(census["no"], 2)
         self.assertEqual(census["yes"], 0)
-        self.assertEqual(census["ready"], 2)
-        self.assertEqual(census["posture"], "空仓·阶梯活着")
+        self.assertEqual(census["ready"], 0)
+        self.assertEqual(census["posture"], "空仓·带在边未到")
+
+        armed = ladder_census(markets, 78040.0, -150.0, settings, resting=0)
+        self.assertEqual(armed["no"], 2)
+        self.assertEqual(armed["ready"], 2)
+        self.assertEqual(armed["posture"], "空仓·阶梯活着")
 
     def test_clip_hour_is_not_a_miss(self):
         settings = Settings(impulse_min=100)

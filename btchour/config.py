@@ -86,6 +86,13 @@ class Settings:
     impulse_wait_max_distance: float = 600.0
     impulse_wait_stop: float = 0.80
     impulse_wait_scratch_seconds: float = 480.0
+    # Replay only. A rest filled at the minute's best wick and then marked at
+    # that minute's close books the whole intra-minute swing as free edge: in
+    # a book quoting exact fair value it still prints 100% winners. Off = a
+    # replay fill needs the closing quote to be at the rest. The paper loop is
+    # not governed by this; it polls every few seconds and additionally
+    # requires a real print at the rest (`tape_at_rest`).
+    replay_wick_fill: bool = False
     live_one: bool = False  # 014: pause live_one until a real dump; do not switch the loop to live
     scan_15m: bool = True
     scan_daily: bool = True
@@ -181,6 +188,7 @@ def load_settings() -> Settings:
         impulse_wait_max_distance=_env_float("BTCHOUR_IMPULSE_WAIT_MAX_DISTANCE", 600.0),
         impulse_wait_stop=_env_float("BTCHOUR_IMPULSE_WAIT_STOP", 0.80),
         impulse_wait_scratch_seconds=_env_float("BTCHOUR_IMPULSE_WAIT_SCRATCH_SECONDS", 480.0),
+        replay_wick_fill=_env_bool("BTCHOUR_REPLAY_WICK_FILL", False),
         live_one=_env_bool("BTCHOUR_LIVE_ONE", False),
         scan_15m=_env_bool("BTCHOUR_SCAN_15M", True),
         scan_daily=_env_bool("BTCHOUR_SCAN_DAILY", True),
