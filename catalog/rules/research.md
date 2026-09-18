@@ -25,6 +25,10 @@ python3 -m btchour sweep --hours 24        # 能连 Kalshi 的机器上跑
 python3 -m btchour research archive        # 固化进 data/archive/
 python3 -m btchour research baseline       # 模型 vs 市场中价
 python3 -m btchour research oos --hours 48 # 老的一半调参，新的一半报数
+python3 -m btchour research ladder         # 跨档静态套利有没有
+python3 -m btchour research maker --fill-rule through
+                                           # 贴价挂单，按持仓成本分档；
+                                           # through = 打穿才成交（默认），touch = 到价即成交（上界）
 ```
 
 `baseline` 是**决定性检验**，跑在归档上（归档为空时退回合成盘，只验证工具）。它拿 `digital_prob` 和盘口中价打同一批近 ATM 档、同一个真实结算，按两者的分歧分桶记 Brier。

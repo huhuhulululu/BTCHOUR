@@ -240,3 +240,32 @@ class SplitTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ClusterCITests(unittest.TestCase):
+    """Fills inside one hour ride one BTC path, so hours are the draw."""
+
+    def test_clustering_widens_the_interval_when_hours_disagree(self):
+        from btchour.research.metrics import bootstrap_ci, cluster_ci
+
+        # Five hours, each internally unanimous and wildly different from the
+        # next. Resampling fills calls that precise; resampling hours does not.
+        groups = [[v] * 40 for v in (-1.0, -0.5, 0.0, 0.5, 1.0)]
+        flat = [v for g in groups for v in g]
+        naive_lo, naive_hi = bootstrap_ci(flat)
+        clus_lo, clus_hi = cluster_ci(groups)
+        self.assertGreater(clus_hi - clus_lo, naive_hi - naive_lo)
+
+    def test_a_single_hour_falls_back_to_the_plain_bootstrap(self):
+        from btchour.research.metrics import cluster_ci
+
+        lo, hi = cluster_ci([[0.3, 0.4, 0.5]])
+        self.assertLessEqual(lo, 0.4)
+        self.assertGreaterEqual(hi, 0.4)
+
+    def test_empty_groups_are_dropped(self):
+        from btchour.research.metrics import cluster_ci
+
+        lo, hi = cluster_ci([[], [1.0], [], [1.0]])
+        self.assertAlmostEqual(lo, 1.0)
+        self.assertAlmostEqual(hi, 1.0)

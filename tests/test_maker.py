@@ -128,3 +128,105 @@ class MeanCiTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FillRuleTests(unittest.TestCase):
+    """`touch` is an upper bound; `through` is the queue-aware read of it."""
+
+    def setUp(self):
+        self.base = 10_000_000 // 1000 - 3600
+
+    def _sticks(self, quote, nxt, later) -> dict:
+        return {self.base: quote, self.base + 60: nxt, self.base + 120: later}
+
+    def test_touching_the_bid_fills_under_touch_but_not_under_through(self):
+        # The tape reached 0.40 and stopped there: we may well have been
+        # behind the whole queue that traded.
+        tape = _tape(
+            self._sticks(
+                _stick("0.41", "0.40"),
+                _stick("0.41", "0.40", low="0.40", high="0.41"),
+                _stick("0.41", "0.40"),
+            )
+        )
+        self.assertTrue(any(f.side == "buy_yes" for f in scan_tape(tape, fill_rule="touch")))
+        self.assertFalse(any(f.side == "buy_yes" for f in scan_tape(tape, fill_rule="through")))
+
+    def test_trading_past_the_bid_fills_under_both(self):
+        tape = _tape(
+            self._sticks(
+                _stick("0.41", "0.40"),
+                _stick("0.41", "0.40", low="0.38", high="0.41"),
+                _stick("0.41", "0.40"),
+            )
+        )
+        for rule in ("touch", "through"):
+            with self.subTest(rule=rule):
+                self.assertTrue(any(f.side == "buy_yes" for f in scan_tape(tape, fill_rule=rule)))
+
+    def test_unknown_fill_rule_is_refused(self):
+        tape = _tape(self._sticks(_stick("0.41", "0.40"), _stick("0.41", "0.40"), _stick("0.41", "0.40")))
+        with self.assertRaises(ValueError):
+            scan_tape(tape, fill_rule="optimistic")
+
+    def test_min_volume_filters_thin_prints(self):
+        tape = _tape(
+            self._sticks(
+                _stick("0.41", "0.40"),
+                _stick("0.41", "0.40", low="0.38", high="0.41", volume="5"),
+                _stick("0.41", "0.40"),
+            )
+        )
+        self.assertTrue(scan_tape(tape, min_volume=1.0))
+        self.assertFalse(scan_tape(tape, min_volume=50.0))
+
+
+class CostBucketTests(unittest.TestCase):
+    """A rested ask at 0.10 is a long NO at 0.90, not a 10c lottery ticket."""
+
+    def setUp(self):
+        self.base = 10_000_000 // 1000 - 3600
+
+    def _sticks(self, quote, nxt, later) -> dict:
+        return {self.base: quote, self.base + 60: nxt, self.base + 120: later}
+
+    def test_a_sold_yes_costs_one_minus_the_quote(self):
+        tape = _tape(
+            self._sticks(
+                _stick("0.10", "0.09"),
+                _stick("0.10", "0.09", low="0.09", high="0.12"),
+                _stick("0.10", "0.09"),
+            ),
+            result="no",
+        )
+        sell = next(f for f in scan_tape(tape) if f.side == "sell_yes")
+        self.assertAlmostEqual(sell.price, 0.10)
+        self.assertAlmostEqual(sell.cost, 0.90)
+        # Settled NO, so the sold YES keeps the whole 0.10.
+        self.assertAlmostEqual(sell.settle_pnl, 0.10, places=9)
+
+    def test_a_bought_yes_costs_what_we_bid(self):
+        tape = _tape(
+            self._sticks(
+                _stick("0.91", "0.90"),
+                _stick("0.91", "0.90", low="0.88", high="0.91"),
+                _stick("0.91", "0.90"),
+            )
+        )
+        buy = next(f for f in scan_tape(tape) if f.side == "buy_yes")
+        self.assertAlmostEqual(buy.cost, 0.90)
+
+    def test_bands_report_by_cost_not_by_quote(self):
+        # Only the ask gets hit: the low never reaches the 0.09 bid.
+        tape = _tape(
+            self._sticks(
+                _stick("0.10", "0.09"),
+                _stick("0.10", "0.09", low="0.10", high="0.12"),
+                _stick("0.10", "0.09"),
+            ),
+            result="no",
+        )
+        bands = scan_tapes([tape])["bands"]
+        self.assertEqual(bands["极高尾 >0.95"]["fills"], 0)
+        self.assertEqual(bands["便宜彩票 <0.15"]["fills"], 0)
+        self.assertEqual(bands["高尾 0.85-0.95"]["fills"], 1)

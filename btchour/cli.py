@@ -30,15 +30,25 @@ def main(argv: list[str] | None = None) -> int:
     )
     research.add_argument(
         "name",
-        choices=["fill-model", "regime", "calibration", "archive", "oos", "baseline"],
+        choices=[
+            "fill-model", "regime", "calibration", "archive", "oos",
+            "baseline", "ladder", "maker",
+        ],
         help=(
             "archive = fold the replay cache into data/archive/; "
-            "oos = train/test split on it; baseline = model vs market mid"
+            "oos = train/test split on it; baseline = model vs market mid; "
+            "ladder = static cross-strike arbitrage; maker = touch quoting by cost band"
         ),
     )
     research.add_argument("--hours", type=int, default=80, help="Hours per seed (or archive hours for oos)")
     research.add_argument("--seeds", type=int, default=8, help="Independent runs to pool")
     research.add_argument("--train", type=float, default=0.5, help="oos: fraction of hours to tune on")
+    research.add_argument(
+        "--fill-rule",
+        choices=["touch", "through"],
+        default="through",
+        help="maker: touch fills when the tape reached our price (upper bound); through needs it to trade past",
+    )
     research.add_argument("--json", action="store_true")
 
     sub.add_parser("sync", help="Pull Kalshi hourly directory into catalog/")
@@ -109,6 +119,27 @@ def main(argv: list[str] | None = None) -> int:
                         "来源：合成盘（归档是空的）。合成盘的中价和模型用的是同一个公式，"
                         "这里只验证工具本身；真结论要等真 tape。"
                     )
+            return 0
+
+        if args.name in {"ladder", "maker"}:
+            from btchour.research.dataset import archive_summary, load_archive
+
+            tapes = load_archive(limit=args.hours)
+            if not tapes:
+                _print_json({**archive_summary(), "error": "archive is empty; run `research archive` first"})
+                return 1
+            if args.name == "ladder":
+                from btchour.research.ladder import render as render_one, scan_tapes
+
+                report = scan_tapes(tapes)
+            else:
+                from btchour.research.maker import render as render_one, scan_tapes
+
+                report = scan_tapes(tapes, fill_rule=args.fill_rule)
+            if args.json:
+                _print_json(report)
+            else:
+                print(render_one(report))
             return 0
 
         if args.name == "oos":

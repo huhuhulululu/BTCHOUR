@@ -47,6 +47,37 @@ def bootstrap_ci(
     return (lo, hi)
 
 
+def cluster_ci(
+    groups: list[list[float]],
+    *,
+    alpha: float = 0.05,
+    draws: int = 3000,
+    seed: int = 11,
+) -> tuple[float, float]:
+    """Bootstrap over whole hours, not individual fills.
+
+    Every rung of one hour rides the same BTC path, so 78,000 fills are
+    nowhere near 78,000 independent draws. Resampling fills gives an interval
+    that is far too narrow for anything the path decides -- settlement most of
+    all. Resampling hours keeps the correlation inside the unit being drawn.
+    """
+    groups = [g for g in groups if g]
+    if len(groups) < 2:
+        flat = [v for g in groups for v in g]
+        return bootstrap_ci(flat, alpha=alpha)
+    rng = random.Random(seed)
+    n = len(groups)
+    means = []
+    for _ in range(draws):
+        flat = [v for _ in range(n) for v in groups[rng.randrange(n)]]
+        if flat:
+            means.append(_mean(flat))
+    means.sort()
+    lo = means[max(0, int(len(means) * alpha / 2) - 1)]
+    hi = means[min(len(means) - 1, int(len(means) * (1 - alpha / 2)))]
+    return (lo, hi)
+
+
 def mean_ci(values: list[float], *, alpha: float = 0.05) -> tuple[float, float]:
     """A 95% interval for the mean that stays cheap on large samples.
 
