@@ -12,6 +12,7 @@ data/*
 # The tape archive is the one thing worth keeping: containers are ephemeral, so
 # every backtest this repo has ever published rested on a sample nobody can re-run.
 !data/archive/
+!data/kxbtc/
 *.pem
 *.key
 *RSA PRIVATE KEY*
