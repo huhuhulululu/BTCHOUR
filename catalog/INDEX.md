@@ -17,6 +17,7 @@ python3 -m btchour sync
 | `catalog/snapshot/latest.json` | 最近一次从 Kalshi 拉回的小时盘快照 |
 | `catalog/snapshot/replay.json` / `replay-swing.json` | 最近一次小时回放（flex / swing） |
 | `catalog/snapshot/sweep.json` | 同一段 K 线上 flex/swing/lock、跳过亏损小时开/关的对照 |
+| `catalog/snapshot/NOTE.md` | **现存两个快照是 016 之前跑的，盈亏数字不能当证据** |
 | `catalog/rules/research.md` | 研究框架：合成盘三个实验、怎么读区间和 t 值 |
 | `catalog/research/learn.md` | 纸交易循环学到的拒单 / 空窗 |
 | `catalog/research/manual.md` | 账户成交里守规矩的 10%–50% 和累了选错方向 |
