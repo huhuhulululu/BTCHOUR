@@ -32,14 +32,18 @@ def main(argv: list[str] | None = None) -> int:
         "name",
         choices=[
             "fill-model", "regime", "calibration", "archive", "oos",
-            "baseline", "ladder", "maker",
+            "baseline", "ladder", "maker", "pool",
         ],
         help=(
             "archive = fold the replay cache into data/archive/; "
             "oos = train/test split on it; baseline = model vs market mid; "
-            "ladder = static cross-strike arbitrage; maker = touch quoting by cost band"
+            "ladder = static cross-strike arbitrage; maker = touch quoting by cost band; "
+            "pool = what the resting side of real prints earned, on any Kalshi series"
         ),
     )
+    research.add_argument("--series", default="KXBTCD", help="pool: Kalshi series ticker to price")
+    research.add_argument("--days", type=float, default=4.0, help="pool: how far back to take settled markets")
+    research.add_argument("--limit", type=int, default=120, help="pool: markets to sample")
     research.add_argument("--hours", type=int, default=80, help="Hours per seed (or archive hours for oos)")
     research.add_argument("--seeds", type=int, default=8, help="Independent runs to pool")
     research.add_argument("--train", type=float, default=0.5, help="oos: fraction of hours to tune on")
@@ -140,6 +144,21 @@ def main(argv: list[str] | None = None) -> int:
                 _print_json(report)
             else:
                 print(render_one(report))
+            return 0
+
+        if args.name == "pool":
+            from btchour.research.venue import render as render_pool, scan_series
+
+            from btchour.config import load_settings
+            from btchour.engine import make_client
+
+            _, report = scan_series(
+                make_client(load_settings()), args.series, args.days, limit=args.limit
+            )
+            if args.json:
+                _print_json(report)
+            else:
+                print(render_pool(report))
             return 0
 
         if args.name == "oos":
