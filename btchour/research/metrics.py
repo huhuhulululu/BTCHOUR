@@ -47,6 +47,24 @@ def bootstrap_ci(
     return (lo, hi)
 
 
+def mean_ci(values: list[float], *, alpha: float = 0.05) -> tuple[float, float]:
+    """A 95% interval for the mean that stays cheap on large samples.
+
+    Resampling 78,000 fills four thousand times is a lot of arithmetic for an
+    answer the central limit theorem already gives: past a few thousand
+    observations the bootstrap and `mean +- 1.96 se` agree to the fourth
+    decimal. Small samples, where the two can differ and the bootstrap is
+    worth its cost, still get the bootstrap.
+    """
+    n = len(values)
+    if n <= 4000:
+        return bootstrap_ci(values, alpha=alpha)
+    se = _stdev(values) / math.sqrt(n)
+    mu = _mean(values)
+    z = 1.959963984540054  # two-sided 95%
+    return (mu - z * se, mu + z * se)
+
+
 def t_stat(values: list[float]) -> float:
     """Mean over its own standard error. |t| < 2 is noise, whatever the sign."""
     if len(values) < 2:
