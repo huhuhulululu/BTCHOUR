@@ -65,3 +65,25 @@ python3 -m btchour research oos --hours 48 # 老的一半调参，新的一半�
 `maker_edge_at_fill` 报的是 `fill_model_p − 付出的成本`。**这个数为负，说明成交规则本身在挑分布里坏的那一半**，跟信号强弱无关，换任何入场理由都救不了。
 
 相关：[`ev.md`](ev.md)、[`plays.md`](plays.md)、[`settlement.md`](settlement.md)。
+
+## 已经跑完的判定（2026-09-18）
+
+`baseline` 跑过了，跑在 92 小时真 tape 上。**中价赢，四个分歧桶全赢，区间不跨 0。**
+所以上面那句「中价更准 → 任何 taker 类提案到此为止」不是假设，是已经发生的事。
+
+细节见 [`../research/findings.md`](../research/findings.md) 和 `docs/decisions.md` 017。
+重跑前先看那两处，不要把已经判死的方向再测一遍。
+
+## 攒 tape
+
+归档现在进 git（`.gitignore` 里 `data/*` + `!data/archive/`）。容器是临时的；归档不进
+版本库，每个会话都从零开始。
+
+```bash
+python3 -m btchour sweep --hours 24     # 拉最近 24 小时
+python3 -m btchour research archive     # 固化进 data/archive/
+git add data/archive && git commit      # 这一步不能省
+```
+
+Kalshi 分钟 K 线大约只回溯 4 天，所以**一次补不出 300 小时**，只能往前持续攒。
+C 方向（贴价挂）的前置就卡在这里。

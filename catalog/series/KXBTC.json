@@ -3,6 +3,9 @@
     "Persons who are employed by any of the Source Agencies are not permitted to trade on the Contract.",
     "Persons who hold any material, non-public information on the Underlying are not permitted to trade on the Contract."
   ],
+  "categories": [
+    "Crypto"
+  ],
   "category": "Crypto",
   "contract_terms_url": "https://assets.kalshi.com/contract_terms/BTC.pdf",
   "contract_url": "https://assets.kalshi.com/regulatory/product-certifications/BTC.pdf",

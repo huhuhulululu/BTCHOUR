@@ -21,6 +21,21 @@ class KalshiError(RuntimeError):
         self.body = body
 
 
+
+def _retry_after(exc: "urllib.error.HTTPError", fallback: float) -> float:
+    """Honour Retry-After when the server sends one; otherwise back off."""
+    try:
+        value = exc.headers.get("Retry-After") if exc.headers else None
+    except Exception:
+        value = None
+    if value:
+        try:
+            return max(float(value), fallback)
+        except (TypeError, ValueError):
+            pass
+    return fallback
+
+
 def _money(value: Any) -> float | None:
     if value is None or value == "":
         return None
@@ -109,12 +124,20 @@ class KalshiClient:
         api_key_id: str = "",
         private_key_pem: str = "",
         timeout: int = 15,
+        min_interval: float = 0.06,
+        max_retries: int = 5,
     ):
         self.base = base.rstrip("/")
         self.user_agent = user_agent
         self.api_key_id = api_key_id
         self.private_key_pem = private_key_pem
         self.timeout = timeout
+        self.min_interval = min_interval
+        self.max_retries = max_retries
+        self.retry_base = 0.75
+        self.retry_cap = 16.0
+        self.retry_count = 0
+        self._last_request = 0.0
 
     def get(self, path: str, params: dict | None = None, signed: bool = False) -> Any:
         query = urllib.parse.urlencode({k: v for k, v in (params or {}).items() if v is not None})
@@ -145,6 +168,15 @@ class KalshiClient:
         }
         return self._request("DELETE", url, headers)
 
+    def _throttle(self) -> None:
+        """Keep a floor between requests. A 24h tape pull is thousands of calls."""
+        if self.min_interval <= 0:
+            return
+        gap = time.monotonic() - self._last_request
+        if gap < self.min_interval:
+            time.sleep(self.min_interval - gap)
+        self._last_request = time.monotonic()
+
     def _request(
         self,
         method: str,
@@ -153,20 +185,45 @@ class KalshiClient:
         body: bytes | None = None,
         timeout: int | None = None,
     ) -> Any:
-        req = urllib.request.Request(url, data=body, headers=headers, method=method)
+        """Retry 429 / 5xx with exponential backoff.
+
+        Read-only GETs are safe to repeat. A signed POST is not, so orders never
+        retry: a resend could double a position.
+        """
         wait = timeout if timeout is not None else self.timeout
-        socket.setdefaulttimeout(wait)
-        try:
-            with urllib.request.urlopen(req, timeout=wait) as resp:
-                raw = resp.read().decode()
-                return json.loads(raw) if raw else {}
-        except urllib.error.HTTPError as exc:
-            text = exc.read().decode() if exc.fp else ""
-            raise KalshiError(f"{method} {url} -> {exc.code}: {text[:400]}", exc.code, text) from exc
-        except urllib.error.URLError as exc:
-            raise KalshiError(f"{method} {url} failed: {exc}") from exc
-        except (TimeoutError, socket.timeout, OSError) as exc:
-            raise KalshiError(f"{method} {url} timed out: {exc}") from exc
+        attempts = self.max_retries if method == "GET" else 0
+        delay = self.retry_base
+        for attempt in range(attempts + 1):
+            self._throttle()
+            req = urllib.request.Request(url, data=body, headers=headers, method=method)
+            socket.setdefaulttimeout(wait)
+            try:
+                with urllib.request.urlopen(req, timeout=wait) as resp:
+                    raw = resp.read().decode()
+                    return json.loads(raw) if raw else {}
+            except urllib.error.HTTPError as exc:
+                text = exc.read().decode() if exc.fp else ""
+                if attempt < attempts and (exc.code == 429 or exc.code >= 500):
+                    self.retry_count += 1
+                    time.sleep(_retry_after(exc, delay))
+                    delay = min(delay * 2, self.retry_cap)
+                    continue
+                raise KalshiError(f"{method} {url} -> {exc.code}: {text[:400]}", exc.code, text) from exc
+            except urllib.error.URLError as exc:
+                if attempt < attempts:
+                    self.retry_count += 1
+                    time.sleep(delay)
+                    delay = min(delay * 2, self.retry_cap)
+                    continue
+                raise KalshiError(f"{method} {url} failed: {exc}") from exc
+            except (TimeoutError, socket.timeout, OSError) as exc:
+                if attempt < attempts:
+                    self.retry_count += 1
+                    time.sleep(delay)
+                    delay = min(delay * 2, self.retry_cap)
+                    continue
+                raise KalshiError(f"{method} {url} timed out: {exc}") from exc
+        raise KalshiError(f"{method} {url} exhausted retries")
 
     def _sign_headers(self, method: str, path: str) -> dict:
         if not self.api_key_id or not self.private_key_pem:
