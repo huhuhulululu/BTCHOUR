@@ -163,6 +163,24 @@ def _promote_wait(working: dict) -> dict:
     return promoted
 
 
+def _stamp_settlement(take: dict, results: dict[float, str]) -> dict:
+    """Record what the rung actually paid, independent of how we exited.
+
+    `maker_edge_at_fill` scores a fill against `fill_model_p`, i.e. against the
+    engine's own `digital_prob`. Once that model is known to be worse than the
+    book (`docs/decisions.md` 017), scoring a fill by it measures the model's
+    error as much as the fill rule. `settle_value` is the same question asked
+    of the outcome: 1.0 if the side we bought settled in the money.
+    """
+    strike = take.get("strike")
+    outcome = results.get(strike) if strike is not None else None
+    if outcome not in {"yes", "no"}:
+        return take
+    take["settles"] = outcome
+    take["settle_value"] = 1.0 if (take.get("side") == outcome) else 0.0
+    return take
+
+
 def _held_seconds(position: dict, now: datetime) -> float | None:
     raw = (position.get("entry") or {}).get("filled_ts") or (position.get("entry") or {}).get("ts")
     if not raw:
@@ -274,16 +292,19 @@ def replay_bars(
                 if action:
                     closed = paper_close(position, action.price, action.reason)
                     takes.append(
-                        {
-                            **position["entry"],
-                            "exit_ts": now.isoformat(),
-                            "exit_reason": action.reason,
-                            "exit_price": action.price,
-                            "exit_note": action.note,
-                            "pnl": closed["pnl"],
-                            "roi": closed["roi"],
-                            "result": action.reason,
-                        }
+                        _stamp_settlement(
+                            {
+                                **position["entry"],
+                                "exit_ts": now.isoformat(),
+                                "exit_reason": action.reason,
+                                "exit_price": action.price,
+                                "exit_note": action.note,
+                                "pnl": closed["pnl"],
+                                "roi": closed["roi"],
+                                "result": action.reason,
+                            },
+                            results,
+                        )
                     )
                     just_closed = (position["ticker"], position["side"])
                     play = (position.get("entry") or {}).get("play") or ""
@@ -377,14 +398,17 @@ def replay_bars(
         result = results.get(position["entry"]["strike"], "")
         pnl = paper_settle(position["cost"], position["count"], position["side"], result) if result in {"yes", "no"} else None
         takes.append(
-            {
-                **position["entry"],
-                "exit_reason": "settle",
-                "exit_price": 1.0 if (position["side"] == result) else 0.0,
-                "pnl": pnl,
-                "roi": (pnl / position["cost"]) if pnl is not None and position["cost"] else None,
-                "result": result,
-            }
+            _stamp_settlement(
+                {
+                    **position["entry"],
+                    "exit_reason": "settle",
+                    "exit_price": 1.0 if (position["side"] == result) else 0.0,
+                    "pnl": pnl,
+                    "roi": (pnl / position["cost"]) if pnl is not None and position["cost"] else None,
+                    "result": result,
+                },
+                results,
+            )
         )
 
     return {

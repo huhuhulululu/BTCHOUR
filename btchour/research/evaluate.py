@@ -18,11 +18,42 @@ from dataclasses import dataclass
 from btchour.config import Settings, apply_playbook
 from btchour.fees import fill_cost
 from btchour.replay import EventTape, replay_tapes
-from btchour.research.metrics import summarize_takes
+from btchour.research.metrics import bootstrap_ci, summarize_takes
 
 
 def collect_takes(summary: dict) -> list[dict]:
     return [take for event in summary.get("events") or [] for take in event.get("takes") or []]
+
+
+def maker_edge_realized(takes: list[dict], rest: float) -> dict:
+    """The same question as `maker_edge_at_fill`, asked of the outcome.
+
+    `maker_edge_at_fill` scores a fill against `fill_model_p`. On a synthetic
+    tape that is sound, because the book there reports fair value by
+    construction. On a real tape it is not: 017 measured `digital_prob` losing
+    to the book on 92 hours, and the miss is one-sided -- the 0.55 vol floor
+    drags p toward 0.5, so on the cheap side a rest fills on, the model reads
+    HIGH. Pooled over the 0.20-0.35 mid band the model says 0.347 where
+    settlement says 0.261, which is +0.086 of pure optimism. A gate built on
+    it passes trades that lose money.
+
+    So score the fill against what the rung paid. No model, no exit rule: just
+    the settled value of the side we bought, less what the rest cost.
+    """
+    rows = [t for t in takes if t.get("settle_value") is not None]
+    if not rows:
+        return {"fills": 0}
+    paid = fill_cost(rest, 1.0, taker=False).cost
+    edges = [float(t["settle_value"]) - paid for t in rows]
+    wins = sum(1 for t in rows if float(t["settle_value"]) > 0.5)
+    return {
+        "fills": len(rows),
+        "rest": rest,
+        "paid": paid,
+        "settle_rate": wins / len(rows),
+        "edge": sum(edges) / len(edges),
+        "edge_ci": bootstrap_ci(edges),
+    }
 
 
 def maker_edge_at_fill(takes: list[dict], rest: float) -> dict:
@@ -95,6 +126,7 @@ def run_variant(
         "playbook": cfg.playbook,
         **stats.as_dict(),
         "maker_edge_at_fill": maker_edge_at_fill(takes, cfg.impulse_rest),
+        "maker_edge_realized": maker_edge_realized(takes, cfg.impulse_rest),
     }
     if keep_takes:
         row["takes"] = takes
