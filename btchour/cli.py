@@ -32,13 +32,14 @@ def main(argv: list[str] | None = None) -> int:
         "name",
         choices=[
             "fill-model", "regime", "calibration", "archive", "oos",
-            "baseline", "ladder", "maker", "pool",
+            "baseline", "ladder", "maker", "pool", "factors",
         ],
         help=(
             "archive = fold the replay cache into data/archive/; "
             "oos = train/test split on it; baseline = model vs market mid; "
             "ladder = static cross-strike arbitrage; maker = touch quoting by cost band; "
-            "pool = what the resting side of real prints earned, on any Kalshi series"
+            "pool = what the resting side of real prints earned, on any Kalshi series; "
+            "factors = do the published equity anomalies still pay after publication"
         ),
     )
     research.add_argument("--series", default="KXBTCD", help="pool: Kalshi series ticker to price")
@@ -52,6 +53,11 @@ def main(argv: list[str] | None = None) -> int:
         choices=["touch", "through"],
         default="through",
         help="maker: touch fills when the tape reached our price (upper bound); through needs it to trade past",
+    )
+    research.add_argument(
+        "--french-dir",
+        default="data/archive/frenchlib",
+        help="factors: directory holding the Kenneth French library zips",
     )
     research.add_argument("--json", action="store_true")
 
@@ -144,6 +150,20 @@ def main(argv: list[str] | None = None) -> int:
                 _print_json(report)
             else:
                 print(render_one(report))
+            return 0
+
+        if args.name == "factors":
+            from btchour.research.equityfactors import render as render_factors, run as run_factors
+
+            report = run_factors(args.french_dir)
+            if args.json:
+                _print_json({
+                    "decay": report["decay"],
+                    "size_value": [b.as_dict() for b in report["size_value"]],
+                    "size_momentum": [b.as_dict() for b in report["size_momentum"]],
+                })
+            else:
+                print(render_factors(report))
             return 0
 
         if args.name == "pool":
