@@ -182,3 +182,49 @@ def fill_adverse_selection(takes: list[dict]) -> dict:
         "mean_seen_minus_rest": _mean(gaps),
         "note": "positive = the rest sat under the book and only filled after it walked down",
     }
+
+
+def block_ci(
+    values: list[float],
+    *,
+    block: int,
+    alpha: float = 0.05,
+    draws: int = 4000,
+    seed: int = 13,
+) -> tuple[float, float]:
+    """Moving-block bootstrap on the mean of a serially dependent series.
+
+    This exists to buy statistical power without the lie that overlapping
+    windows are independent draws. Tiling a tape into disjoint 30-day windows
+    keeps every observation independent but throws away 29 of every 30
+    possible start dates, and when only a year of tape is in question that
+    leaves twelve numbers -- too few to distinguish a halved premium from no
+    premium. Sliding the window daily instead recovers all the start dates;
+    the cost is that neighbouring observations share 29 of their 30 days.
+
+    Resampling contiguous blocks at least as long as the overlap keeps that
+    dependence inside the unit being drawn, which is the same correction
+    `cluster_ci` makes for fills inside an hour. `block` must therefore be at
+    least the window length in observations, or this understates the interval
+    exactly the way resampling individual windows would.
+    """
+    if not values:
+        return (0.0, 0.0)
+    n = len(values)
+    block = max(1, min(block, n))
+    if n == 1:
+        return (values[0], values[0])
+    rng = random.Random(seed)
+    k = max(1, -(-n // block))  # blocks needed to cover the series
+    starts = n - block + 1
+    means = []
+    for _ in range(draws):
+        drawn = []
+        for _ in range(k):
+            s = rng.randrange(starts)
+            drawn.extend(values[s : s + block])
+        means.append(_mean(drawn[:n]))
+    means.sort()
+    lo = means[max(0, int(draws * alpha / 2) - 1)]
+    hi = means[min(draws - 1, int(draws * (1 - alpha / 2)))]
+    return (lo, hi)
